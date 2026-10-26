@@ -1,0 +1,1894 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+<meta name="color-scheme" content="light"/>
+<link rel="icon" href="data:,"/>
+<title>Scribble Siege</title>
+<style>
+:root{
+  --ink:#2b2b33; --paper:#fdfdf8; --accent:#e2492f; --accent2:#1769c2; --gold:#e9a13b;
+  --panel:#fffdf4; --line:#d8d2c0; --muted:#6d675a; --good:#2e8b57;
+  --btn:#fff; --shadow:0 3px 0 rgba(43,43,51,.85);
+}
+*{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+html,body{margin:0;padding:0;}
+body{
+  font-family:"Segoe Print","Bradley Hand","Comic Sans MS",ui-rounded,system-ui,sans-serif;
+  background:#7a6a53 radial-gradient(circle at 20% 10%, #8a7a5f, #6b5c46);
+  color:var(--ink); min-height:100vh;
+}
+button{font-family:inherit; cursor:pointer;}
+.wrap{max-width:1060px;margin:0 auto;padding:10px 10px 4px;}
+/* ---------- generic cards & buttons ---------- */
+.card{background:var(--panel);border:2.5px solid var(--ink);border-radius:14px;box-shadow:5px 5px 0 rgba(0,0,0,.25);padding:16px;}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:50px;padding:10px 18px;
+  border:2.5px solid var(--ink);border-radius:12px;background:var(--btn);color:var(--ink);
+  font-size:17px;font-weight:700;box-shadow:var(--shadow);transition:transform .06s, box-shadow .06s;}
+.btn:active{transform:translateY(3px);box-shadow:0 0 0 rgba(0,0,0,0);}
+.btn.primary{background:var(--accent);color:#fff;}
+.btn.blue{background:var(--accent2);color:#fff;}
+.btn.gold{background:var(--gold);color:#3a2a08;}
+.btn.small{min-height:44px;padding:6px 12px;font-size:15px;}
+.btn:disabled{opacity:.45;pointer-events:none;}
+.chip{display:inline-block;padding:8px 14px;border:2.5px solid var(--ink);border-radius:999px;background:#fff;
+  font-weight:700;font-size:15px;cursor:pointer;min-height:44px;line-height:26px;user-select:none;}
+.chip.sel{background:var(--ink);color:#fff;}
+.chip.sel.blue{background:var(--accent2);}
+.chip.sel.red{background:var(--accent);}
+.swatch{width:44px;height:44px;border-radius:50%;border:3px solid var(--ink);cursor:pointer;display:inline-block;}
+.swatch.sel{outline:4px solid var(--gold);outline-offset:2px;}
+h1{font-size:34px;margin:4px 0 2px;letter-spacing:.5px;}
+h2{font-size:22px;margin:0 0 8px;}
+h3{font-size:17px;margin:14px 0 6px;}
+p{margin:6px 0;line-height:1.45;}
+.small{font-size:13.5px;color:var(--muted);}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px;}
+label.lbl{font-weight:700;font-size:14px;display:block;margin:10px 0 4px;}
+select,input[type=range]{font-family:inherit;}
+select{width:100%;min-height:48px;font-size:16px;border:2.5px solid var(--ink);border-radius:10px;background:#fff;padding:6px 10px;}
+input[type=range]{width:100%;height:36px;accent-color:var(--accent);}
+/* ---------- setup wizard ---------- */
+.steps{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0;}
+.stepdot{flex:1;min-width:86px;text-align:center;padding:7px 4px;border:2px solid var(--ink);border-radius:10px;background:#e9e2cf;font-size:13px;font-weight:700;}
+.stepdot.on{background:var(--gold);}
+.themeCard{border:3px solid var(--ink);border-radius:14px;padding:14px;background:#fff;cursor:pointer;text-align:left;width:100%;}
+.themeCard.sel{background:#ffefc9;box-shadow:4px 4px 0 rgba(0,0,0,.3);}
+.themeCard .big{font-size:30px;}
+.paperPrev{height:64px;border:2px solid var(--ink);border-radius:8px;margin-bottom:6px;}
+/* ---------- game layout ---------- */
+#gameLayout{display:flex;gap:12px;align-items:flex-start;}
+#boardCol{flex:1 1 auto;min-width:0;}
+#sideCol{width:252px;flex:0 0 252px;display:flex;flex-direction:column;gap:10px;}
+@media (max-width:820px){ #gameLayout{flex-direction:column;} #sideCol{width:100%;flex:none;} }
+#canvasWrap{position:relative;border:3px solid #3a3428;border-radius:6px;box-shadow:6px 8px 0 rgba(0,0,0,.35);background:#fdfdf8;overflow:hidden;}
+canvas#cv{display:block;width:100%;height:auto;touch-action:none;}
+.hudbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;margin-bottom:8px;}
+.turnBadge{font-size:18px;font-weight:800;padding:8px 14px;border:2.5px solid var(--ink);border-radius:999px;background:#fff;}
+.hpPips{font-size:15px;font-weight:700;}
+.seg{display:flex;border:2.5px solid var(--ink);border-radius:12px;overflow:hidden;}
+.seg button{border:0;background:#fff;padding:10px 14px;font-size:15px;font-weight:700;min-height:48px;}
+.seg button.on{background:var(--ink);color:#fff;}
+.logBox{background:#fff;border:2px solid var(--ink);border-radius:10px;padding:8px 10px;font-size:13.5px;max-height:150px;overflow:auto;line-height:1.5;}
+/* ---------- modals ---------- */
+.modalBack{position:fixed;inset:0;background:rgba(20,16,8,.62);display:none;align-items:center;justify-content:center;z-index:60;padding:14px;}
+.modalBack.open{display:flex;}
+.modal{background:var(--panel);border:3px solid var(--ink);border-radius:16px;max-width:640px;width:100%;max-height:88vh;overflow:auto;padding:20px;box-shadow:8px 8px 0 rgba(0,0,0,.4);}
+.modal h2{margin-top:0;}
+#coach{position:absolute;left:8px;bottom:8px;max-width:290px;background:#fffbe8;border:2.5px solid var(--ink);border-radius:12px;padding:10px 12px;font-size:14.5px;box-shadow:4px 4px 0 rgba(0,0,0,.3);display:none;z-index:5;}
+#coach .face{font-size:22px;}
+footer{ text-align:center; padding:14px 8px 20px; color:#f3ead2; font-size:14px; }
+.kbdNote{background:#fff3d6;border:2px dashed var(--ink);border-radius:10px;padding:8px 12px;font-size:14px;}
+.devlog{white-space:pre-wrap;font-size:13.5px;line-height:1.55;background:#fff;border:2px solid var(--ink);border-radius:10px;padding:10px;}
+table.spec{border-collapse:collapse;width:100%;font-size:14px;}
+table.spec td{border:1.5px solid var(--line);padding:5px 8px;vertical-align:top;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- ================= SETUP ================= -->
+  <section id="viewSetup">
+    <h1>✏️ Scribble Siege</h1>
+    <p>Flick battles on a sheet of paper. Blow up the enemy base in <b>3 hits</b> — never a mop-up. 1P vs CPU or 2P pass-and-play.</p>
+    <div class="row" style="margin:8px 0;">
+      <button class="btn small" id="btnHowTop">📖 How to Play</button>
+      <button class="btn small" id="btnSettingsTop">🔊 Sound &amp; Settings</button>
+      <button class="btn small" id="btnPracticeTop">🎯 Practice Sheet</button>
+      <button class="btn small" id="btnDevTop">🛠 Dev Log</button>
+    </div>
+    <div class="steps" id="stepDots"></div>
+    <div class="card" id="stepCard"></div>
+    <div class="row" style="margin-top:12px;justify-content:space-between;">
+      <button class="btn" id="btnBack">← Back</button>
+      <button class="btn primary" id="btnNext">Next →</button>
+    </div>
+  </section>
+
+  <!-- ================= GAME ================= -->
+  <section id="viewGame" style="display:none;">
+    <div class="hudbar">
+      <span class="turnBadge" id="turnBadge">Your turn</span>
+      <span class="hpPips" id="hpPips"></span>
+      <span class="row">
+        <button class="btn small" id="btnHow2">📖 Rules</button>
+        <button class="btn small" id="btnSettings2">🔊 Sound</button>
+        <button class="btn small" id="btnQuit">✕ Quit to Setup</button>
+      </span>
+    </div>
+    <div id="gameLayout">
+      <div id="boardCol">
+        <div id="canvasWrap">
+          <canvas id="cv" width="760" height="960"></canvas>
+          <div id="coach"><span class="face">✎</span> <span id="coachText"></span>
+            <div class="row" style="margin-top:6px;"><button class="btn small" id="coachNext">Got it →</button><button class="btn small" id="coachSkip">Skip guide</button></div>
+          </div>
+        </div>
+        <p class="small" id="hintLine">Tap one of your fighters to select it, then flick from it!</p>
+      </div>
+      <div id="sideCol">
+        <div class="card" style="padding:12px;">
+          <h3 style="margin-top:0;">This turn</h3>
+          <div id="actionSegWrap">
+            <div class="seg" id="actionSeg">
+              <button data-act="move" class="on">🏃 Move</button>
+              <button data-act="shoot">💥 Shoot</button>
+            </div>
+            <p class="small" id="actionHelp">Classic: one flick — move <i>or</i> shoot.</p>
+          </div>
+          <div id="chargeNote" class="kbdNote" style="display:none;">⚔️ Knights charge! One flick is the charge — it moves you <i>and</i> hits what it crosses. Towers fire arrows instead.</div>
+          <div style="margin-top:10px;" class="row">
+            <button class="btn small blue" id="btnLaunch" style="display:none;">🚀 Launch fighter (uses turn)</button>
+            <button class="btn small" id="btnEndTurn">End turn ⏭</button>
+          </div>
+          <p class="small" id="selInfo">Nothing selected.</p>
+        </div>
+        <div class="card" style="padding:12px;">
+          <h3 style="margin-top:0;">Battle log</h3>
+          <div class="logBox" id="logBox"></div>
+        </div>
+        <div class="card" style="padding:12px;">
+          <h3 style="margin-top:0;">Match card</h3>
+          <div id="matchCard" class="small" style="color:var(--ink);"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= PRACTICE ================= -->
+  <section id="viewPractice" style="display:none;">
+    <div class="hudbar">
+      <span class="turnBadge">🎯 Practice Sheet</span>
+      <span class="row">
+        <button class="btn small" id="btnPracticeReset">↺ New targets</button>
+        <button class="btn small" id="btnPracticeBack">← Back</button>
+      </span>
+    </div>
+    <p>Flick the practice fighter at the targets. No opponent, no turns — just get the distance into your fingers. Control scheme: <b id="practiceScheme"></b>.</p>
+    <div id="canvasWrap2" style="position:relative;border:3px solid #3a3428;border-radius:6px;box-shadow:6px 8px 0 rgba(0,0,0,.35);background:#fdfdf8;overflow:hidden;max-width:620px;">
+      <canvas id="cvP" width="760" height="960" style="display:block;width:100%;height:auto;touch-action:none;"></canvas>
+    </div>
+    <p class="small" id="practiceScore"></p>
+  </section>
+
+  <footer>Scribble Siege / Created by Matthew Haber / © 2026 Matthew Haber. All rights reserved.</footer>
+</div>
+
+<!-- ================= MODALS ================= -->
+<div class="modalBack" id="passModal"><div class="modal" style="text-align:center;">
+  <h2 id="passTitle">Pass the device!</h2>
+  <p id="passText"></p>
+  <button class="btn primary" id="passOk">I'm ready →</button>
+</div></div>
+
+<div class="modalBack" id="overModal"><div class="modal" style="text-align:center;">
+  <h2 id="overTitle">💥 Base destroyed!</h2>
+  <p id="overText"></p>
+  <div class="row" style="justify-content:center;">
+    <button class="btn primary" id="overRematch">↺ Rematch</button>
+    <button class="btn" id="overSetup">Change setup</button>
+  </div>
+</div></div>
+
+<div class="modalBack" id="howModal"><div class="modal">
+  <h2>📖 How to Play</h2>
+  <div id="howBody"></div>
+  <button class="btn primary" data-close="howModal">Close</button>
+</div></div>
+
+<div class="modalBack" id="setModal"><div class="modal">
+  <h2>🔊 Sound &amp; Settings</h2>
+  <label class="lbl">Master volume</label><input type="range" id="volMaster" min="0" max="100" value="80"/>
+  <label class="lbl">Music volume</label><input type="range" id="volMusic" min="0" max="100" value="40"/>
+  <label class="lbl">Sound effects volume</label><input type="range" id="volSfx" min="0" max="100" value="85"/>
+  <label class="lbl">Classroom / lunchroom ambience</label>
+  <div class="row"><span class="chip sel" id="ambOn">On</span><span class="chip" id="ambOff">Off</span></div>
+  <label class="lbl">Light ambient music</label>
+  <div class="row"><span class="chip sel" id="musOn">On</span><span class="chip" id="musOff">Off</span></div>
+  <p class="small">Audio uses the guarded <b>ambient</b> session, so game sound mixes with your other apps (music, podcasts) instead of pausing them. Real mixing can only be confirmed on your own device.</p>
+  <button class="btn primary" data-close="setModal" style="margin-top:10px;">Done</button>
+</div></div>
+
+<div class="modalBack" id="devModal"><div class="modal">
+  <h2>🛠 Dev Log</h2>
+  <div class="devlog" id="devBody"></div>
+  <button class="btn primary" data-close="devModal" style="margin-top:10px;">Close</button>
+</div></div>
+
+<script>
+"use strict";
+/* ============================================================
+   SCRIBBLE SIEGE — Build 1 (Oct 26, 2026)
+   Paper flick-combat: Space / Knights / Tanks.
+   ============================================================ */
+
+/* ---------- Guarded ambient audio session (standing rule) ---------- */
+function declareAudioSession(){
+  try{ if("audioSession" in navigator){ navigator.audioSession.type = "ambient"; } }catch(e){}
+  try{ if(window.__ssCtx && window.__ssCtx.state==="suspended"){ window.__ssCtx.resume(); } }catch(e){}
+  try{ if(window.__ssCtx && window.__ssCtx.state==="interrupted"){ window.__ssCtx.resume(); } }catch(e){}
+}
+declareAudioSession();
+document.addEventListener("pointerdown", declareAudioSession, {passive:true});
+document.addEventListener("touchstart", declareAudioSession, {passive:true});
+document.addEventListener("visibilitychange", function(){ if(!document.hidden) declareAudioSession(); });
+
+/* ---------- Settings persistence (best effort) ---------- */
+var SETTINGS = { master:0.8, music:0.4, sfx:0.85, ambience:true, musicOn:true, tutorialSeen:false };
+try{
+  var saved = localStorage.getItem("scribbleSiegeSettings");
+  if(saved){ var sp = JSON.parse(saved); for(var k in sp) SETTINGS[k]=sp[k]; }
+}catch(e){}
+function saveSettings(){ try{ localStorage.setItem("scribbleSiegeSettings", JSON.stringify(SETTINGS)); }catch(e){} }
+
+/* ---------- Audio engine (all synthesized, no files) ---------- */
+var AC=null, masterGain=null, musicGain=null, sfxGain=null, ambNodes=null, musicTimer=null;
+function audioInit(){
+  declareAudioSession();
+  if(AC) { if(AC.state!=="running") AC.resume(); return; }
+  try{
+    AC = new (window.AudioContext||window.webkitAudioContext)();
+    window.__ssCtx = AC;
+    masterGain = AC.createGain(); masterGain.gain.value = SETTINGS.master; masterGain.connect(AC.destination);
+    musicGain = AC.createGain(); musicGain.gain.value = SETTINGS.music; musicGain.connect(masterGain);
+    sfxGain = AC.createGain(); sfxGain.gain.value = SETTINGS.sfx; sfxGain.connect(masterGain);
+    startAmbience(); startMusic();
+  }catch(e){ AC=null; }
+}
+function noiseBuffer(dur){
+  var b = AC.createBuffer(1, AC.sampleRate*dur, AC.sampleRate), d = b.getChannelData(0);
+  for(var i=0;i<d.length;i++) d[i]=Math.random()*2-1;
+  return b;
+}
+function playNoise(dur, freq, q, gain, type){
+  if(!AC) return; declareAudioSession();
+  var src=AC.createBufferSource(); src.buffer=noiseBuffer(dur);
+  var f=AC.createBiquadFilter(); f.type=type||"bandpass"; f.frequency.value=freq; f.Q.value=q||1;
+  var g=AC.createGain(); g.gain.setValueAtTime(gain, AC.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.001, AC.currentTime+dur);
+  src.connect(f); f.connect(g); g.connect(sfxGain); src.start(); src.stop(AC.currentTime+dur);
+}
+function playTone(freqA, freqB, dur, gain, type, dest){
+  if(!AC) return; declareAudioSession();
+  var o=AC.createOscillator(); o.type=type||"sine";
+  o.frequency.setValueAtTime(freqA, AC.currentTime);
+  o.frequency.exponentialRampToValueAtTime(Math.max(30,freqB), AC.currentTime+dur);
+  var g=AC.createGain(); g.gain.setValueAtTime(gain, AC.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.001, AC.currentTime+dur);
+  o.connect(g); g.connect(dest||sfxGain); o.start(); o.stop(AC.currentTime+dur);
+}
+var SFX = {
+  trace: function(medium){
+    if(medium==="crayon") playNoise(0.28, 500, 0.7, 0.20);
+    else if(medium==="pen") playNoise(0.18, 1800, 2, 0.12);
+    else playNoise(0.22, 2600, 1.5, 0.09);
+  },
+  flick: function(){ playNoise(0.16, 1200, 1, 0.14, "highpass"); },
+  boom: function(big){ playNoise(big?0.9:0.45, 160, 0.6, big?0.6:0.35, "lowpass"); playTone(120,35,big?0.8:0.4,0.4,"triangle"); },
+  shield: function(){ playTone(880, 1400, 0.35, 0.16, "sine"); playTone(1320, 1900, 0.3, 0.08, "sine"); },
+  twang: function(){ playTone(190, 90, 0.22, 0.22, "square"); playNoise(0.1, 900, 2, 0.1); },
+  whistle: function(){ playTone(1500, 300, 0.7, 0.14, "sine"); },
+  thunk: function(){ playNoise(0.12, 300, 1, 0.25, "lowpass"); },
+  scurry: function(){ for(var i=0;i<5;i++){ (function(i){ setTimeout(function(){ playNoise(0.05, 2000+Math.random()*800, 2, 0.06, "highpass"); }, i*70); })(i); } },
+  pop: function(){ playTone(500, 900, 0.12, 0.15, "sine"); }
+};
+function startAmbience(){
+  if(!AC || !SETTINGS.ambience) return;
+  stopAmbience();
+  var src = AC.createBufferSource(); src.buffer = noiseBuffer(3); src.loop = true;
+  var f = AC.createBiquadFilter(); f.type="lowpass"; f.frequency.value=420;
+  var g = AC.createGain(); g.gain.value=0.016;
+  var lfo = AC.createOscillator(); lfo.frequency.value=0.13;
+  var lg = AC.createGain(); lg.gain.value=0.007;
+  lfo.connect(lg); lg.connect(g.gain);
+  src.connect(f); f.connect(g); g.connect(masterGain); src.start(); lfo.start();
+  ambNodes={src:src,lfo:lfo};
+  // distant bell now and then
+  ambNodes.bellTimer = setInterval(function(){ if(SETTINGS.ambience && Math.random()<0.5) playTone(1046,1040,1.1,0.02,"sine",musicGain); }, 45000);
+}
+function stopAmbience(){ if(ambNodes){ try{ambNodes.src.stop(); ambNodes.lfo.stop();}catch(e){} clearInterval(ambNodes.bellTimer); ambNodes=null; } }
+var MUSIC_NOTES=[262,294,330,392,440,523,587,659];
+function startMusic(){
+  if(musicTimer) return;
+  musicTimer = setInterval(function(){
+    if(!AC || !SETTINGS.musicOn) return;
+    if(Math.random()<0.75){
+      var n = MUSIC_NOTES[Math.floor(Math.random()*MUSIC_NOTES.length)];
+      playTone(n, n, 1.4, 0.035, "triangle", musicGain);
+      if(Math.random()<0.3) playTone(n/2, n/2, 1.8, 0.025, "sine", musicGain);
+    }
+  }, 1500);
+}
+
+/* ---------- Constants ---------- */
+var PLAYER_COLORS=[{name:"Red",hex:"#d42a1e"},{name:"Blue",hex:"#1769c2"},{name:"Green",hex:"#1e8a49"},{name:"Purple",hex:"#7d3ac1"},{name:"Orange",hex:"#e07b12"},{name:"Pink",hex:"#e05299"},{name:"Teal",hex:"#0f8a8a"},{name:"Black",hex:"#26262e"}];
+var MEDIUMS={ pencil:{w:2.5,label:"Pencil — thin & precise"}, pen:{w:4.5,label:"Pen — crisp, in between"}, crayon:{w:9,label:"Crayon — fat & wobbly"} };
+var PAPERS=[
+  {id:"looseleaf", label:"Ruled looseleaf (default)", desc:"Wide rules, red margin, binder holes."},
+  {id:"graph", label:"Graph paper", desc:"Pale blue grid."},
+  {id:"plain", label:"Plain paper", desc:"Clean white sheet."},
+  {id:"construction", label:"Construction paper", desc:"Pick a color in the next step row."},
+  {id:"ripped", label:"Ripped paper", desc:"Torn, irregular edges — lunchroom survivor."},
+  {id:"newspaper", label:"Old newspaper", desc:"Faded small print under the game."},
+  {id:"comic", label:"Newspaper + comic strip", desc:"Faded comic panels under the game."}
+];
+var CONSTRUCTION_COLORS=["#f2b8c6","#a8d5a2","#a9c7ec","#f7e08a","#e8a87c","#cdb4e0"];
+var PRESETS={
+  classic:{label:"Classic", desc:"Defaults exactly as designed: move OR shoot, forcefield, tunneling, wrap in Space.", cfg:{turnStructure:"classic", defense:"player", obstacle:"tunnel", deployment:"all", friendly:"partial", shipHp:1, spaceBase:"forcefield"}},
+  fast:{label:"Fast Battle", desc:"Move, then shoot, every turn. Quicker and bloodier.", cfg:{turnStructure:"fast"}},
+  ramming:{label:"Ramming", desc:"One flick moves you AND attacks what it crosses (Tanks folk style).", cfg:{turnStructure:"ramming"}},
+  competitive:{label:"Competitive", desc:"Both players forced onto the same flicker + medium. Pure skill.", cfg:{sameTools:true}},
+  reinforcements:{label:"Reinforcements", desc:"Spend a turn to launch a replacement fighter from your base.", cfg:{deployment:"reinforce"}},
+  launchbay:{label:"Launch Bay", desc:"Start with about half your force; launch the rest as turn actions.", cfg:{deployment:"launchbay", turnStructure:"classic"}}
+};
+
+/* ---------- Config (the full variation menu) ---------- */
+var CFG = null;
+function defaultCfg(){
+  return {
+    mode:"1p", theme:"space", preset:"classic",
+    turnStructure:"classic", control:"aimed",
+    fighterCount:3, tankMix:"2L1H",
+    shipHp:1, spaceBase:"forcefield", defense:"player",
+    obstacle:"tunnel", edge:"wrap", deployment:"all", friendly:"partial",
+    cpuDiff:"lunch", layout:"face",
+    paper:"looseleaf", constructionColor:CONSTRUCTION_COLORS[2],
+    battlefield:"preset",
+    p1:{flicker:"pencil", medium:"pencil", color:0, name:"Player 1"},
+    p2:{flicker:"pen", medium:"pen", color:1, name:"Player 2"},
+    cpu:{flicker:"pen", medium:"crayon", color:1, name:"CPU"}
+  };
+}
+CFG = defaultCfg();
+function applyPreset(key){
+  CFG.preset=key;
+  var base=defaultCfg();
+  for(var k in base){ if(k!=="mode"&&k!=="theme"&&k!=="paper"&&k!=="p1"&&k!=="p2"&&k!=="cpu"&&k!=="control"&&k!=="fighterCount"&&k!=="layout"&&k!=="cpuDiff"&&k!=="battlefield"&&k!=="constructionColor"&&k!=="tankMix") CFG[k]=base[k]; }
+  CFG.sameTools=false;
+  var c = PRESETS[key].cfg;
+  for(var k2 in c) CFG[k2]=c[k2];
+  if(key==="competitive") CFG.sameTools=true;
+}
+
+/* ============================================================
+   SETUP WIZARD
+   ============================================================ */
+var STEPS=[
+  {id:"mode", title:"1 · Players & Theme"},
+  {id:"rules", title:"2 · Preset & Switches"},
+  {id:"tools", title:"3 · Flickers, Tools & Colors"},
+  {id:"paper", title:"4 · Paper Surface"},
+  {id:"field", title:"5 · Battlefield"},
+  {id:"go", title:"6 · Ready!"}
+];
+var stepIdx=0;
+var stepCard=document.getElementById("stepCard");
+function renderStepDots(){
+  var d=document.getElementById("stepDots"); d.innerHTML="";
+  STEPS.forEach(function(s,i){ var el=document.createElement("div"); el.className="stepdot"+(i===stepIdx?" on":""); el.textContent=s.title; d.appendChild(el); });
+  document.getElementById("btnBack").disabled = stepIdx===0;
+  document.getElementById("btnNext").textContent = stepIdx===STEPS.length-1 ? "✏️ Start the battle!" : "Next →";
+}
+function chipRow(items, current, cb, cls){
+  var div=document.createElement("div"); div.className="row";
+  items.forEach(function(it){
+    var c=document.createElement("span"); c.className="chip"+(it.v===current?" sel "+(cls||""):""); c.textContent=it.t;
+    c.addEventListener("click", function(){ audioInit(); cb(it.v); renderStep(); });
+    div.appendChild(c);
+  });
+  return div;
+}
+function selRow(label, key, opts){
+  var wrap=document.createElement("div");
+  var l=document.createElement("label"); l.className="lbl"; l.textContent=label; wrap.appendChild(l);
+  var s=document.createElement("select");
+  opts.forEach(function(o){ var op=document.createElement("option"); op.value=o[0]; op.textContent=o[1]; s.appendChild(op); });
+  s.value=CFG[key];
+  s.addEventListener("change", function(){ CFG[key]=s.value; });
+  wrap.appendChild(s);
+  return wrap;
+}
+function renderStep(){
+  renderStepDots();
+  var id=STEPS[stepIdx].id; stepCard.innerHTML="";
+  var h=document.createElement("h2"); stepCard.appendChild(h);
+  if(id==="mode"){
+    h.textContent="Who's playing, and which war?";
+    stepCard.appendChild(chipRow([{v:"1p",t:"🤖 1P vs CPU"},{v:"2p",t:"👥 2P Pass-and-Play"}], CFG.mode, function(v){ CFG.mode=v; }));
+    var grid=document.createElement("div"); grid.className="grid"; grid.style.marginTop="12px";
+    [["space","🚀","SPACE","Mothership + forcefield. Ships, gun turrets, tunneling shots through asteroids, wrap-around edges."],
+     ["knights","🏰","KNIGHTS","Castle + archer towers. Knights charge — no ranged shots. Get unhorsed, walk home, remount. Forests shelter, rocks block."],
+     ["tanks","🛡️","TANKS","Bunker HQ + sandbags. Light Cannon (fast, straight shots) and Heavy Mortar (slow, lobs over cover). Heavier tank wins a ram."]]
+    .forEach(function(t){
+      var b=document.createElement("button"); b.className="themeCard"+(CFG.theme===t[0]?" sel":"");
+      b.innerHTML='<span class="big">'+t[1]+'</span> <b style="font-size:19px;">'+t[2]+'</b><p class="small" style="color:var(--ink);">'+t[3]+'</p>';
+      b.addEventListener("click", function(){ audioInit(); CFG.theme=t[0]; renderStep(); });
+      grid.appendChild(b);
+    });
+    stepCard.appendChild(grid);
+    var lay=document.createElement("div"); lay.style.marginTop="10px";
+    lay.appendChild(selRow("Table layout (bases top & bottom, or left & right)","layout",[["face","Face-to-face — portrait sheet, bases top & bottom"],["side","Side-by-side — landscape sheet, bases left & right"]]));
+    stepCard.appendChild(lay);
+    if(CFG.mode==="1p"){
+      var d=document.createElement("div");
+      d.appendChild(selRow("CPU difficulty","cpuDiff",[["recess","Recess — big aim wobble, casual choices"],["lunch","Lunchroom — a fair fight (default)"],["study","Study Hall — sharp aim, smart picks"]]));
+      var per=document.createElement("p"); per.className="small";
+      per.textContent="CPU personality: Space plays calculating and wrap-happy · Knights charges aggressively and walks unhorsed knights home · Tanks races for the hills and lobs mortars over cover.";
+      d.appendChild(per); stepCard.appendChild(d);
+    }
+  }
+  if(id==="rules"){
+    h.textContent="Preset first — then tinker with the switches";
+    var pr=document.createElement("div"); pr.className="grid";
+    Object.keys(PRESETS).forEach(function(key){
+      var b=document.createElement("button"); b.className="themeCard"+(CFG.preset===key?" sel":"");
+      b.innerHTML="<b>"+PRESETS[key].label+"</b><p class='small' style='color:var(--ink);'>"+PRESETS[key].desc+"</p>";
+      b.addEventListener("click", function(){ audioInit(); applyPreset(key); renderStep(); });
+      pr.appendChild(b);
+    });
+    stepCard.appendChild(pr);
+    var g=document.createElement("div"); g.className="grid"; g.style.marginTop="8px";
+    var c1=document.createElement("div"), c2=document.createElement("div");
+    c1.appendChild(selRow("Turn structure","turnStructure",[["classic","Classic — move OR shoot, one flick"],["fast","Fast Battle — move, then shoot"],["ramming","Ramming — one flick moves and attacks"]]));
+    c1.appendChild(selRow("Flick control scheme","control",[["true","True Flick — swipe speed is power, no preview"],["hybrid","Hybrid — direction shows, distance is skill"],["aimed","Aimed — dotted preview with a max-length cap"]]));
+    c1.appendChild(selRow("Fighters per side","fighterCount",[["2","2"],["3","3 (default)"],["4","4"],["5","5"]]));
+    CFG.fighterCount=parseInt(CFG.fighterCount,10);
+    if(CFG.theme==="tanks") c1.appendChild(selRow("Tank mix (Lights + Heavies)","tankMix",[["allL","All Light Cannon"],["2L1H","2 Light + 1 Heavy (default)"],["1L2H","1 Light + 2 Heavy"],["allH","All Heavy Mortar"]]));
+    c1.appendChild(selRow("Friendly fire","friendly",[["partial","Partial — fighters yes, your base is safe from you (default)"],["full","Full — even your own base can fall to you"],["none","None — your traces pass over your own side"]]));
+    c2.appendChild(selRow("Defense turrets / towers / cannons","defense",[["player","Player-fired — firing one is your turn action (default)"],["auto","Auto-firing — they shoot the nearest enemy at end of your turn"],["none","No turrets"]]));
+    c2.appendChild(selRow("Obstacle behavior (projectiles)","obstacle",[["tunnel","Tunnel through, carving holes (default)"],["block","Block shots completely"],["destroy","A hit destroys the obstacle"]]));
+    c2.appendChild(selRow("Edge rule","edge",[["wrap","Wrap around to the other side"],["off","Off the page destroys the fighter"],["stop","Stop at the edge"]]));
+    c2.appendChild(selRow("Deployment","deployment",[["all","All deployed at the start (default)"],["reinforce","Reinforcements — spend a turn to launch a replacement"],["launchbay","Launch Bay — start with half, launch the rest in play"]]));
+    if(CFG.theme==="space"){
+      c2.appendChild(selRow("Ship toughness","shipHp",[["1","1 hit (default)"],["2","2 hits — damaged after hit 1"]]));
+      CFG.shipHp=parseInt(CFG.shipHp,10);
+      c2.appendChild(selRow("Mothership defense","spaceBase",[["forcefield","Forcefield — it IS hit 1 of 3 (default)"],["wall","Wall with a door gap — thread the door or no hit"],["extra","Extra shield — forcefield takes 2 hits (base = 4)"],["none","No shield — plain 3 hits"]]));
+    }
+    g.appendChild(c1); g.appendChild(c2); stepCard.appendChild(g);
+    var note=document.createElement("p"); note.className="small";
+    note.textContent="Every switch applies on top of the preset. Bases always use the same modest, capped footprint for both players, centered in their base zone — nobody can build a bigger mothership.";
+    stepCard.appendChild(note);
+  }
+  if(id==="tools"){
+    h.textContent="Pick your flicker, your drawing medium, your color";
+    var p=document.createElement("p"); p.innerHTML="The <b>flicker</b> is what you flick (pencil or pen). The <b>drawing medium</b> is what your trace is made of — and it really matters: <b>pencil</b> is thin and precise (threads gaps, must truly touch), <b>crayon</b> is fat and wobbly (clips targets easily, clumsy in gaps), <b>pen</b> is in between."; stepCard.appendChild(p);
+    function toolBlock(who, label){
+      var box=document.createElement("div"); box.className="card"; box.style.boxShadow="none"; box.style.marginTop="10px";
+      var t=document.createElement("h3"); t.style.marginTop="0"; t.textContent=label; box.appendChild(t);
+      var l1=document.createElement("label"); l1.className="lbl"; l1.textContent="Flicker"; box.appendChild(l1);
+      box.appendChild(chipRow([{v:"pencil",t:"✏️ Pencil"},{v:"pen",t:"🖊 Pen"}], who.flicker, function(v){ who.flicker=v; }));
+      var l2=document.createElement("label"); l2.className="lbl"; l2.textContent="Drawing medium"; box.appendChild(l2);
+      box.appendChild(chipRow([{v:"pencil",t:"✏️ Pencil (thin)"},{v:"pen",t:"🖊 Pen (medium)"},{v:"crayon",t:"🖍 Crayon (fat, wobbly)"}], who.medium, function(v){ who.medium=v; }));
+      var l3=document.createElement("label"); l3.className="lbl"; l3.textContent="Color"; box.appendChild(l3);
+      var sw=document.createElement("div"); sw.className="row";
+      PLAYER_COLORS.forEach(function(c,i){
+        var s=document.createElement("span"); s.className="swatch"+(who.color===i?" sel":""); s.style.background=c.hex; s.title=c.name;
+        s.addEventListener("click", function(){ who.color=i; renderStep(); });
+        sw.appendChild(s);
+      });
+      box.appendChild(sw);
+      return box;
+    }
+    stepCard.appendChild(toolBlock(CFG.p1, CFG.mode==="2p" ? "Player 1 (bottom / left)" : "You"));
+    if(CFG.mode==="2p") stepCard.appendChild(toolBlock(CFG.p2, "Player 2 (top / right)"));
+    else {
+      var cpuBox=toolBlock(CFG.cpu, "CPU");
+      var cp=document.createElement("p"); cp.className="small"; cp.textContent="The CPU's tools are part of its personality — a crayon CPU clips everything and threads nothing."; cpuBox.appendChild(cp);
+      stepCard.appendChild(cpuBox);
+    }
+    if(CFG.sameTools){ var n=document.createElement("p"); n.className="kbdNote"; n.textContent="Competitive preset: at match start, Player 2 / CPU is set to the same flicker + medium as Player 1."; stepCard.appendChild(n); }
+  }
+  if(id==="paper"){
+    h.textContent="What did you grab from the notebook pile?";
+    var g2=document.createElement("div"); g2.className="grid";
+    PAPERS.forEach(function(pp){
+      var b=document.createElement("button"); b.className="themeCard"+(CFG.paper===pp.id?" sel":"");
+      var prev="";
+      if(pp.id==="looseleaf") prev="background:repeating-linear-gradient(#fff 0 14px,#bcd2ee 14px 15px);";
+      if(pp.id==="graph") prev="background:repeating-linear-gradient(#eef4fb 0 9px,#b9cfea 9px 10px),repeating-linear-gradient(90deg,#eef4fb 0 9px,#b9cfea 9px 10px);";
+      if(pp.id==="plain") prev="background:#fff;";
+      if(pp.id==="construction") prev="background:"+CFG.constructionColor+";";
+      if(pp.id==="ripped") prev="background:#fdfdf6;clip-path:polygon(2% 8%,12% 2%,30% 6%,55% 1%,80% 5%,97% 3%,99% 40%,96% 75%,99% 96%,70% 93%,40% 99%,15% 94%,3% 98%,1% 55%);border:0;";
+      if(pp.id==="newspaper") prev="background:repeating-linear-gradient(#efe9d8 0 5px,#d9d0ba 5px 6px);";
+      if(pp.id==="comic") prev="background:linear-gradient(90deg,#f3ecd9 49%,#cbbf9f 49%,#cbbf9f 51%,#f3ecd9 51%);";
+      b.innerHTML='<div class="paperPrev" style="'+prev+'"></div><b>'+pp.label+'</b><p class="small" style="color:var(--ink);">'+pp.desc+'</p>';
+      b.addEventListener("click", function(){ CFG.paper=pp.id; renderStep(); });
+      g2.appendChild(b);
+    });
+    stepCard.appendChild(g2);
+    if(CFG.paper==="construction"){
+      var l=document.createElement("label"); l.className="lbl"; l.textContent="Construction paper color"; stepCard.appendChild(l);
+      var row=document.createElement("div"); row.className="row";
+      CONSTRUCTION_COLORS.forEach(function(c){
+        var s=document.createElement("span"); s.className="swatch"+(CFG.constructionColor===c?" sel":""); s.style.background=c;
+        s.addEventListener("click", function(){ CFG.constructionColor=c; renderStep(); });
+        row.appendChild(s);
+      });
+      stepCard.appendChild(row);
+    }
+    var n2=document.createElement("p"); n2.className="small"; n2.textContent="Readability rule: busy papers (newspaper especially) are faded and scaled down under the game, so the print never competes — your traces stay the darkest thing on the page. Paper is cosmetic only."; stepCard.appendChild(n2);
+  }
+  if(id==="field"){
+    h.textContent="The battlefield";
+    stepCard.appendChild(chipRow([
+      {v:"preset",t:"🗺 Ready-made field"},{v:"random",t:"🎲 Random field"},{v:"stamps",t:"🔷 Stamps — place them"},{v:"freehand",t:"✍️ Freehand — draw them"},{v:"empty",t:"⬜ Empty sheet"}
+    ], CFG.battlefield, function(v){ CFG.battlefield=v; }));
+    var info=document.createElement("div"); info.style.marginTop="10px";
+    if(CFG.battlefield==="preset") info.innerHTML="<p>A hand-placed field for this theme, ready instantly. Fair and mirrored.</p>";
+    if(CFG.battlefield==="random") info.innerHTML="<p>A fresh mirrored field is generated when the match starts.</p>";
+    if(CFG.battlefield==="empty") info.innerHTML="<p>No obstacles. A pure race to the base.</p>";
+    if(CFG.battlefield==="stamps") info.innerHTML="<p>On the next screen you'll get the paper in <b>setup mode</b>: pick a stamp, tap the middle zone to drop it, tap a placed stamp to rotate it, long list of fairness rules enforced: middle zone only, no overlaps, size/count budget.</p>";
+    if(CFG.battlefield==="freehand") info.innerHTML="<p>On the next screen you'll get the paper in <b>setup mode</b>: draw closed shapes with your finger in your medium and they fill in as this theme's obstacles. Same fairness rules: middle zone only, no overlaps, budget applies.</p>";
+    stepCard.appendChild(info);
+    var th=document.createElement("p"); th.className="kbdNote";
+    th.textContent = CFG.theme==="space" ? "Space obstacles: asteroids. Shots tunnel through them (default); flying into one destroys your ship." :
+      CFG.theme==="knights" ? "Knights obstacles: rocks (block charges & arrows, unhorse on impact) and forests (shelter: only 1-in-4 arrows get through; mounted movement inside is half distance)." :
+      "Tanks obstacles: hills (drivable high ground — crossing halves your distance; from the top, cannon fire clears low cover) and ruined buildings (block straight shells; mortars fly over).";
+    stepCard.appendChild(th);
+  }
+  if(id==="go"){
+    h.textContent="Ready to scribble!";
+    var tbl=document.createElement("table"); tbl.className="spec";
+    var who2 = CFG.mode==="1p" ? "You vs CPU ("+({recess:"Recess",lunch:"Lunchroom",study:"Study Hall"})[CFG.cpuDiff]+")" : "2P pass-and-play";
+    var rows=[
+      ["Match", who2],["Theme", CFG.theme.toUpperCase()+" — "+({space:"mothership & forcefield",knights:"castle & towers",tanks:"bunker & sandbags"})[CFG.theme]],
+      ["Preset", PRESETS[CFG.preset].label],["Turn structure", CFG.turnStructure],["Flick control", CFG.control],
+      ["Fighters", CFG.fighterCount+(CFG.theme==="tanks"?" (mix: "+CFG.tankMix+")":"")],
+      ["Friendly fire", CFG.friendly],["Edge rule", CFG.edge],["Obstacles", CFG.obstacle],["Deployment", CFG.deployment],
+      ["Paper", PAPERS.filter(function(x){return x.id===CFG.paper;})[0].label],["Battlefield", CFG.battlefield],["Layout", CFG.layout==="face"?"Face-to-face (portrait)":"Side-by-side (landscape)"]
+    ];
+    if(CFG.theme==="space") rows.push(["Ship toughness", CFG.shipHp+" hit(s)"],["Mothership defense", CFG.spaceBase]);
+    rows.forEach(function(r){ var tr=document.createElement("tr"); tr.innerHTML="<td><b>"+r[0]+"</b></td><td>"+r[1]+"</td>"; tbl.appendChild(tr); });
+    stepCard.appendChild(tbl);
+    var tip=document.createElement("p"); tip.className="small"; tip.style.marginTop="10px";
+    tip.textContent = SETTINGS.tutorialSeen ? "Coach is off (you've done the guided match). Find him again any time via How to Play." : "First match? The margin coach will walk you through your first flick, first shot, and this theme's signature rule. Skippable any time.";
+    stepCard.appendChild(tip);
+  }
+}
+document.getElementById("btnBack").addEventListener("click", function(){ if(stepIdx>0){ stepIdx--; renderStep(); } });
+document.getElementById("btnNext").addEventListener("click", function(){
+  audioInit();
+  if(stepIdx<STEPS.length-1){ stepIdx++; renderStep(); }
+  else startMatch();
+});
+renderStep();
+
+/* ============================================================
+   GAME STATE
+   ============================================================ */
+var cv=document.getElementById("cv"), ctx=cv.getContext("2d");
+var FW=760, FH=960;                 // logical field size (portrait default)
+var BASE_W=132, BASE_H=56;          // MODEST capped base footprint — identical both sides
+var BASE_ZONE=0.12;                  // base zone band = end 12% of sheet length
+var G=null;                          // game state
+var rafId=null;
+
+function baseCenter(p){ // p: 0 or 1
+  if(CFG.layout==="face") return p===0 ? {x:FW/2, y:FH-FH*0.06} : {x:FW/2, y:FH*0.06};
+  return p===0 ? {x:FW*0.06, y:FH/2} : {x:FW-FW*0.06, y:FH/2};
+}
+function baseZoneRect(p){
+  if(CFG.layout==="face") return p===0 ? {x:0,y:FH*(1-BASE_ZONE),w:FW,h:FH*BASE_ZONE} : {x:0,y:0,w:FW,h:FH*BASE_ZONE};
+  return p===0 ? {x:0,y:0,w:FW*BASE_ZONE,h:FH} : {x:FW*(1-BASE_ZONE),y:0,w:FW*BASE_ZONE,h:FH};
+}
+function midZone(){ // obstacles allowed only here
+  if(CFG.layout==="face") return {x:FW*0.06, y:FH*0.24, w:FW*0.88, h:FH*0.52};
+  return {x:FW*0.24, y:FH*0.06, w:FW*0.52, h:FH*0.88};
+}
+function playerCfg(p){
+  if(p===0) return CFG.p1;
+  return CFG.mode==="1p" ? CFG.cpu : CFG.p2;
+}
+function playerName(p){
+  if(p===0) return CFG.mode==="2p" ? "Player 1" : "You";
+  return CFG.mode==="1p" ? "CPU" : "Player 2";
+}
+function dirToEnemy(p){ // unit vector toward enemy base
+  var a=baseCenter(p), b=baseCenter(1-p);
+  var dx=b.x-a.x, dy=b.y-a.y, m=Math.hypot(dx,dy)||1;
+  return {x:dx/m, y:dy/m};
+}
+
+function makeObstacles(kind){
+  var obs=[], mz=midZone();
+  function pt(fx,fy){ return {x:mz.x+mz.w*fx, y:mz.y+mz.h*fy}; }
+  function add(type,x,y,r){ obs.push({type:type,x:x,y:y,r:r,rot:Math.random()*6.28,hp:999,carved:0,points:null}); }
+  if(kind==="empty") return obs;
+  var types = CFG.theme==="space" ? ["asteroid"] : CFG.theme==="knights" ? ["forest","rock"] : ["hill","ruin"];
+  if(kind==="preset"){
+    var spots=[[0.5,0.5,58],[0.22,0.3,44],[0.78,0.3,44],[0.22,0.7,44],[0.78,0.7,44],[0.5,0.18,36],[0.5,0.82,36]];
+    spots.forEach(function(s,i){ var p=pt(s[0],s[1]); add(types[i%types.length], p.x, p.y, s[2]); });
+    return obs;
+  }
+  // random mirrored
+  var n=6+Math.floor(Math.random()*3);
+  for(var i=0;i<n;i++){
+    var fx=0.15+Math.random()*0.7, fy=0.12+Math.random()*0.34, r=32+Math.random()*30;
+    var p1=pt(fx,fy); add(types[i%types.length], p1.x, p1.y, r);
+    var p2=pt(1-fx, 1-fy); add(types[(i+1)%types.length], p2.x, p2.y, r);
+  }
+  return obs;
+}
+function tankClassList(){
+  var n=CFG.fighterCount, list=[];
+  if(CFG.tankMix==="allL"){ for(var i=0;i<n;i++) list.push("light"); }
+  else if(CFG.tankMix==="allH"){ for(var j=0;j<n;j++) list.push("heavy"); }
+  else if(CFG.tankMix==="1L2H"){ list=["light","heavy","heavy","light","heavy"].slice(0,n); while(list.length<n) list.push("light"); }
+  else { list=["light","light","heavy","light","heavy"].slice(0,n); while(list.length<n) list.push("light"); }
+  return list;
+}
+function spawnUnits(p){
+  var units=[], bc=baseCenter(p), d=dirToEnemy(p), side={x:-d.y,y:d.x};
+  var n=CFG.fighterCount;
+  var deployCount = CFG.deployment==="launchbay" ? Math.ceil(n/2) : n;
+  var classes = CFG.theme==="tanks" ? tankClassList() : null;
+  for(var i=0;i<deployCount;i++){
+    var off=(i-(deployCount-1)/2)*74;
+    var pos={ x: bc.x + side.x*off + d.x*(BASE_H+58), y: bc.y + side.y*off + d.y*(BASE_H+58) };
+    var u={ id:p+"-"+i, owner:p, x:pos.x, y:pos.y, angle:Math.atan2(d.y,d.x), alive:true,
+      kind: CFG.theme==="space"?"ship":CFG.theme==="knights"?"knight":"tank",
+      cls: classes?classes[i]:null, hp:1, mounted:true, onHill:false };
+    if(CFG.theme==="space") u.hp=CFG.shipHp;
+    if(CFG.theme==="tanks"&&u.cls==="heavy") u.hp=2;
+    units.push(u);
+  }
+  return units;
+}
+function makeTurrets(p){
+  if(CFG.defense==="none") return [];
+  var bc=baseCenter(p), d=dirToEnemy(p), side={x:-d.y,y:d.x}, out=[];
+  [-1,1].forEach(function(s,i){
+    out.push({ id:"t"+p+"-"+i, owner:p, turret:true, alive:true, hp:1,
+      x: bc.x + side.x*s*(BASE_W/2+36), y: bc.y + side.y*s*(BASE_W/2+36),
+      angle:Math.atan2(d.y,d.x),
+      kind: CFG.theme==="space"?"turret":CFG.theme==="knights"?"tower":"cannon" });
+  });
+  return out;
+}
+function baseMaxHp(){ return (CFG.theme==="space"&&CFG.spaceBase==="extra") ? 4 : 3; }
+
+function newGame(obstacles){
+  if(CFG.layout==="face"){ FW=760; FH=960; } else { FW=960; FH=760; }
+  cv.width=FW; cv.height=FH;
+  if(CFG.sameTools && CFG.preset==="competitive"){ var t=playerCfg(1); t.flicker=CFG.p1.flicker; t.medium=CFG.p1.medium; }
+  G={
+    turn: Math.random()<0.5?0:1, phase:"select", action:"move", fastPhase:"move",
+    units:[spawnUnits(0), spawnUnits(1)],
+    turrets:[makeTurrets(0), makeTurrets(1)],
+    bases:[{hp:baseMaxHp(), armor: CFG.theme==="tanks"},{hp:baseMaxHp(), armor: CFG.theme==="tanks"}],
+    obstacles: obstacles||makeObstacles(CFG.battlefield==="random"?"random":CFG.battlefield),
+    traces:[], particles:[], stickmen:[], selected:null, over:false, winner:null,
+    reserve:[CFG.deployment==="all"?0:CFG.fighterCount-Math.ceil(CFG.fighterCount/2), CFG.deployment==="all"?0:CFG.fighterCount-Math.ceil(CFG.fighterCount/2)],
+    editor:null, anim:null, shake:0, flashShield:-1, lastRoll:null
+  };
+  if(CFG.deployment!=="launchbay") G.reserve=[0,0];
+  log("A coin flip says "+playerName(G.turn)+" goes first. Blow up the enemy base — 3 hits!");
+  if(CFG.theme==="space"&&CFG.spaceBase!=="none") log("The forcefield IS hit 1. Pop it, crack it, blow it.");
+  updateHUD(); draw();
+}
+function allUnits(p){ return G.units[p].filter(function(u){return u.alive;}); }
+function allTurrets(p){ return G.turrets[p].filter(function(t){return t.alive;}); }
+function findThing(id){
+  for(var p=0;p<2;p++){
+    var u=G.units[p].filter(function(x){return x.id===id;})[0]; if(u) return u;
+    var t=G.turrets[p].filter(function(x){return x.id===id;})[0]; if(t) return t;
+  }
+  return null;
+}
+
+/* ---------- log / HUD ---------- */
+function log(msg){
+  var lb=document.getElementById("logBox");
+  var d=document.createElement("div"); d.textContent="• "+msg; lb.prepend(d);
+  while(lb.children.length>40) lb.removeChild(lb.lastChild);
+}
+function hearts(hp,max){ var s=""; for(var i=0;i<max;i++) s+= i<hp?"❤️":"🖤"; return s; }
+function updateHUD(){
+  if(!G) return;
+  var tb=document.getElementById("turnBadge");
+  var col=PLAYER_COLORS[playerCfg(G.turn).color].hex;
+  tb.textContent = G.over ? "Match over" : (CFG.mode==="1p" ? (G.turn===0?"Your turn":"CPU is thinking…") : playerName(G.turn)+"'s turn");
+  tb.style.borderColor=col; tb.style.color=col;
+  document.getElementById("hpPips").innerHTML =
+    "🔵 Your base "+hearts(G.bases[0].hp,baseMaxHp())+" &nbsp;·&nbsp; 🔴 Enemy base "+hearts(G.bases[1].hp,baseMaxHp())+
+    (CFG.theme==="tanks" ? "<br><span class='small'>Sandbags: P1 "+(G.bases[0].armor?"🟨 up":"gone")+" · P2 "+(G.bases[1].armor?"🟨 up":"gone")+"</span>":"");
+  document.getElementById("chargeNote").style.display = (CFG.theme==="knights") ? "block":"none";
+  document.getElementById("actionSegWrap").style.display = (CFG.theme==="knights") ? "none":"block";
+  document.getElementById("btnLaunch").style.display = (CFG.deployment!=="all" && !G.over && (CFG.mode==="2p"||G.turn===0)) ? "inline-flex":"none";
+  var mc=document.getElementById("matchCard");
+  mc.innerHTML = "<b>"+CFG.theme.toUpperCase()+"</b> · "+PRESETS[CFG.preset].label+" · "+CFG.control+" flicks<br>"+
+    "Turn: "+CFG.turnStructure+" · FF: "+CFG.friendly+" · Edge: "+CFG.edge+"<br>"+
+    "P1: "+CFG.p1.flicker+"/"+CFG.p1.medium+" · "+(CFG.mode==="1p"?"CPU":"P2")+": "+playerCfg(1).flicker+"/"+playerCfg(1).medium;
+  var sel=G.selected?findThing(G.selected):null;
+  document.getElementById("selInfo").textContent = sel ? ("Selected: "+thingLabel(sel)+(sel.turret?" (fires as your turn action)":"")+" — now flick from it!") : "Nothing selected. Tap one of your "+(CFG.theme==="knights"?"knights or towers":CFG.theme==="tanks"?"tanks or cannons":"ships or turrets")+".";
+  document.getElementById("hintLine").textContent = coachActive ? "Coach is guiding you — follow the margin notes!" :
+    (CFG.mode==="1p"&&G.turn===1 ? "CPU is lining up a flick…" : "Tap your fighter to select it, then "+(CFG.control==="aimed"?"drag from it and release":"flick from it")+".");
+}
+
+/* ============================================================
+   PAPER + DRAWING (mixed media: pencil world, colored units,
+   vivid crayon / gel-pen traces)
+   ============================================================ */
+function drawPaper(c){
+  c.save();
+  // base fill
+  var fill="#fdfdf8";
+  if(CFG.paper==="construction") fill=CFG.constructionColor;
+  if(CFG.paper==="newspaper"||CFG.paper==="comic") fill="#f1ead9";
+  c.fillStyle=fill; c.fillRect(0,0,FW,FH);
+  // grain
+  c.globalAlpha=0.05; c.fillStyle="#8a7a5f";
+  for(var i=0;i<130;i++){ c.fillRect(Math.random()*FW, Math.random()*FH, 2, 2); }
+  c.globalAlpha=1;
+  if(CFG.paper==="looseleaf"){
+    c.strokeStyle="rgba(90,140,210,0.55)"; c.lineWidth=1.4;
+    for(var y=44;y<FH;y+=34){ c.beginPath(); c.moveTo(0,y); c.lineTo(FW,y); c.stroke(); }
+    c.strokeStyle="rgba(225,110,110,0.6)"; c.beginPath(); c.moveTo(52,0); c.lineTo(52,FH); c.stroke();
+    c.fillStyle="#e8e2d2";
+    var holes = CFG.layout==="face" ? [[26,120],[26,FH/2],[26,FH-120]] : [[120,26],[FW/2,26],[FW-120,26]];
+    holes.forEach(function(h){ c.beginPath(); c.arc(h[0],h[1],13,0,6.29); c.fill(); c.strokeStyle="#b9b09a"; c.stroke(); });
+  }
+  if(CFG.paper==="graph"){
+    c.strokeStyle="rgba(110,160,220,0.35)"; c.lineWidth=1;
+    for(var x=0;x<FW;x+=24){ c.beginPath(); c.moveTo(x,0); c.lineTo(x,FH); c.stroke(); }
+    for(var y2=0;y2<FH;y2+=24){ c.beginPath(); c.moveTo(0,y2); c.lineTo(FW,y2); c.stroke(); }
+  }
+  if(CFG.paper==="newspaper"||CFG.paper==="comic"){
+    c.globalAlpha=0.16; c.fillStyle="#3a362c";
+    c.font="7px serif";
+    var words="THE DAILY SCRIBBLE lunchroom gazette extra extra read all about it cafeteria news weather sports comics funnies ";
+    for(var yy=14; yy<FH; yy+=13){ var line=""; while(line.length<110) line+=words; c.fillText(line, 8+((yy*7)%20), yy); }
+    c.globalAlpha=1;
+    if(CFG.paper==="comic"){
+      c.globalAlpha=0.20; c.strokeStyle="#3a362c"; c.lineWidth=2;
+      for(var cx=0;cx<3;cx++){ c.strokeRect(60+cx*220, FH*0.42, 190, 130); }
+      c.font="bold 22px 'Comic Sans MS'"; c.fillStyle="#3a362c";
+      c.fillText("POW!", 110, FH*0.42+70); c.fillText("SKRIBBLE!", 300, FH*0.42+70); c.fillText("HA!", 560, FH*0.42+70);
+      c.globalAlpha=1;
+    }
+  }
+  if(CFG.paper==="ripped"){
+    c.strokeStyle="#cbbf9f"; c.lineWidth=10; c.setLineDash([16,10,7,14]);
+    c.strokeRect(6,6,FW-12,FH-12); c.setLineDash([]);
+  }
+  // smudges
+  c.globalAlpha=0.05; c.fillStyle="#555";
+  c.beginPath(); c.ellipse(FW*0.3,FH*0.6,70,16,0.4,0,6.29); c.fill();
+  c.beginPath(); c.ellipse(FW*0.75,FH*0.3,55,12,-0.3,0,6.29); c.fill();
+  c.globalAlpha=1;
+  c.restore();
+}
+function drawBaseZones(c){
+  for(var p=0;p<2;p++){
+    var z=baseZoneRect(p);
+    c.save(); c.globalAlpha=0.10; c.fillStyle=PLAYER_COLORS[playerCfg(p).color].hex;
+    c.fillRect(z.x,z.y,z.w,z.h); c.restore();
+    c.save(); c.strokeStyle="rgba(60,60,70,.45)"; c.setLineDash([7,6]); c.lineWidth=1.6;
+    c.strokeRect(z.x+2,z.y+2,z.w-4,z.h-4); c.setLineDash([]); c.restore();
+    var bc=baseCenter(p);
+    c.save(); c.font="bold 12px 'Segoe Print',sans-serif"; c.fillStyle="rgba(60,60,70,.55)"; c.textAlign="center";
+    c.fillText("BASE ZONE — base stays in here, same size both sides", bc.x, CFG.layout==="face" ? (p===0? FH-6 : 16) : bc.y- BASE_H);
+    c.restore();
+  }
+}
+function pencilStroke(c, fn){ c.save(); c.strokeStyle="rgba(70,70,80,0.85)"; c.lineWidth=1.8; c.lineJoin="round"; fn(); c.restore(); }
+function drawObstacle(c,o){
+  c.save(); c.translate(o.x,o.y);
+  if(o.type==="asteroid"){
+    pencilStroke(c,function(){ c.beginPath();
+      for(var i=0;i<9;i++){ var a=i/9*6.29, r=o.r*(0.78+((i*37)%23)/60); var px=Math.cos(a)*r, py=Math.sin(a)*r; i?c.lineTo(px,py):c.moveTo(px,py); }
+      c.closePath(); c.fillStyle="rgba(150,145,135,0.5)"; c.fill(); c.stroke(); });
+    if(o.carved>0){ c.fillStyle="rgba(253,253,248,0.9)"; c.beginPath(); c.arc(0,0,o.r*0.4*o.carved,0,6.29); c.fill(); }
+  } else if(o.type==="forest"){
+    c.fillStyle="rgba(70,140,80,0.28)"; c.beginPath(); c.arc(0,0,o.r,0,6.29); c.fill();
+    pencilStroke(c,function(){ for(var i=0;i<6;i++){ var a=i*1.7, tx=Math.cos(a)*o.r*0.5, ty=Math.sin(a)*o.r*0.5;
+      c.beginPath(); c.moveTo(tx,ty+9); c.lineTo(tx,ty-4); c.moveTo(tx-8,ty+2); c.lineTo(tx+8,ty+2); c.moveTo(tx-6,ty-5); c.lineTo(tx+6,ty-5); c.stroke(); } });
+  } else if(o.type==="rock"){
+    pencilStroke(c,function(){ c.beginPath(); c.moveTo(-o.r,-o.r*0.2); c.lineTo(-o.r*0.3,-o.r*0.8); c.lineTo(o.r*0.7,-o.r*0.5); c.lineTo(o.r,o.r*0.3); c.lineTo(0,o.r*0.6); c.closePath(); c.fillStyle="rgba(140,140,150,0.55)"; c.fill(); c.stroke(); });
+  } else if(o.type==="hill"){
+    c.fillStyle="rgba(190,170,110,0.4)"; c.beginPath(); c.arc(0,0,o.r,0,6.29); c.fill();
+    pencilStroke(c,function(){ c.beginPath(); c.arc(0,0,o.r*0.62,0,6.29); c.stroke(); c.beginPath(); c.arc(0,0,o.r*0.3,0,6.29); c.stroke(); });
+    c.font="bold 11px sans-serif"; c.fillStyle="rgba(90,80,50,.7)"; c.textAlign="center"; c.fillText("HILL",0,4);
+  } else if(o.type==="ruin"){
+    pencilStroke(c,function(){ c.fillStyle="rgba(165,130,95,0.55)"; c.fillRect(-o.r,-o.r*0.7,o.r*2,o.r*1.4); c.strokeRect(-o.r,-o.r*0.7,o.r*2,o.r*1.4);
+      c.beginPath(); c.moveTo(-o.r*0.4,-o.r*0.7); c.lineTo(-o.r*0.4,o.r*0.1); c.lineTo(o.r*0.3,o.r*0.1); c.lineTo(o.r*0.3,-o.r*0.7); c.stroke(); });
+  }
+  c.restore();
+}
+function thingLabel(t){
+  if(t.turret) return t.kind==="turret"?"Gun turret":t.kind==="tower"?"Archer tower":"Bunker cannon";
+  if(t.kind==="ship") return "Ship";
+  if(t.kind==="knight") return t.mounted?"Knight (mounted)":"Knight (on foot!)";
+  return t.cls==="heavy"?"Heavy Mortar tank":"Light Cannon tank";
+}
+function drawThing(c,t){
+  var col=PLAYER_COLORS[playerCfg(t.owner).color].hex;
+  c.save(); c.translate(t.x,t.y);
+  var isSel = G && G.selected===t.id;
+  if(isSel){ c.strokeStyle="#e9a13b"; c.lineWidth=3; c.setLineDash([6,4]); c.beginPath(); c.arc(0,0,30,0,6.29); c.stroke(); c.setLineDash([]); }
+  c.rotate(t.turret? t.angle : t.angle);
+  c.lineJoin="round";
+  if(t.kind==="ship"){
+    c.beginPath(); c.moveTo(20,0); c.lineTo(-14,-13); c.lineTo(-8,0); c.lineTo(-14,13); c.closePath();
+    c.fillStyle=col; c.globalAlpha=0.9; c.fill(); c.globalAlpha=1; c.strokeStyle="#2b2b33"; c.lineWidth=2; c.stroke();
+    c.fillStyle="#fff"; c.beginPath(); c.arc(4,0,4,0,6.29); c.fill();
+    if(t.hp<CFG.shipHp){ c.strokeStyle="#444"; c.beginPath(); c.moveTo(-4,-6); c.lineTo(2,2); c.lineTo(-2,8); c.stroke(); }
+  } else if(t.kind==="knight"){
+    if(t.mounted){
+      c.strokeStyle=col; c.lineWidth=3.4;
+      c.beginPath(); c.moveTo(-14,8); c.lineTo(10,8); c.moveTo(10,8); c.lineTo(17,-3); c.moveTo(-14,8); c.lineTo(-19,-4); c.stroke(); // horse
+      c.beginPath(); c.moveTo(-16,14); c.lineTo(-11,20); c.moveTo(8,14); c.lineTo(13,20); c.stroke();
+      c.beginPath(); c.moveTo(19,0); c.lineTo(2,-10); c.stroke(); // lance
+      c.fillStyle=col; c.beginPath(); c.arc(0,-9,6,0,6.29); c.fill(); c.strokeStyle="#2b2b33"; c.lineWidth=1.6; c.stroke();
+    } else {
+      c.strokeStyle=col; c.lineWidth=3;
+      c.beginPath(); c.moveTo(0,-4); c.lineTo(0,8); c.moveTo(0,8); c.lineTo(-7,19); c.moveTo(0,8); c.lineTo(7,19); c.moveTo(0,0); c.lineTo(11,-6); c.stroke();
+      c.fillStyle=col; c.beginPath(); c.arc(0,-10,5.5,0,6.29); c.fill(); c.strokeStyle="#2b2b33"; c.lineWidth=1.4; c.stroke();
+      c.font="bold 12px sans-serif"; c.fillStyle="#2b2b33"; c.fillText("🐴?", 8,-12);
+    }
+  } else if(t.kind==="tank"){
+    var big=t.cls==="heavy";
+    c.fillStyle=col; c.strokeStyle="#2b2b33"; c.lineWidth=2;
+    var w=big?30:24, h=big?22:17;
+    c.beginPath(); c.rect(-w/2,-h/2,w,h); c.fill(); c.stroke();
+    c.beginPath(); c.arc(0,0,big?9:7,0,6.29); c.fillStyle="#fff"; c.fill(); c.stroke();
+    c.beginPath(); c.moveTo(0,0); c.lineTo(big?16:22,0); c.lineWidth=big?6:3.4; c.strokeStyle=col; c.stroke();
+    if(big&&t.hp===1){ c.strokeStyle="rgba(40,40,40,.8)"; c.beginPath(); c.moveTo(-8,-8); c.lineTo(0,0); c.lineTo(-4,8); c.stroke(); }
+  } else { // turret / tower / cannon — fixed defense
+    c.strokeStyle="#2b2b33"; c.lineWidth=2; c.fillStyle=col;
+    if(t.kind==="tower"){
+      c.fillStyle="rgba(150,130,100,.85)"; c.beginPath(); c.rect(-11,-14,22,28); c.fill(); c.stroke();
+      c.beginPath(); c.moveTo(-14,-14); c.lineTo(0,-24); c.lineTo(14,-14); c.closePath(); c.fillStyle=col; c.fill(); c.stroke();
+      c.beginPath(); c.moveTo(0,-18); c.lineTo(16,-18); c.lineWidth=2.4; c.strokeStyle=col; c.stroke();
+    } else {
+      c.beginPath(); c.arc(0,0,14,0,6.29); c.fill(); c.stroke();
+      c.beginPath(); c.moveTo(0,0); c.lineTo(24,0); c.lineWidth=4.5; c.strokeStyle="#2b2b33"; c.stroke();
+      c.fillStyle="#fff"; c.beginPath(); c.arc(0,0,4.5,0,6.29); c.fill();
+    }
+  }
+  c.restore();
+  // forest shelter marker
+  if(G && !t.turret && CFG.theme==="knights" && inForest(t)) {
+    c.save(); c.font="13px sans-serif"; c.textAlign="center"; c.fillText("🌲", t.x, t.y-30); c.restore();
+  }
+  if(G && !t.turret && CFG.theme==="tanks" && onHill(t)) {
+    c.save(); c.font="11px sans-serif"; c.textAlign="center"; c.fillStyle="#6b5c2e"; c.fillText("⛰ high ground", t.x, t.y-28); c.restore();
+  }
+}
+function drawBase(c,p){
+  var bc=baseCenter(p), hp=G.bases[p].hp, max=baseMaxHp();
+  var col=PLAYER_COLORS[playerCfg(p).color].hex;
+  c.save(); c.translate(bc.x,bc.y);
+  // Space forcefield bubble
+  if(CFG.theme==="space" && CFG.spaceBase!=="none" && hp> (CFG.spaceBase==="extra"?2: max-1) ){
+    // shield intact while hp above the shield's share
+  }
+  if(CFG.theme==="space" && (CFG.spaceBase==="forcefield"&&hp===3 || CFG.spaceBase==="extra"&&hp>2)){
+    c.beginPath(); c.arc(0,0,BASE_W*0.72,0,6.29);
+    c.fillStyle="rgba(90,190,255,0.16)"; c.fill();
+    c.strokeStyle= (G.flashShield===p)? "#7fe3ff":"rgba(60,160,235,0.75)"; c.lineWidth= G.flashShield===p?5:2.6; c.stroke();
+  }
+  if(CFG.theme==="space" && CFG.spaceBase==="wall"){
+    var d=dirToEnemy(p), perp={x:-d.y,y:d.x};
+    c.save(); c.translate(d.x*(BASE_H+16), d.y*(BASE_H+16));
+    c.strokeStyle="rgba(70,70,80,.9)"; c.lineWidth=7;
+    c.beginPath();
+    c.moveTo(perp.x*-BASE_W*0.85, perp.y*-BASE_W*0.85); c.lineTo(perp.x*-20, perp.y*-20);
+    c.moveTo(perp.x*20, perp.y*20); c.lineTo(perp.x*BASE_W*0.85, perp.y*BASE_W*0.85);
+    c.stroke(); c.restore();
+    c.font="10px sans-serif"; c.fillStyle="rgba(60,60,70,.6)"; c.textAlign="center"; c.fillText("wall — thread the door!", d.x*(BASE_H+30), d.y*(BASE_H+30)+3);
+  }
+  c.globalAlpha = hp<=0?0.25:1;
+  if(CFG.theme==="space"){
+    pencilStroke(c,function(){ c.beginPath(); c.ellipse(0,0,BASE_W/2,BASE_H/2,0,0,6.29); c.fillStyle=col; c.globalAlpha=0.85; c.fill(); c.globalAlpha=hp<=0?0.25:1; c.stroke(); });
+    c.fillStyle="#fff"; c.beginPath(); c.arc(0,-4,11,0,6.29); c.fill(); c.strokeStyle="#2b2b33"; c.lineWidth=1.6; c.stroke();
+    c.font="bold 11px sans-serif"; c.fillStyle="#2b2b33"; c.textAlign="center"; c.fillText("MOTHERSHIP",0,BASE_H/2+13);
+  } else if(CFG.theme==="knights"){
+    pencilStroke(c,function(){ c.fillStyle="rgba(155,150,160,.8)"; c.fillRect(-BASE_W/2,-BASE_H/2,BASE_W,BASE_H); c.strokeRect(-BASE_W/2,-BASE_H/2,BASE_W,BASE_H);
+      c.beginPath(); for(var i=0;i<5;i++){ c.moveTo(-BASE_W/2+i*(BASE_W/4), -BASE_H/2); c.lineTo(-BASE_W/2+i*(BASE_W/4), -BASE_H/2-8); c.lineTo(-BASE_W/2+(i+0.5)*(BASE_W/4), -BASE_H/2-8); c.lineTo(-BASE_W/2+(i+0.5)*(BASE_W/4), -BASE_H/2);} c.stroke(); });
+    c.fillStyle=col; c.beginPath(); c.moveTo(0,-BASE_H/2-8); c.lineTo(0,-BASE_H/2-24); c.lineTo(16,-BASE_H/2-19); c.lineTo(0,-BASE_H/2-14); c.closePath(); c.fill();
+    c.font="bold 11px sans-serif"; c.fillStyle="#2b2b33"; c.textAlign="center"; c.fillText("CASTLE",0,5);
+  } else {
+    pencilStroke(c,function(){ c.fillStyle="rgba(170,145,100,.85)"; c.fillRect(-BASE_W/2,-BASE_H/2,BASE_W,BASE_H); c.strokeRect(-BASE_W/2,-BASE_H/2,BASE_W,BASE_H); });
+    if(G.bases[p].armor){ c.fillStyle="rgba(215,185,110,.95)"; c.fillRect(-BASE_W/2-4,-BASE_H/2-9,BASE_W+8,9); c.strokeStyle="#2b2b33"; c.lineWidth=1.4; c.strokeRect(-BASE_W/2-4,-BASE_H/2-9,BASE_W+8,9);
+      c.font="9px sans-serif"; c.fillStyle="#4a3c14"; c.textAlign="center"; c.fillText("SANDBAGS",0,-BASE_H/2-1); }
+    c.font="bold 11px sans-serif"; c.fillStyle="#2b2b33"; c.textAlign="center"; c.fillText("BUNKER HQ",0,5);
+  }
+  // staged damage
+  if(hp<=2 && hp>0){
+    c.strokeStyle="#333"; c.lineWidth=2;
+    c.beginPath(); c.moveTo(-BASE_W*0.3,-10); c.lineTo(-BASE_W*0.1,2); c.lineTo(-BASE_W*0.24,12); c.stroke();
+  }
+  if(hp<=1 && hp>0){
+    c.font="17px sans-serif"; c.textAlign="center"; c.fillText("🔥", -BASE_W*0.28, -BASE_H/2-2); c.fillText("🔥", BASE_W*0.3, 4);
+    c.strokeStyle="rgba(80,80,80,.5)"; c.beginPath(); c.arc(BASE_W*0.2,-BASE_H/2-14,8+((Date.now()/300)%3),0,6.29); c.stroke();
+  }
+  if(hp<=0){ c.font="30px sans-serif"; c.textAlign="center"; c.fillText("💥",0,8); }
+  c.restore();
+  // hp label
+  c.save(); c.font="bold 12.5px sans-serif"; c.textAlign="center"; c.fillStyle=col;
+  var ly = CFG.layout==="face" ? (p===0? bc.y+BASE_H/2+26 : bc.y-BASE_H/2-16) : bc.y+BASE_H/2+20;
+  c.fillText(playerName(p)+" base: "+Math.max(0,hp)+"/"+max+" hits left", bc.x, ly);
+  c.restore();
+}
+function drawTrace(c,tr){
+  var pc=PLAYER_COLORS[tr.color].hex;
+  c.save();
+  c.globalAlpha = Math.max(0.14, 0.92 - tr.age*0.13);
+  c.strokeStyle=pc; c.lineCap="round"; c.lineJoin="round";
+  c.lineWidth = tr.width;
+  if(tr.dash){ c.setLineDash([3,7]); }
+  c.beginPath();
+  tr.points.forEach(function(pt,i){ i?c.lineTo(pt.x,pt.y):c.moveTo(pt.x,pt.y); });
+  c.stroke(); c.setLineDash([]);
+  c.restore();
+}
+function spawnStickmen(x,y,n){
+  for(var i=0;i<(n||4);i++){
+    var a=Math.random()*6.29;
+    G.stickmen.push({x:x,y:y,vx:Math.cos(a)*(1.4+Math.random()*1.6),vy:Math.sin(a)*(1.4+Math.random()*1.6),t:0,ph:Math.random()*6});
+  }
+  SFX.scurry();
+}
+function spawnBoom(x,y,big){
+  for(var i=0;i<(big?26:12);i++){ var a=Math.random()*6.29, s=1+Math.random()*(big?4:2.4);
+    G.particles.push({x:x,y:y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,t:0,max:26+Math.random()*22,r:2+Math.random()*(big?6:3.4),col:["#e2492f","#e9a13b","#f7e08a","#555"][i%4]}); }
+  G.shake=Math.min(14,(big?12:6));
+}
+function draw(){
+  if(!G) return;
+  ctx.save();
+  if(G.shake>0){ ctx.translate((Math.random()-0.5)*G.shake,(Math.random()-0.5)*G.shake); G.shake*=0.82; if(G.shake<0.4)G.shake=0; }
+  drawPaper(ctx); drawBaseZones(ctx);
+  G.obstacles.forEach(function(o){ drawObstacle(ctx,o); });
+  G.traces.forEach(function(t){ drawTrace(ctx,t); });
+  drawBase(ctx,0); drawBase(ctx,1);
+  for(var p=0;p<2;p++){ G.turrets[p].forEach(function(t){ if(t.alive) drawThing(ctx,t); }); }
+  for(var p2=0;p2<2;p2++){ G.units[p2].forEach(function(u){ if(u.alive) drawThing(ctx,u); }); }
+  // particles
+  G.particles=G.particles.filter(function(pt){ return pt.t<pt.max; });
+  G.particles.forEach(function(pt){ pt.x+=pt.vx; pt.y+=pt.vy; pt.t++;
+    ctx.save(); ctx.globalAlpha=1-pt.t/pt.max; ctx.fillStyle=pt.col; ctx.beginPath(); ctx.arc(pt.x,pt.y,pt.r,0,6.29); ctx.fill(); ctx.restore(); });
+  // stickmen fleeing (comical, unharmed)
+  G.stickmen=G.stickmen.filter(function(s){ return s.t<150 && s.x>-30&&s.x<FW+30&&s.y>-30&&s.y<FH+30; });
+  G.stickmen.forEach(function(s){ s.x+=s.vx; s.y+=s.vy; s.t++;
+    ctx.save(); ctx.translate(s.x,s.y); ctx.strokeStyle="#2b2b33"; ctx.lineWidth=1.8;
+    var run=Math.sin(s.t*0.7+s.ph)*5;
+    ctx.beginPath(); ctx.arc(0,-8,3.4,0,6.29); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0,-5); ctx.lineTo(0,3); ctx.moveTo(0,3); ctx.lineTo(-4+run,10); ctx.moveTo(0,3); ctx.lineTo(4-run,10);
+    ctx.moveTo(0,-2); ctx.lineTo(-6,-8-run*0.4); ctx.moveTo(0,-2); ctx.lineTo(6,-8+run*0.4); ctx.stroke();
+    ctx.font="8px sans-serif"; ctx.fillText("!", 5,-12);
+    ctx.restore(); });
+  // aim preview / editor hints
+  if(input.preview){ drawTrace(ctx,{points:input.preview,color:playerCfg(G.turn).color,width:MEDIUMS[playerCfg(G.turn).medium].w,age:0,dash:true}); }
+  if(G.editor){ drawEditor(ctx); }
+  if(G.lastRoll){ ctx.save(); ctx.font="bold 19px 'Segoe Print',sans-serif"; ctx.textAlign="center";
+    ctx.fillStyle="#fffbe8"; ctx.strokeStyle="#2b2b33"; var tw=ctx.measureText(G.lastRoll.text).width+26;
+    ctx.fillRect(G.lastRoll.x-tw/2, G.lastRoll.y-30, tw, 34); ctx.strokeRect(G.lastRoll.x-tw/2, G.lastRoll.y-30, tw, 34);
+    ctx.fillStyle="#2b2b33"; ctx.fillText(G.lastRoll.text, G.lastRoll.x, G.lastRoll.y-6); ctx.restore(); }
+  ctx.restore();
+  if(G.anim || G.particles.length || G.stickmen.length || G.shake>0 || (G.bases[0].hp===1||G.bases[1].hp===1)){
+    cancelAnimationFrame(rafId); rafId=requestAnimationFrame(draw);
+  }
+}
+
+/* ============================================================
+   GEOMETRY + COLLISION
+   ============================================================ */
+function distPtSeg(px,py,ax,ay,bx,by){
+  var dx=bx-ax, dy=by-ay, L2=dx*dx+dy*dy||1;
+  var t=Math.max(0,Math.min(1,((px-ax)*dx+(py-ay)*dy)/L2));
+  var x=ax+t*dx, y=ay+t*dy;
+  return {d:Math.hypot(px-x,py-y), t:t, x:x, y:y};
+}
+function inForest(pt){ return G.obstacles.some(function(o){ return o.type==="forest" && Math.hypot(pt.x-o.x,pt.y-o.y)<o.r; }); }
+function onHill(pt){ return G.obstacles.some(function(o){ return o.type==="hill" && Math.hypot(pt.x-o.x,pt.y-o.y)<o.r; }); }
+function obstacleAt(pt,pad){ return G.obstacles.filter(function(o){ return Math.hypot(pt.x-o.x,pt.y-o.y) < o.r+(pad||0); })[0]||null; }
+function baseHitAt(pt, owner){ // does pt touch the OTHER base (or own, for full FF checks caller decides)
+  var bc=baseCenter(owner);
+  return Math.abs(pt.x-bc.x)<BASE_W/2+6 && Math.abs(pt.y-bc.y)<BASE_H/2+6;
+}
+function wallBlocks(a,b,owner){
+  if(CFG.theme!=="space"||CFG.spaceBase!=="wall") return false;
+  var bc=baseCenter(owner), d=dirToEnemy(owner), perp={x:-d.y,y:d.x};
+  var wx=bc.x+d.x*(BASE_H+16), wy=bc.y+d.y*(BASE_H+16);
+  // wall segment with door gap of 40px in the middle
+  var seg1=distPtSeg(b.x,b.y, wx-perp.x*BASE_W*0.85, wy-perp.y*BASE_W*0.85, wx-perp.x*20, wy-perp.y*20);
+  var seg2=distPtSeg(b.x,b.y, wx+perp.x*20, wy+perp.y*20, wx+perp.x*BASE_W*0.85, wy+perp.y*BASE_W*0.85);
+  // crude: check if segment a-b crosses the wall line within wall span outside the gap
+  for(var t=0;t<=1;t+=0.05){
+    var px=a.x+(b.x-a.x)*t, py=a.y+(b.y-a.y)*t;
+    var rel={x:px-wx, y:py-wy};
+    var along=rel.x*perp.x+rel.y*perp.y, across=rel.x*d.x+rel.y*d.y;
+    if(Math.abs(across)<7 && Math.abs(along)>20 && Math.abs(along)<BASE_W*0.85) return true;
+  }
+  return false;
+}
+function wrapPoint(pt){
+  var wrapped=false;
+  if(pt.x<0){ pt.x+=FW; wrapped=true; } if(pt.x>FW){ pt.x-=FW; wrapped=true; }
+  if(pt.y<0){ pt.y+=FH; wrapped=true; } if(pt.y>FH){ pt.y-=FH; wrapped=true; }
+  return wrapped;
+}
+function maxLen(thing, action){
+  if(thing.turret) return 430;
+  if(thing.kind==="ship") return action==="move"?330:430;
+  if(thing.kind==="knight") return thing.mounted?350:145;
+  if(thing.kind==="tank"){ if(thing.cls==="heavy") return thing.hp===1?165:(action==="move"?215:300); return action==="move"?340:430; }
+  return 320;
+}
+
+/* ============================================================
+   RESOLVING A FLICK
+   ============================================================ */
+function addTrace(points, owner, medium, shot){
+  var pts=points.slice();
+  if(medium==="crayon"){ // wobble
+    pts=pts.map(function(p,i){ if(i===0||i===pts.length-1) return p; return {x:p.x+(Math.random()-0.5)*7, y:p.y+(Math.random()-0.5)*7}; });
+  }
+  G.traces.forEach(function(t){ t.age++; });
+  G.traces.push({points:pts, color:playerCfg(owner).color, width:MEDIUMS[medium].w, age:0, shot:!!shot});
+  if(G.traces.length>60) G.traces.splice(0, G.traces.length-60);
+}
+function sampleLine(a,b,step){
+  var L=Math.hypot(b.x-a.x,b.y-a.y), n=Math.max(1,Math.ceil(L/(step||5))), pts=[];
+  for(var i=0;i<=n;i++) pts.push({x:a.x+(b.x-a.x)*i/n, y:a.y+(b.y-a.y)*i/n, t:i/n});
+  return pts;
+}
+function damageBase(owner, byPlayer, opts){
+  opts=opts||{};
+  // friendly fire: base safe from owner unless Full
+  if(byPlayer===owner && CFG.friendly!=="full"){ log(playerName(byPlayer)+"'s own base is safe from their own fire (Partial friendly fire)."); return false; }
+  if(CFG.theme==="tanks" && G.bases[owner].armor && !opts.mortar){
+    G.bases[owner].armor=false; SFX.thunk();
+    log("🟨 Sandbags absorb the cannon hit on "+playerName(owner)+"'s bunker! Mortars would have skipped them…");
+    spawnBoom(baseCenter(owner).x, baseCenter(owner).y, false);
+    return true;
+  }
+  var wasShield = CFG.theme==="space" && ((CFG.spaceBase==="forcefield"&&G.bases[owner].hp===3)||(CFG.spaceBase==="extra"&&G.bases[owner].hp>2));
+  G.bases[owner].hp--;
+  if(wasShield){ G.flashShield=owner; SFX.shield(); setTimeout(function(){ G.flashShield=-1; draw(); },450);
+    log("🛡 FORCEFIELD DOWN! "+playerName(owner)+"'s mothership is naked now."); }
+  else if(G.bases[owner].hp===2){ SFX.boom(false); log("💥 Hit! "+playerName(owner)+"'s base is cracked and smoking. (2 hits left)"); }
+  else if(G.bases[owner].hp===1){ SFX.boom(false); log("🔥 Hit! "+playerName(owner)+"'s base is BURNING. One more hit ends it!"); }
+  var bc=baseCenter(owner);
+  spawnBoom(bc.x, bc.y, G.bases[owner].hp<=0);
+  if(G.bases[owner].hp<=0){
+    SFX.boom(true); spawnStickmen(bc.x, bc.y, 6);
+    log("🎉 "+playerName(owner)+"'s base BLOWS UP! The crew escapes, waving their arms. Nobody is hurt — it's paper.");
+    endMatch(1-owner);
+  }
+  return true;
+}
+function killThing(t, why){
+  if(!t.alive) return;
+  t.alive=false; spawnBoom(t.x,t.y,false); SFX.boom(false);
+  if(t.turret){ spawnStickmen(t.x,t.y,3); log("💥 "+thingLabel(t)+" destroyed! Its little crew legs it off the paper."); }
+  else log("💥 "+thingLabel(t)+" ("+playerName(t.owner)+") is crossed out! "+(why||""));
+  checkStalemate();
+}
+function unhorse(k, why){
+  if(!k.mounted) { killThing(k,"Second hit on foot — he's out."); return; }
+  k.mounted=false; SFX.thunk();
+  log("🐴 Unhorsed! "+playerName(k.owner)+"'s knight is on foot — walk him home to his castle to remount. "+(why||""));
+}
+function checkStalemate(){
+  if(G.over) return;
+  for(var p=0;p<2;p++){
+    if(allUnits(p).length===0 && allTurrets(p).length===0 && G.reserve[p]===0){
+      log(playerName(p)+" has no fighters and no turrets left to act with.");
+      endMatch(1-p);
+    }
+  }
+}
+function endMatch(winner){
+  if(G.over) return;
+  G.over=true; G.winner=winner;
+  updateHUD(); draw();
+  setTimeout(function(){
+    document.getElementById("overTitle").textContent = "💥 "+playerName(winner)+" wins!";
+    document.getElementById("overText").textContent = playerName(1-winner)+"'s base went up in a glorious crayon explosion — and every last stick-figure crew member escaped unharmed.";
+    document.getElementById("overModal").classList.add("open");
+  }, 900);
+}
+
+/* ---- MOVE resolution: first intersection only ---- */
+function resolveMove(u, end, vec){
+  var pts=sampleLine({x:u.x,y:u.y}, end, 5);
+  var shooterMedium=playerCfg(u.owner).medium;
+  var travel=pts;
+  // forest / hill slowdown for knights & tanks: shorten effective travel
+  var slowFactor=1;
+  if(u.kind==="knight"&&u.mounted){ for(var i=0;i<pts.length;i++){ if(G.obstacles.some(function(o){return o.type==="forest"&&Math.hypot(pts[i].x-o.x,pts[i].y-o.y)<o.r;})){ slowFactor=0.55; break; } } }
+  if(u.kind==="tank"){ for(var j=0;j<pts.length;j++){ if(onHill(pts[j])){ slowFactor=Math.min(slowFactor,0.6); break; } } }
+  if(slowFactor<1){
+    var keep=Math.max(2,Math.floor(pts.length*slowFactor));
+    travel=pts.slice(0,keep);
+    log((u.kind==="knight"?"🌲 Forest! Mounted movement is halved in the trees.":"⛰ Hill! Climbing eats half the distance."));
+  }
+  var stopAt=travel.length-1, hitSomething=null;
+  for(var s=1;s<travel.length;s++){
+    var pt=travel[s];
+    // own base zone remount (knights)
+    // enemy base
+    if(baseHitAt(pt, 1-u.owner)){ stopAt=s; hitSomething={type:"base", owner:1-u.owner, pt:pt}; break; }
+    if(baseHitAt(pt, u.owner) && u.kind==="knight" && !u.mounted){ stopAt=s; hitSomething={type:"remount", pt:pt}; break; }
+    // wall
+    if(wallBlocks({x:u.x,y:u.y}, pt, 1-u.owner)){ stopAt=s; hitSomething={type:"wall", pt:pt}; break; }
+    // obstacles
+    var ob=obstacleAt(pt, 6);
+    if(ob){ stopAt=s; hitSomething={type:"obstacle", ob:ob, pt:pt}; break; }
+    // fighters
+    var hitU=null;
+    for(var p=0;p<2;p++) for(var q=0;q<G.units[p].length;q++){ var o=G.units[p][q];
+      if(o.alive&&o!==u&&Math.hypot(pt.x-o.x,pt.y-o.y)<24){ hitU=o; break; } if(hitU)break; }
+    if(hitU){ stopAt=s; hitSomething={type:"unit", unit:hitU, pt:pt}; break; }
+    var hitT=null;
+    for(var p2=0;p2<2;p2++) for(var q2=0;q2<G.turrets[p2].length;q2++){ var t2=G.turrets[p2][q2];
+      if(t2.alive&&Math.hypot(pt.x-t2.x,pt.y-t2.y)<20){ hitT=t2; break; } if(hitT)break; }
+    if(hitT){ stopAt=s; hitSomething={type:"turret", unit:hitT, pt:pt}; break; }
+  }
+  var finalPt=travel[stopAt]||{x:u.x,y:u.y};
+  var tracePts=travel.slice(0,stopAt+1).map(function(p){return {x:p.x,y:p.y};});
+  if(tracePts.length<2) tracePts=[{x:u.x,y:u.y},{x:finalPt.x,y:finalPt.y}];
+  addTrace(tracePts, u.owner, shooterMedium, false);
+  SFX.trace(shooterMedium); SFX.flick();
+  var startAngle=u.angle;
+  u.angle=Math.atan2(vec.y,vec.x);
+
+  /* Knights: the move IS the charge */
+  if(u.kind==="knight"){
+    if(hitSomething){
+      if(hitSomething.type==="base"){
+        if(u.mounted){ damageBase(hitSomething.owner, u.owner); unhorse(u,"Charging a castle costs you your horse."); u.x=finalPt.x; u.y=finalPt.y; }
+        else { log("On foot, a knight can't hurt the castle. He bounces off, dignity bruised."); u.x=finalPt.x; u.y=finalPt.y; }
+      } else if(hitSomething.type==="remount"){
+        u.mounted=true; u.x=finalPt.x; u.y=finalPt.y; SFX.pop(); log("🐴 Remounted! Back to full charging strength.");
+      } else if(hitSomething.type==="obstacle"&&hitSomething.ob.type==="rock"){
+        u.x=finalPt.x; u.y=finalPt.y; unhorse(u,"Clanged into a rock.");
+      } else if(hitSomething.type==="obstacle"&&hitSomething.ob.type==="forest"){
+        u.x=finalPt.x; u.y=finalPt.y; log("🌲 Charge ends inside the forest — sheltered here (arrows: only 1-in-4 get through).");
+      } else if(hitSomething.type==="obstacle"){
+        u.x=finalPt.x; u.y=finalPt.y;
+      } else if(hitSomething.type==="unit"){
+        var foe=hitSomething.unit;
+        if(foe.owner===u.owner){ u.x=travel[Math.max(0,stopAt-3)].x; u.y=travel[Math.max(0,stopAt-3)].y; log("Blocked by your own knight — no friendly ramming."); }
+        else if(foe.kind==="knight"){
+          u.x=finalPt.x; u.y=finalPt.y;
+          if(CFG.friendly!=="none"||foe.owner!==u.owner){ if(foe.mounted) unhorse(foe,"Charged by an enemy knight!"); else killThing(foe,"Charged while on foot."); }
+        } else { u.x=finalPt.x; u.y=finalPt.y; }
+      } else if(hitSomething.type==="turret"){
+        if(hitSomething.unit.owner!==u.owner){ killThing(hitSomething.unit,"Charged down!"); u.x=finalPt.x; u.y=finalPt.y; }
+        else { u.x=travel[Math.max(0,stopAt-3)].x; u.y=travel[Math.max(0,stopAt-3)].y; }
+      } else if(hitSomething.type==="wall"){ u.x=finalPt.x; u.y=finalPt.y; log("The wall stops the charge cold."); }
+    } else { u.x=finalPt.x; u.y=finalPt.y; }
+    // remount check if ended touching own castle
+    if(!u.mounted && baseHitAt({x:u.x,y:u.y}, u.owner)){ u.mounted=true; SFX.pop(); log("🐴 Walked home and remounted!"); }
+    afterAction(u, "move");
+    return;
+  }
+
+  /* Space & Tanks moves */
+  if(hitSomething){
+    if(hitSomething.type==="obstacle"){
+      if(u.kind==="tank"&&hitSomething.ob.type==="hill"){ u.x=finalPt.x; u.y=finalPt.y; log("⛰ On the hilltop! Cannon fire from here clears low cover."); }
+      else if(u.kind==="tank"&&hitSomething.ob.type==="ruin"){ killThing(u,"Drove straight into a ruined building."); }
+      else killThing(u,"Flew straight into a "+hitSomething.ob.type+".");
+    } else if(hitSomething.type==="base"){
+      if(u.kind==="ship"){ killThing(u,"Crashed into the enemy mothership. Heroic, but crossed out."); }
+      else { u.x=travel[Math.max(0,stopAt-3)].x; u.y=travel[Math.max(0,stopAt-3)].y; log("Tanks don't ram bases — shoot it!"); }
+    } else if(hitSomething.type==="unit"){
+      var foe2=hitSomething.unit;
+      if(foe2.owner===u.owner){ u.x=travel[Math.max(0,stopAt-3)].x; u.y=travel[Math.max(0,stopAt-3)].y; log("Blocked by your own fighter."); }
+      else if(u.kind==="tank"&&foe2.kind==="tank"){
+        var uw=u.cls==="heavy"?2:1, fw2=foe2.cls==="heavy"?2:1;
+        if(uw>fw2){ killThing(foe2,"Flattened by a heavier tank!"); u.x=end.x; u.y=end.y; log("🚜 Heavier tank wins the ram — it rolls on!"); }
+        else if(fw2>uw){ killThing(u,"Ram a Heavy in a Light tank? Wrecked."); }
+        else { killThing(foe2,"Same-class collision!"); killThing(u,"Same-class collision!"); }
+      } else if(u.kind==="ship"||foe2.kind==="ship"){ killThing(foe2,"Collision!"); killThing(u,"Collision! Both ships are crossed out."); }
+      else { u.x=finalPt.x; u.y=finalPt.y; }
+    } else if(hitSomething.type==="turret"){
+      if(hitSomething.unit.owner!==u.owner && u.kind==="ship"){ killThing(hitSomething.unit,"Ship crashed through it!"); killThing(u,"Crashed into a turret."); }
+      else { u.x=travel[Math.max(0,stopAt-3)].x; u.y=travel[Math.max(0,stopAt-3)].y; log("Blocked by a turret."); }
+    } else if(hitSomething.type==="wall"){ killThing(u,"Splat. The wall has no door there."); }
+  } else {
+    // edge handling at final point
+    if(finalPt.x<=2||finalPt.x>=FW-2||finalPt.y<=2||finalPt.y>=FH-2){
+      if(CFG.edge==="off"){ killThing(u,"Flew off the page!"); draw(); return; }
+      if(CFG.edge==="wrap"&&CFG.theme==="space"){ var wp={x:finalPt.x,y:finalPt.y}; wrapPoint(wp); u.x=wp.x; u.y=wp.y; log("🌀 Wrapped around the edge of space!"); }
+      else { u.x=Math.max(16,Math.min(FW-16,finalPt.x)); u.y=Math.max(16,Math.min(FH-16,finalPt.y)); }
+    } else { u.x=finalPt.x; u.y=finalPt.y; }
+  }
+  if(u.alive && u.kind==="tank") u.onHill=onHill(u);
+  afterAction(u,"move");
+}
+
+/* ---- SHOT resolution: all intersections count ---- */
+function resolveShot(shooter, end, vec){
+  var owner=shooter.owner, medium=playerCfg(owner).medium;
+  var start={x:shooter.x,y:shooter.y};
+  /* Heavy Mortar: only the landing point matters */
+  if(shooter.kind==="tank"&&shooter.cls==="heavy"&&!shooter.turret){
+    SFX.whistle();
+    addTrace([start,{x:(start.x+end.x)/2,y:Math.min(start.y,end.y)-70},end], owner, medium, true);
+    setTimeout(function(){
+      var R=40; spawnBoom(end.x,end.y,false); SFX.boom(false);
+      for(var p=0;p<2;p++) G.units[p].forEach(function(o){ if(o.alive&&Math.hypot(o.x-end.x,o.y-end.y)<R+16){ hitFighter(o, owner, {mortar:true}); } });
+      for(var p2=0;p2<2;p2++) G.turrets[p2].forEach(function(t){ if(t.alive&&Math.hypot(t.x-end.x,t.y-end.y)<R+12) killThing(t,"Mortar landed right on it!"); });
+      if(baseHitAt(end,1-owner)||Math.hypot(end.x-baseCenter(1-owner).x,end.y-baseCenter(1-owner).y)<R+BASE_W/2) damageBase(1-owner, owner, {mortar:true});
+      if(CFG.friendly==="full"&&Math.hypot(end.x-baseCenter(owner).x,end.y-baseCenter(owner).y)<R+BASE_W/2) damageBase(owner, owner, {mortar:true});
+      draw(); afterAction(shooter,"shoot");
+    }, 420);
+    draw(); return;
+  }
+  var pts=sampleLine(start,end,5);
+  var isArrow = shooter.turret&&CFG.theme==="knights";
+  if(isArrow) SFX.twang(); else SFX.trace(medium);
+  var stopped=false, carved=new Set();
+  var tracePts=[start];
+  for(var s=1;s<pts.length&&!stopped;s++){
+    var pt=pts[s]; tracePts.push({x:pt.x,y:pt.y});
+    // wrap for space shots
+    if(CFG.edge==="wrap"&&CFG.theme==="space"&&(pt.x<0||pt.x>FW||pt.y<0||pt.y>FH)){ var wp={x:pt.x,y:pt.y}; wrapPoint(wp); pt.x=wp.x; pt.y=wp.y; }
+    // base
+    for(var bp=0;bp<2;bp++){
+      if(baseHitAt(pt,bp)){
+        if(bp===owner && CFG.friendly!=="full"){ /* passes over own base harmlessly unless full */ }
+        else if(wallBlocks(start,pt,bp)){ stopped=true; log("The wall blocks the shot — thread the door gap!"); }
+        else { damageBase(bp, owner, {}); }
+        if(bp!==owner) stopped = (CFG.obstacle!=="tunnel"); // a base hit always ends a normal shot narratively; tunneling shots in space may continue past fighters but base hit ends it
+        if(bp!==owner) stopped=true;
+        break;
+      }
+    }
+    if(stopped) break;
+    // wall (non-base line)
+    if(wallBlocks(start,pt,1-owner)){ stopped=true; log("Thunk — the wall eats the shot."); break; }
+    // obstacles
+    var ob=obstacleAt(pt,2);
+    if(ob){
+      if(CFG.theme==="knights"&&ob.type==="forest"){
+        // entering forest: 1-in-4 gets through (roll once per forest per shot)
+        if(!carved.has(ob)){
+          carved.add(ob);
+          var roll=1+Math.floor(Math.random()*4);
+          if(roll!==1){ G.lastRoll={x:pt.x,y:pt.y,text:"🎲 rolled "+roll+" — arrow sticks in a tree! 🌲"}; setTimeout(function(){G.lastRoll=null;draw();},1600);
+            log("🌲 Arrow into the forest: rolled "+roll+". Only a 1 gets through — it thunks into a trunk."); stopped=true; break; }
+          else { G.lastRoll={x:pt.x,y:pt.y,text:"🎲 rolled 1 — it gets through! 🍀"}; setTimeout(function(){G.lastRoll=null;draw();},1600);
+            log("🍀 LUCKY! Rolled a 1 — the arrow threads the forest!"); }
+        }
+      } else if(CFG.theme==="knights"&&ob.type==="rock"){ stopped=true; log("Arrow stops at the rock."); break; }
+      else if(CFG.theme==="tanks"&&(ob.type==="ruin"||ob.type==="hill")){
+        if(shooter.kind==="tank"&&onHill(shooter)&&ob.type==="ruin"){ /* high ground fires over low cover */ }
+        else { stopped=true; log(ob.type==="hill"?"The shell smacks into the hill.":"The shell is blocked by the ruined building."); break; }
+      }
+      else { // space asteroids / generic
+        if(CFG.obstacle==="tunnel"){
+          if(!carved.has(ob)){ carved.add(ob); ob.carved=Math.min(1,(ob.carved||0)+0.5);
+            if(ob.carved>=1 && ob.r<=40){ G.obstacles.splice(G.obstacles.indexOf(ob),1); log("🕳 Shot tunnels through and the small asteroid is erased!"); }
+            else log("🕳 Shot tunnels through the asteroid, carving a hole — and keeps going!"); }
+        } else if(CFG.obstacle==="block"){ stopped=true; log("Shot blocked by the "+ob.type+"."); break; }
+        else if(CFG.obstacle==="destroy"){ G.obstacles.splice(G.obstacles.indexOf(ob),1); spawnBoom(ob.x,ob.y,false); log("💥 Shot destroys the "+ob.type+"!"); stopped=true; break; }
+      }
+    }
+    // fighters & turrets along the path (all intersections count)
+    for(var p3=0;p3<2;p3++){
+      G.units[p3].forEach(function(o){
+        if(o.alive && Math.hypot(pt.x-o.x,pt.y-o.y) < 20 + MEDIUMS[medium].w){
+          if(o.owner===owner && CFG.friendly==="none") return;
+          if(o.owner===owner && CFG.friendly==="partial"||o.owner!==owner||CFG.friendly==="full") hitFighter(o, owner, {});
+        }
+      });
+      G.turrets[p3].forEach(function(t){
+        if(t.alive && t!==shooter && Math.hypot(pt.x-t.x,pt.y-t.y) < 17 + MEDIUMS[medium].w){
+          if(t.owner===owner && CFG.friendly==="none") return;
+          killThing(t, isArrow?"An arrow finds it!":"Shot clean through!");
+        }
+      });
+    }
+  }
+  addTrace(tracePts, owner, medium, true);
+  afterAction(shooter,"shoot");
+}
+function hitFighter(o, byPlayer, opts){
+  if(!o.alive) return;
+  if(CFG.theme==="knights"&&o.kind==="knight"){
+    // forest shelter for arrows
+    if(inForest(o)&&!opts.mortar){
+      var roll=1+Math.floor(Math.random()*4);
+      if(roll!==1){ log("🌲 The shot enters the forest — rolled "+roll+", trees eat it. The knight is sheltered."); return; }
+      log("🍀 Rolled a 1 — a lucky shot gets through the forest!");
+    }
+    if(o.mounted) unhorse(o,"Struck by an arrow!"); else killThing(o,"Hit while on foot — out.");
+    return;
+  }
+  if(o.kind==="tank"&&o.cls==="heavy"){
+    o.hp--; if(o.hp<=0) killThing(o,"Second hit — the Heavy is wrecked.");
+    else { SFX.boom(false); spawnBoom(o.x,o.y,false); log("💥 Heavy tank hit! It's smoking and slower now. One more finishes it."); }
+    return;
+  }
+  if(o.kind==="ship"&&CFG.shipHp===2){
+    o.hp--; if(o.hp<=0) killThing(o,"Second hit — ship destroyed."); else { spawnBoom(o.x,o.y,false); log("💥 Ship damaged! Smoke trailing — one more hit destroys it."); }
+    return;
+  }
+  killThing(o,"Direct hit!");
+}
+
+/* ---- turn flow ---- */
+function afterAction(thing, action){
+  draw(); updateHUD();
+  if(G.over) return;
+  coachOnAction(action);
+  if(CFG.turnStructure==="fast" && G.fastPhase==="move" && action==="move" && !thing.turret && thing.alive){
+    G.fastPhase="shoot"; setAction("shoot");
+    log("Fast Battle: now the shot! Flick again from the same fighter (or End Turn).");
+    updateHUD(); return;
+  }
+  if(CFG.turnStructure==="ramming"){ /* move already attacked */ }
+  endTurn();
+}
+function setAction(a){
+  G.action=a;
+  document.querySelectorAll("#actionSeg button").forEach(function(b){ b.classList.toggle("on", b.dataset.act===a); });
+  document.getElementById("actionHelp").textContent =
+    CFG.turnStructure==="fast" ? (G&&G.fastPhase==="shoot"?"Fast Battle: shot phase.":"Fast Battle: move phase first, then shoot.") :
+    CFG.turnStructure==="ramming" ? "Ramming: your Move flick also attacks everything it crosses." :
+    "Classic: one flick — move or shoot.";
+}
+document.querySelectorAll("#actionSeg button").forEach(function(b){
+  b.addEventListener("click", function(){ if(G) setAction(b.dataset.act); });
+});
+function autoTurrets(p){
+  if(CFG.defense!=="auto"||G.over) return;
+  allTurrets(p).forEach(function(t){
+    var foes=allUnits(1-p); if(!foes.length) return;
+    foes.sort(function(a,b){ return Math.hypot(a.x-t.x,a.y-t.y)-Math.hypot(b.x-t.x,b.y-t.y); });
+    var f=foes[0], d=Math.hypot(f.x-t.x,f.y-t.y);
+    if(d<330){ log("🤖 Auto-"+thingLabel(t).toLowerCase()+" fires at the nearest enemy!");
+      var err=(Math.random()-0.5)*0.3, ang=Math.atan2(f.y-t.y,f.x-t.x)+err;
+      resolveShotSilent(t, {x:t.x+Math.cos(ang)*d, y:t.y+Math.sin(ang)*d}, {x:Math.cos(ang),y:Math.sin(ang)});
+    }
+  });
+}
+function resolveShotSilent(t,end,vec){
+  // lightweight: reuse resolveShot but without ending the turn twice — handled by flag
+  var keep=G._noEnd; G._noEnd=true; resolveShot(t,end,vec); G._noEnd=keep;
+}
+var _origAfter=afterAction;
+afterAction=function(thing,action){
+  if(G._noEnd){ draw(); updateHUD(); return; }
+  _origAfter(thing,action);
+};
+function endTurn(){
+  if(G.over) return;
+  var prev=G.turn;
+  autoTurrets(prev);
+  if(G.over) return;
+  G.turn=1-G.turn; G.fastPhase="move"; setAction("move"); G.selected=null;
+  G.traces.forEach(function(t){ /* ages already advance per trace drawn */ });
+  updateHUD(); draw();
+  if(CFG.mode==="2p"){
+    showPass();
+  } else if(G.turn===1){
+    setTimeout(cpuTurn, 1000);
+  }
+}
+function showPass(){
+  var m=document.getElementById("passModal");
+  document.getElementById("passTitle").textContent="Pass the device to "+playerName(G.turn)+"!";
+  document.getElementById("passText").textContent=playerName(G.turn)+" plays in "+PLAYER_COLORS[playerCfg(G.turn).color].name+", flicking a "+playerCfg(G.turn).flicker+" and drawing with a "+playerCfg(G.turn).medium+". No peeking at secret plans — there are none, it's paper.";
+  m.classList.add("open");
+}
+document.getElementById("passOk").addEventListener("click", function(){ audioInit(); document.getElementById("passModal").classList.remove("open"); });
+document.getElementById("btnEndTurn").addEventListener("click", function(){ if(G&&!G.over&&(CFG.mode==="2p"||G.turn===0)) endTurn(); });
+document.getElementById("btnLaunch").addEventListener("click", function(){
+  if(!G||G.over) return; var p=G.turn;
+  if(G.reserve[p]<=0){ log("No fighters left in reserve."); return; }
+  // also allow reinforcements after losses
+  var canLaunch = CFG.deployment==="launchbay" ? G.reserve[p]>0 : (CFG.deployment==="reinforce" && allUnits(p).length<CFG.fighterCount);
+  if(!canLaunch){ log("Reinforcements: you can only launch when you're below your starting count."); return; }
+  G.reserve[p]--;
+  var bc=baseCenter(p), d=dirToEnemy(p);
+  var nu={ id:p+"-r"+Date.now(), owner:p, x:bc.x+d.x*(BASE_H+58), y:bc.y+d.y*(BASE_H+58), angle:Math.atan2(d.y,d.x), alive:true,
+    kind:CFG.theme==="space"?"ship":CFG.theme==="knights"?"knight":"tank", cls:CFG.theme==="tanks"?"light":null, hp:CFG.theme==="space"?CFG.shipHp:1, mounted:true };
+  G.units[p].push(nu);
+  log("🚀 "+playerName(p)+" launches a fresh "+thingLabel(nu)+" from the base!");
+  SFX.pop(); endTurn();
+});
+
+/* ============================================================
+   CPU
+   ============================================================ */
+function cpuTurn(){
+  if(!G||G.over||G.turn!==1) return;
+  var err = CFG.cpuDiff==="recess"?0.34 : CFG.cpuDiff==="study"?0.07 : 0.18;
+  var p=1, myUnits=allUnits(p), myTurrets=allTurrets(p);
+  var foeBase=baseCenter(0);
+  function aimAt(from, tx, ty, wobble){
+    var ang=Math.atan2(ty-from.y, tx-from.x)+(Math.random()-0.5)*2*(wobble||err);
+    return ang;
+  }
+  function flick(thing, ang, len, action){
+    G.selected=thing.id;
+    var end={x:thing.x+Math.cos(ang)*len, y:thing.y+Math.sin(ang)*len};
+    // animate a ghost preview trace for readability
+    G.anim={thing:thing, end:end};
+    setTimeout(function(){
+      G.anim=null;
+      if(action==="shoot") resolveShot(thing, end, {x:Math.cos(ang),y:Math.sin(ang)});
+      else resolveMove(thing, end, {x:Math.cos(ang),y:Math.sin(ang)});
+    }, 550);
+    draw();
+  }
+  // Launch Bay / Reinforcements: sometimes launch
+  if(G.reserve[p]>0 && CFG.deployment!=="all" && Math.random()<0.4){ document.getElementById("btnLaunch").click(); return; }
+  if(CFG.theme==="knights"){
+    var mounted=myUnits.filter(function(u){return u.mounted;});
+    var foot=myUnits.filter(function(u){return !u.mounted;});
+    if(foot.length && Math.random()<0.75){ // walk home to remount (personality)
+      var f0=foot[0], home=baseCenter(p);
+      flick(f0, aimAt(f0, home.x, home.y), Math.min(maxLen(f0,"move"), Math.hypot(home.x-f0.x,home.y-f0.y)+10), "move"); return;
+    }
+    if(mounted.length){
+      var k=mounted[Math.floor(Math.random()*mounted.length)];
+      var targetBase = Math.random()<0.7;
+      var tx=targetBase?foeBase.x: (allUnits(0)[0]?allUnits(0)[0].x:foeBase.x);
+      var ty=targetBase?foeBase.y: (allUnits(0)[0]?allUnits(0)[0].y:foeBase.y);
+      flick(k, aimAt(k,tx,ty), maxLen(k,"move"), "move"); return;
+    }
+    if(myTurrets.length && allUnits(0).length){ var t0=myTurrets[0], f1=allUnits(0)[0];
+      flick(t0, aimAt(t0,f1.x,f1.y), Math.min(430,Math.hypot(f1.x-t0.x,f1.y-t0.y)+8), "shoot"); return; }
+  }
+  if(CFG.theme==="tanks"){
+    var heavies=myUnits.filter(function(u){return u.cls==="heavy";});
+    var lights=myUnits.filter(function(u){return u.cls!=="heavy";});
+    if(heavies.length){
+      var hv=heavies[0], dBase=Math.hypot(foeBase.x-hv.x, foeBase.y-hv.y);
+      if(dBase<330 && Math.random()<0.8){ flick(hv, aimAt(hv,foeBase.x,foeBase.y), dBase, "shoot"); return; }
+      if(Math.random()<0.5){ var hill=G.obstacles.filter(function(o){return o.type==="hill";})[0];
+        var tgt=hill||foeBase; flick(hv, aimAt(hv,tgt.x,tgt.y), maxLen(hv,"move"), "move"); return; }
+    }
+    if(lights.length){
+      var lt=lights[Math.floor(Math.random()*lights.length)], d2=Math.hypot(foeBase.x-lt.x,foeBase.y-lt.y);
+      if(d2<400 && Math.random()<0.65){ flick(lt, aimAt(lt,foeBase.x,foeBase.y), d2, "shoot"); return; }
+      var hill2=G.obstacles.filter(function(o){return o.type==="hill";})[0];
+      var tgt2=(Math.random()<0.5&&hill2)?hill2:foeBase;
+      flick(lt, aimAt(lt,tgt2.x,tgt2.y), maxLen(lt,"move")*(0.7+Math.random()*0.3), "move"); return;
+    }
+    if(myTurrets.length){ var ct=myTurrets[0], cf=allUnits(0)[0]||foeBase; flick(ct, aimAt(ct,cf.x,cf.y), Math.min(430,Math.hypot(cf.x-ct.x,cf.y-ct.y)+8), "shoot"); return; }
+  }
+  // Space (and fallback)
+  var ships=myUnits;
+  if(ships.length){
+    var sh=ships[Math.floor(Math.random()*ships.length)];
+    var dB=Math.hypot(foeBase.x-sh.x, foeBase.y-sh.y);
+    var shootChance = CFG.cpuDiff==="study"?0.75:0.55;
+    if(dB<420 && Math.random()<shootChance){
+      var ang=aimAt(sh, foeBase.x, foeBase.y);
+      // wrap-happy personality: sometimes shoot off the side edge on purpose
+      if(Math.random()<0.18){ ang = Math.random()<0.5? 0.15 : Math.PI-0.15; log("🌀 CPU tries a wrap trick shot!"); }
+      flick(sh, ang, Math.min(maxLen(sh,"shoot"), dB+10), "shoot"); return;
+    }
+    var adv=dirToEnemy(p);
+    var ang2=Math.atan2(adv.y,adv.x)+(Math.random()-0.5)*0.8;
+    flick(sh, ang2, maxLen(sh,"move")*(0.65+Math.random()*0.35), "move"); return;
+  }
+  if(myTurrets.length){ var tt=myTurrets[0], tf=allUnits(0)[0]||foeBase;
+    flick(tt, aimAt(tt,tf.x,tf.y), Math.min(430,Math.hypot(tf.x-tt.x,tf.y-tt.y)+8), "shoot"); return; }
+  // nothing to do
+  checkStalemate(); if(!G.over) endTurn();
+}
+
+/* ============================================================
+   INPUT — three flick control schemes
+   ============================================================ */
+var input={down:false, sx:0, sy:0, x:0, y:0, t:0, thing:null, preview:null, path:[]};
+function toLogical(e, canvas){
+  var r=canvas.getBoundingClientRect();
+  return { x:(e.clientX-r.left)*(canvas.width/r.width), y:(e.clientY-r.top)*(canvas.height/r.height) };
+}
+function pickThing(pt, p){
+  var best=null, bd=40;
+  G.units[p].concat(G.turrets[p]).forEach(function(t){
+    if(!t.alive) return;
+    var d=Math.hypot(t.x-pt.x,t.y-pt.y); if(d<bd){ bd=d; best=t; }
+  });
+  return best;
+}
+function setupPointer(canvas, opts){
+  canvas.addEventListener("pointerdown", function(e){
+    audioInit();
+    var pt=toLogical(e, canvas);
+    opts.down(pt, e);
+    canvas.setPointerCapture && canvas.setPointerCapture(e.pointerId);
+  });
+  canvas.addEventListener("pointermove", function(e){ opts.move(toLogical(e,canvas), e); });
+  canvas.addEventListener("pointerup", function(e){ opts.up(toLogical(e,canvas), e); });
+  canvas.addEventListener("pointercancel", function(){ opts.cancel && opts.cancel(); });
+}
+setupPointer(cv, {
+  down: function(pt){
+    if(!G||G.over) return;
+    if(G.editor){ editorDown(pt); return; }
+    if(CFG.mode==="1p"&&G.turn===1) return;
+    var t=pickThing(pt, G.turn);
+    if(t){ G.selected=t.id; input.thing=t; input.down=true; input.sx=pt.x; input.sy=pt.y; input.x=pt.x; input.y=pt.y; input.t=performance.now(); input.path=[pt]; updateHUD(); draw(); }
+  },
+  move: function(pt){
+    if(G&&G.editor){ editorMove(pt); return; }
+    if(!input.down||!input.thing) return;
+    input.x=pt.x; input.y=pt.y; input.path.push(pt);
+    var t=input.thing;
+    if(CFG.control==="aimed"){
+      var dx=pt.x-t.x, dy=pt.y-t.y, L=Math.hypot(dx,dy), cap=maxLen(t, effectiveAction(t));
+      var cl=Math.min(L,cap);
+      if(L>1) input.preview=[{x:t.x,y:t.y},{x:t.x+dx/L*cl, y:t.y+dy/L*cl}];
+    } else if(CFG.control==="hybrid"){
+      var dx2=pt.x-t.x, dy2=pt.y-t.y, L2=Math.hypot(dx2,dy2);
+      if(L2>4) input.preview=[{x:t.x,y:t.y},{x:t.x+dx2/L2*46, y:t.y+dy2/L2*46}];
+    }
+    draw();
+  },
+  up: function(pt){
+    if(G&&G.editor){ editorUp(pt); return; }
+    if(!input.down||!input.thing) return;
+    var t=input.thing; input.down=false; input.preview=null;
+    var act=effectiveAction(t);
+    var vec, len;
+    if(CFG.control==="aimed"){
+      vec={x:pt.x-t.x, y:pt.y-t.y}; len=Math.hypot(vec.x,vec.y);
+      if(len<14){ draw(); return; }
+      len=Math.min(len, maxLen(t,act));
+    } else {
+      // True Flick & Hybrid: power from swipe speed
+      var dt=Math.max(30, performance.now()-input.t);
+      var dx=pt.x-input.sx, dy=pt.y-input.sy; var swipe=Math.hypot(dx,dy);
+      if(swipe<12){ draw(); return; }
+      var speed=swipe/dt; // px per ms
+      len=Math.min(maxLen(t,act), 60+speed*230);
+      if(t.kind==="knight"&&!t.mounted) len=Math.min(len, maxLen(t,act));
+      vec={x:dx,y:dy};
+      // flicker feel: pen is steadier than pencil
+      var scat = playerCfg(G.turn).flicker==="pen"?0.02:0.05;
+      var a=Math.atan2(vec.y,vec.x)+(Math.random()-0.5)*scat*2;
+      vec={x:Math.cos(a),y:Math.sin(a)};
+      var endPt={x:t.x+vec.x*len, y:t.y+vec.y*len};
+      doAction(t, act, endPt, vec); draw(); return;
+    }
+    var L2=Math.hypot(vec.x,vec.y)||1; var dir={x:vec.x/L2,y:vec.y/L2};
+    doAction(t, act, {x:t.x+dir.x*len, y:t.y+dir.y*len}, dir);
+    draw();
+  },
+  cancel: function(){ input.down=false; input.preview=null; if(G) draw(); }
+});
+function effectiveAction(t){
+  if(t.turret) return "shoot";
+  if(CFG.theme==="knights") return "move"; // charge
+  if(CFG.turnStructure==="ramming") return "move";
+  if(CFG.turnStructure==="fast") return G.fastPhase;
+  return G.action;
+}
+function doAction(t, act, end, dir){
+  if(G.over) return;
+  // Ramming preset: a move whose path crosses enemies also damages them
+  if(act==="move"){ resolveMove(t, end, dir); if(CFG.turnStructure==="ramming") rammingHits(t,end); return; }
+  resolveShot(t, end, dir);
+}
+function rammingHits(mover, end){
+  // handled inside resolveMove for knights; for space/tanks the move collision already resolved first contact.
+}
+
+/* ============================================================
+   BATTLEFIELD EDITOR (stamps & freehand)
+   ============================================================ */
+function startEditor(){
+  G.editor={ mode:CFG.battlefield, stampType: defaultStampType(), stampSize:44, drawing:null, pts:[] };
+  document.getElementById("hintLine").innerHTML =
+    CFG.battlefield==="stamps" ? "🔷 <b>Setup mode:</b> pick a stamp below the paper, tap the middle zone to place it. Tap a placed stamp to rotate it. When happy, press <b>Done — start!</b>" :
+    "✍️ <b>Setup mode:</b> draw closed shapes in the middle zone — they fill in as obstacles. Press <b>Done — start!</b> when happy.";
+  showEditorBar();
+  draw();
+}
+function defaultStampType(){ return CFG.theme==="space"?"asteroid":CFG.theme==="knights"?"forest":"hill"; }
+function showEditorBar(){
+  var bar=document.getElementById("editorBar");
+  if(bar) bar.remove();
+  bar=document.createElement("div"); bar.id="editorBar"; bar.className="card"; bar.style.marginTop="10px";
+  if(CFG.battlefield==="stamps"){
+    var types = CFG.theme==="space"?[["asteroid","☄️ Asteroid"]] : CFG.theme==="knights"?[["forest","🌲 Forest"],["rock","🪨 Rock"]] : [["hill","⛰ Hill"],["ruin","🏚 Ruin"]];
+    var html="<b>Stamp:</b> ";
+    bar.innerHTML=html;
+    types.forEach(function(tp){
+      var b=document.createElement("button"); b.className="btn small"+(G.editor.stampType===tp[0]?" gold":""); b.textContent=tp[1];
+      b.addEventListener("click", function(){ G.editor.stampType=tp[0]; showEditorBar(); });
+      bar.appendChild(b); bar.appendChild(document.createTextNode(" "));
+    });
+    var sz=document.createElement("span"); sz.innerHTML=" Size: "; bar.appendChild(sz);
+    [32,44,58].forEach(function(s){ var b2=document.createElement("button"); b2.className="btn small"+(G.editor.stampSize===s?" gold":""); b2.textContent=s;
+      b2.addEventListener("click", function(){ G.editor.stampSize=s; showEditorBar(); }); bar.appendChild(b2); bar.appendChild(document.createTextNode(" ")); });
+  } else {
+    bar.innerHTML="<b>Freehand:</b> draw a closed blob (roughly round, at least a coin across). It becomes a "+(CFG.theme==="space"?"asteroid":CFG.theme==="knights"?"forest":"hill")+". Budget: up to 8 obstacles, middle zone only, no overlaps.";
+  }
+  var clear=document.createElement("button"); clear.className="btn small"; clear.textContent="🗑 Clear field";
+  clear.addEventListener("click", function(){ G.obstacles=[]; draw(); });
+  var done=document.createElement("button"); done.className="btn small primary"; done.textContent="Done — start! →"; done.style.marginLeft="8px";
+  done.addEventListener("click", finishEditor);
+  bar.appendChild(clear); bar.appendChild(done);
+  document.getElementById("boardCol").appendChild(bar);
+}
+function drawEditor(c){
+  var mz=midZone();
+  c.save(); c.strokeStyle="rgba(226,73,47,.7)"; c.setLineDash([8,6]); c.lineWidth=2;
+  c.strokeRect(mz.x,mz.y,mz.w,mz.h); c.setLineDash([]);
+  c.font="bold 13px sans-serif"; c.fillStyle="rgba(226,73,47,.8)"; c.textAlign="center";
+  c.fillText("MIDDLE ZONE — obstacles live here only", mz.x+mz.w/2, mz.y-8);
+  if(G.editor.pts&&G.editor.pts.length>1){ c.strokeStyle=PLAYER_COLORS[playerCfg(0).color].hex; c.lineWidth=MEDIUMS[CFG.p1.medium].w;
+    c.beginPath(); G.editor.pts.forEach(function(p,i){ i?c.lineTo(p.x,p.y):c.moveTo(p.x,p.y); }); c.stroke(); }
+  c.restore();
+}
+function inMid(pt){ var mz=midZone(); return pt.x>mz.x&&pt.x<mz.x+mz.w&&pt.y>mz.y&&pt.y<mz.y+mz.h; }
+function overlaps(x,y,r){ return G.obstacles.some(function(o){ return Math.hypot(o.x-x,o.y-y) < o.r+r+8; }); }
+function editorDown(pt){
+  if(CFG.battlefield==="stamps"){
+    var hit=G.obstacles.filter(function(o){ return Math.hypot(o.x-pt.x,o.y-pt.y)<o.r; })[0];
+    if(hit){ hit.rot=(hit.rot||0)+0.5; draw(); return; }
+    if(!inMid(pt)){ log("Stamps go in the middle zone only — keeps both base zones fair."); return; }
+    if(G.obstacles.length>=9){ log("Budget reached: 9 obstacles max."); return; }
+    if(overlaps(pt.x,pt.y,G.editor.stampSize)){ log("No overlapping obstacles."); return; }
+    G.obstacles.push({type:G.editor.stampType,x:pt.x,y:pt.y,r:G.editor.stampSize,rot:0,hp:999,carved:0});
+    SFX.pop(); draw();
+  } else { G.editor.drawing=true; G.editor.pts=[pt]; }
+}
+function editorMove(pt){ if(G.editor&&G.editor.drawing){ G.editor.pts.push(pt); draw(); } }
+function editorUp(pt){
+  if(!G.editor||!G.editor.drawing) return;
+  G.editor.drawing=false;
+  var pts=G.editor.pts; G.editor.pts=[];
+  if(pts.length<8){ draw(); return; }
+  var cx=0,cy=0; pts.forEach(function(p){cx+=p.x;cy+=p.y;}); cx/=pts.length; cy/=pts.length;
+  var r=0; pts.forEach(function(p){ r=Math.max(r,Math.hypot(p.x-cx,p.y-cy)); });
+  if(r<20){ log("Too small — draw a bigger closed shape."); draw(); return; }
+  if(r>78){ log("Too big — obstacle budget caps the size (fair sheets only!)."); draw(); return; }
+  if(!inMid({x:cx,y:cy})){ log("Freehand obstacles go in the middle zone only."); draw(); return; }
+  if(G.obstacles.length>=8){ log("Budget reached: 8 obstacles max."); draw(); return; }
+  if(overlaps(cx,cy,r)){ log("No overlapping obstacles."); draw(); return; }
+  var type=CFG.theme==="space"?"asteroid":CFG.theme==="knights"?(Math.random()<0.6?"forest":"rock"):"hill";
+  G.obstacles.push({type:type,x:cx,y:cy,r:r,rot:0,hp:999,carved:0});
+  SFX.pop(); log("✍️ Your drawing becomes a "+type+"!");
+  draw();
+}
+function finishEditor(){
+  var bar=document.getElementById("editorBar"); if(bar) bar.remove();
+  G.editor=null;
+  log("Battlefield set! "+playerName(G.turn)+" to move.");
+  updateHUD(); draw();
+  if(SETTINGS.tutorialSeen===false && CFG.mode==="1p") startCoach();
+  if(CFG.mode==="1p"&&G.turn===1) setTimeout(cpuTurn,1200);
+}
+
+/* ============================================================
+   GUIDED FIRST MATCH (margin coach)
+   ============================================================ */
+var coachActive=false, coachStep=0;
+var COACH_LINES=[];
+function startCoach(){
+  COACH_LINES=[
+    "Hi! I'm your margin coach. ✎ First flick: tap one of your fighters at your end, then "+(CFG.control==="aimed"?"drag away from it and let go":"flick outward from it")+" to MOVE. Try it!",
+    "Nice! Moving draws a trace — traces stay and fade, and they never block anything. Next: "+(CFG.theme==="knights"?"knights can't shoot — CHARGE is move + attack in one.":"pick Shoot up top, tap a fighter, and flick a SHOT at something."),
+    CFG.theme==="space" ? "Space secret: shots TUNNEL through asteroids, carving holes. And the mothership's forcefield is just hit 1 of 3 — pop it early!" :
+    CFG.theme==="knights" ? "Knights secret: charge the castle and you score a hit — but the impact unhorses you. Then it's a brave walk home through arrow range to remount." :
+    "Tanks secret: Heavy Mortars lob OVER hills and ruins and skip the bunker's sandbags entirely. Light Cannons are fast but blocked by cover — unless you're on a hilltop!",
+    "Last thing: the enemy base falls in 3 hits. You never have to mop up their fighters. Now go win it — I'll be in the margin if you need me. (How to Play has the full rules.)"
+  ];
+  coachActive=true; coachStep=0; showCoach();
+}
+function showCoach(){
+  var c=document.getElementById("coach");
+  if(!coachActive||coachStep>=COACH_LINES.length){ c.style.display="none"; coachActive=false;
+    SETTINGS.tutorialSeen=true; saveSettings(); return; }
+  document.getElementById("coachText").textContent=COACH_LINES[coachStep];
+  c.style.display="block";
+}
+function coachOnAction(action){
+  if(!coachActive) return;
+  if(coachStep===0&&action==="move"){ coachStep=1; showCoach(); }
+  else if(coachStep===1&&(action==="shoot"||CFG.theme==="knights")){ coachStep=2; showCoach(); }
+}
+document.getElementById("coachNext").addEventListener("click", function(){ coachStep++; if(coachStep>=2&&CFG.theme!=="knights"){ /* let actions advance 0/1; button advances the rest */ } showCoach(); });
+document.getElementById("coachSkip").addEventListener("click", function(){ coachActive=false; document.getElementById("coach").style.display="none"; SETTINGS.tutorialSeen=true; saveSettings(); });
+
+/* ============================================================
+   MATCH START / NAV
+   ============================================================ */
+function showView(id){
+  ["viewSetup","viewGame","viewPractice"].forEach(function(v){ document.getElementById(v).style.display = v===id?"block":"none"; });
+  window.scrollTo(0,0);
+}
+function startMatch(){
+  audioInit();
+  showView("viewGame");
+  var needEditor = (CFG.battlefield==="stamps"||CFG.battlefield==="freehand");
+  newGame(needEditor?[]:undefined);
+  setAction("move");
+  document.getElementById("logBox").innerHTML="";
+  log("✏️ "+CFG.theme.toUpperCase()+" battle on "+PAPERS.filter(function(x){return x.id===CFG.paper;})[0].label+". Base footprint is capped and identical for both sides — the fight is won in the middle of the page.");
+  if(needEditor){ startEditor(); }
+  else {
+    if(!SETTINGS.tutorialSeen && CFG.mode==="1p"){ startCoach(); }
+    if(CFG.mode==="1p"&&G.turn===1){ setTimeout(cpuTurn,1200); }
+  }
+  updateHUD(); draw();
+}
+document.getElementById("btnQuit").addEventListener("click", function(){
+  var bar=document.getElementById("editorBar"); if(bar) bar.remove();
+  coachActive=false; document.getElementById("coach").style.display="none";
+  showView("viewSetup");
+});
+document.getElementById("overRematch").addEventListener("click", function(){ document.getElementById("overModal").classList.remove("open"); startMatch(); });
+document.getElementById("overSetup").addEventListener("click", function(){ document.getElementById("overModal").classList.remove("open"); showView("viewSetup"); });
+
+/* ---------- How to Play ---------- */
+function howHTML(){
+  var themeRules = CFG.theme==="space" ?
+    "<h3>🚀 Space</h3><p>Ships die in "+CFG.shipHp+" hit(s). Shots <b>tunnel through asteroids</b>, carving holes (variation: block / destroy). Flying into an asteroid, a ship, or a wall destroys your ship; ship-vs-ship collisions destroy both. The <b>mothership forcefield is hit 1 of 3</b> — it flashes, ripples, and drops; hit 2 cracks and burns; hit 3 blows it. Two player-fired gun turrets flank it (optional targets). Default edge: ships and shots <b>wrap</b> around the sides of space.</p>" :
+    CFG.theme==="knights" ?
+    "<h3>🏰 Knights</h3><p>Knights have <b>no ranged shot</b> — the flick is a <b>charge</b>. Crossing an enemy knight unhorses him; reaching the castle scores a hit <b>and unhorses the charger</b>. On foot: short walk flicks, can't hurt the castle, one more hit and he's out. Touch your own castle to <b>remount</b>. Archer towers fire arrows as your turn action. <b>Rocks</b> block charges and arrows and unhorse on impact. <b>Forests</b> end a charge inside them, halve mounted movement, and shelter anyone inside: only <b>1-in-4</b> arrows get through.</p>" :
+    "<h3>🛡️ Tanks</h3><p><b>Light Cannon:</b> fast long flicks, straight shells blocked by hills and ruins, dies in 1 hit. <b>Heavy Mortar:</b> slow short flicks, lobs a shell that arcs <b>over</b> everything and bursts at its landing point; takes 2 hits (first leaves it smoking and slower). <b>Heavier tank wins a ram.</b> Hills are drivable high ground: crossing halves your distance, but from the top a cannon fires over low cover. The bunker's <b>sandbags absorb the first straight cannon hit</b> — mortars skip them entirely.</p>";
+  return "<p><b>The heart of it:</b> flick your fighters across the paper. Blow up the <b>enemy base in 3 hits</b> to win — you never have to mop up their fighters. If a side loses all fighters <i>and</i> turrets, it can't act and loses.</p>"+
+  "<p><b>A turn (Classic):</b> tap one of your fighters or defense turrets, choose Move or Shoot, and flick once. Traces stay on the paper and fade; the newest is always darkest; traces never collide.</p>"+
+  themeRules+
+  "<h3>The fair-base rule</h3><p>Every base — mothership, castle, bunker — uses the <b>same modest, capped footprint</b> for both players, centered inside its own base zone (the end 12% of the sheet). Bases never stick out into the battlefield, can't be resized or moved, and turrets sit inside the same zone. Battles are won in the middle of the page.</p>"+
+  "<h3>Tools are real</h3><p><b>Pencil</b> traces are thin and precise (thread gaps, must truly touch). <b>Crayon</b> is fat and wobbly (clips easily, clumsy in gaps). <b>Pen</b> is in between. Your flicker (pencil/pen) changes the feel: a pen flick is steadier than a pencil flick.</p>"+
+  "<h3>Active switches this match</h3><p>Turn structure: <b>"+CFG.turnStructure+"</b> · Control: <b>"+CFG.control+"</b> · Friendly fire: <b>"+CFG.friendly+"</b> (default Partial: your shots can hit your own fighters, never your own base) · Edge: <b>"+CFG.edge+"</b> · Obstacles: <b>"+CFG.obstacle+"</b> · Deployment: <b>"+CFG.deployment+"</b> · Defense: <b>"+CFG.defense+"</b>.</p>"+
+  "<p>When a base, turret, tower, or cannon is destroyed, its little stick-figure crew runs off the paper, arms waving, completely unharmed. It's paper. Everyone's fine.</p>";
+}
+function openHow(){ document.getElementById("howBody").innerHTML=howHTML(); document.getElementById("howModal").classList.add("open"); }
+document.getElementById("btnHowTop").addEventListener("click", openHow);
+document.getElementById("btnHow2").addEventListener("click", openHow);
+
+/* ---------- Settings modal wiring ---------- */
+function syncSettingsUI(){
+  document.getElementById("volMaster").value=Math.round(SETTINGS.master*100);
+  document.getElementById("volMusic").value=Math.round(SETTINGS.music*100);
+  document.getElementById("volSfx").value=Math.round(SETTINGS.sfx*100);
+  document.getElementById("ambOn").className="chip"+(SETTINGS.ambience?" sel":"");
+  document.getElementById("ambOff").className="chip"+(!SETTINGS.ambience?" sel":"");
+  document.getElementById("musOn").className="chip"+(SETTINGS.musicOn?" sel":"");
+  document.getElementById("musOff").className="chip"+(!SETTINGS.musicOn?" sel":"");
+}
+function applyVolumes(){
+  if(masterGain) masterGain.gain.value=SETTINGS.master;
+  if(musicGain) musicGain.gain.value=SETTINGS.music;
+  if(sfxGain) sfxGain.gain.value=SETTINGS.sfx;
+  saveSettings();
+}
+["volMaster","volMusic","volSfx"].forEach(function(id){
+  document.getElementById(id).addEventListener("input", function(e){
+    var v=parseInt(e.target.value,10)/100;
+    if(id==="volMaster") SETTINGS.master=v; if(id==="volMusic") SETTINGS.music=v; if(id==="volSfx") SETTINGS.sfx=v;
+    audioInit(); applyVolumes();
+  });
+});
+document.getElementById("ambOn").addEventListener("click", function(){ SETTINGS.ambience=true; audioInit(); startAmbience(); syncSettingsUI(); applyVolumes(); });
+document.getElementById("ambOff").addEventListener("click", function(){ SETTINGS.ambience=false; stopAmbience(); syncSettingsUI(); applyVolumes(); });
+document.getElementById("musOn").addEventListener("click", function(){ SETTINGS.musicOn=true; audioInit(); syncSettingsUI(); applyVolumes(); });
+document.getElementById("musOff").addEventListener("click", function(){ SETTINGS.musicOn=false; syncSettingsUI(); applyVolumes(); });
+function openSettings(){ syncSettingsUI(); document.getElementById("setModal").classList.add("open"); }
+document.getElementById("btnSettingsTop").addEventListener("click", function(){ audioInit(); openSettings(); });
+document.getElementById("btnSettings2").addEventListener("click", function(){ audioInit(); openSettings(); });
+document.querySelectorAll("[data-close]").forEach(function(b){
+  b.addEventListener("click", function(){ document.getElementById(b.dataset.close).classList.remove("open"); });
+});
+
+/* ---------- Dev Log ---------- */
+document.getElementById("devBody").textContent =
+"Oct 26, 2026 — Scribble Siege Build 1 (design locked by Matthew Haber after 35 questions, plus his final change).\n\n"+
+"BUILT: Full game, all three themes together (Space / Knights / Tanks), each with its real rules — forcefield mothership (hit 1 of 3), tunneling shots, wrap edges; knights charge-only with unhorse / walk-home / remount, towers as separate 1-hit targets, forest 1-in-4 cover and half mounted speed, rocks block; Light Cannon + Heavy Mortar tanks, heavier-wins rams, drivable hills with high-ground fire, sandbags that absorb cannon hit 1 and are skipped by mortars. Win is always the base in 3 hits, never a mop-up. 1P vs CPU (3 difficulties + per-theme personalities) and 2P pass-and-play with a pass interstitial.\n\n"+
+"FULL VARIATION MENU (Matthew's explicit choice): presets Classic / Fast Battle / Ramming / Competitive / Reinforcements / Launch Bay on top of switches for turn structure, all three flick controls (True Flick / Hybrid / Aimed), fighter count, ship toughness, mothership defense (forcefield / wall+door / extra shield / none), defense mode (player / auto / none), obstacle behavior, edge rule, deployment, friendly fire (Partial default), per-player flicker + drawing medium + color with real trace-width gameplay differences, face-to-face or side-by-side layout, 7 paper surfaces (looseleaf default; busy papers faded under the game), and battlefields (preset / random / stamps / freehand / empty) with middle-zone-only, no-overlap, budget fairness rules.\n\n"+
+"MOTHERSHIP SIZE CONSTRAINT (Matthew's final change): every base uses one standardized modest footprint ("+BASE_W+"×"+BASE_H+" logical px, ~17% of sheet width), identical and mirrored for both players, anchored centered inside its base zone (end 12% of the sheet). Turrets flank inside the same zone. Players cannot resize or reposition bases — the middle of the page stays open for battles, and a big base can't be a bigger target.\n\n"+
+"PRESENTATION: mixed-media art (pencil world, units in owner medium/color, vivid crayon/gel traces), traces stay and fade, stick-figure crews flee every destroyed structure unharmed, synthesized per-medium trace sounds + explosions/shield/arrow/mortar SFX, light ambient music, classroom ambience loop, guided first match with margin coach, practice sheet, How to Play overlay.\n\n"+
+"AUDIO: guarded web audio session declared 'ambient' at startup, on every tap, and before audio starts; AudioContext resume is hardened for suspended/interrupted states. Separate Master / Music / SFX sliders. CAVEAT: real mixing with other apps (Spotify etc.) and true loudness can only be confirmed on Matthew's device.\n\n"+
+"SETTINGS: volumes, ambience/music toggles, and tutorial-seen persist in localStorage (best effort, this browser only).\n\n"+
+"TUNING NOTES: fighter counts, turret count (2), and first-player coin flip use the classic-feeling defaults from the spec; tune from playtesting.";
+document.getElementById("btnDevTop").addEventListener("click", function(){ document.getElementById("devModal").classList.add("open"); });
+
+/* ============================================================
+   PRACTICE SHEET
+   ============================================================ */
+var PC={targets:[], traces:[], hits:0, thing:{x:380,y:820,angle:-1.57,alive:true,kind:"ship",owner:0}};
+var cvP=document.getElementById("cvP"), ctxP=cvP.getContext("2d");
+function practiceReset(){
+  PC.targets=[]; PC.traces=[]; PC.hits=0; PC.thing={x:FW/2,y:FH-110,angle:-1.57,alive:true,kind:"ship",owner:0};
+  for(var i=0;i<6;i++) PC.targets.push({x:90+Math.random()*(FW-180), y:110+Math.random()*(FH-330), r:22, alive:true});
+  document.getElementById("practiceScheme").textContent=CFG.control;
+  practiceDraw(); practiceScore();
+}
+function practiceScore(){ document.getElementById("practiceScore").textContent="Targets popped: "+PC.hits+" / 6 — flick from the ship at your end of the sheet."; }
+function practiceDraw(){
+  var keep={w:FW,h:FH}; // draw practice on its own logical size (760x960)
+  ctxP.save(); drawPaperFor(ctxP);
+  PC.traces.forEach(function(t){ drawTraceP(ctxP,t); });
+  PC.targets.forEach(function(t){ if(!t.alive) return;
+    ctxP.save(); ctxP.translate(t.x,t.y); ctxP.strokeStyle="#e2492f"; ctxP.lineWidth=3;
+    ctxP.beginPath(); ctxP.arc(0,0,t.r,0,6.29); ctxP.stroke();
+    ctxP.beginPath(); ctxP.arc(0,0,t.r*0.55,0,6.29); ctxP.stroke();
+    ctxP.fillStyle="#e2492f"; ctxP.beginPath(); ctxP.arc(0,0,4,0,6.29); ctxP.fill(); ctxP.restore(); });
+  // a couple of practice obstacles
+  ctxP.save(); ctxP.strokeStyle="rgba(70,70,80,.7)"; ctxP.lineWidth=1.8; ctxP.fillStyle="rgba(150,145,135,.45)";
+  ctxP.beginPath(); ctxP.arc(FW*0.3,FH*0.45,44,0,6.29); ctxP.fill(); ctxP.stroke();
+  ctxP.beginPath(); ctxP.arc(FW*0.72,FH*0.6,36,0,6.29); ctxP.fill(); ctxP.stroke(); ctxP.restore();
+  drawThingP(ctxP, PC.thing);
+  if(inputP.preview) drawTraceP(ctxP,{points:inputP.preview,color:CFG.p1.color,width:MEDIUMS[CFG.p1.medium].w,age:0,dash:true});
+  ctxP.restore();
+}
+function drawPaperFor(c){
+  var old={FW:FW,FH:FH};
+  // reuse main paper painter with practice canvas size 760x960 (matches defaults)
+  var saveCtx=ctx; // drawPaper uses globals FW/FH and passed context
+  drawPaper(c);
+}
+function drawTraceP(c,tr){
+  c.save(); c.globalAlpha=0.9; c.strokeStyle=PLAYER_COLORS[tr.color].hex; c.lineWidth=tr.width; c.lineCap="round";
+  if(tr.dash) c.setLineDash([3,7]);
+  c.beginPath(); tr.points.forEach(function(p,i){ i?c.lineTo(p.x,p.y):c.moveTo(p.x,p.y); }); c.stroke(); c.restore();
+}
+function drawThingP(c,t){
+  c.save(); c.translate(t.x,t.y); c.rotate(t.angle);
+  c.beginPath(); c.moveTo(20,0); c.lineTo(-14,-13); c.lineTo(-8,0); c.lineTo(-14,13); c.closePath();
+  c.fillStyle=PLAYER_COLORS[CFG.p1.color].hex; c.fill(); c.strokeStyle="#2b2b33"; c.lineWidth=2; c.stroke(); c.restore();
+  c.save(); c.strokeStyle="#e9a13b"; c.setLineDash([6,4]); c.lineWidth=3; c.beginPath(); c.arc(t.x,t.y,30,0,6.29); c.stroke(); c.restore();
+}
+var inputP={down:false,thing:null,sx:0,sy:0,t:0,preview:null};
+setupPointer(cvP,{
+  down:function(pt){ if(Math.hypot(pt.x-PC.thing.x,pt.y-PC.thing.y)<44){ inputP.down=true; inputP.sx=pt.x; inputP.sy=pt.y; inputP.t=performance.now(); } },
+  move:function(pt){ if(!inputP.down) return;
+    if(CFG.control==="aimed"){ var dx=pt.x-PC.thing.x, dy=pt.y-PC.thing.y, L=Math.hypot(dx,dy)||1, cl=Math.min(L,430);
+      inputP.preview=[{x:PC.thing.x,y:PC.thing.y},{x:PC.thing.x+dx/L*cl,y:PC.thing.y+dy/L*cl}]; }
+    else if(CFG.control==="hybrid"){ var dx2=pt.x-PC.thing.x, dy2=pt.y-PC.thing.y, L2=Math.hypot(dx2,dy2);
+      if(L2>4) inputP.preview=[{x:PC.thing.x,y:PC.thing.y},{x:PC.thing.x+dx2/L2*46,y:PC.thing.y+dy2/L2*46}]; }
+    practiceDraw(); },
+  up:function(pt){ if(!inputP.down) return; inputP.down=false; inputP.preview=null;
+    var t=PC.thing, vec, len;
+    if(CFG.control==="aimed"){ vec={x:pt.x-t.x,y:pt.y-t.y}; len=Math.min(Math.hypot(vec.x,vec.y),430); if(len<14){practiceDraw();return;} }
+    else { var dt=Math.max(30,performance.now()-inputP.t), dx=pt.x-inputP.sx, dy=pt.y-inputP.sy, sw=Math.hypot(dx,dy);
+      if(sw<12){practiceDraw();return;} len=Math.min(430, 60+(sw/dt)*230); vec={x:dx,y:dy}; }
+    var L=Math.hypot(vec.x,vec.y)||1, dir={x:vec.x/L,y:vec.y/L};
+    var end={x:t.x+dir.x*len, y:t.y+dir.y*len};
+    PC.traces.push({points:[{x:t.x,y:t.y},end], color:CFG.p1.color, width:MEDIUMS[CFG.p1.medium].w, age:0});
+    SFX.trace(CFG.p1.medium);
+    PC.targets.forEach(function(tg){ if(tg.alive){ var r=distPtSeg(tg.x,tg.y,t.x,t.y,end.x,end.y); if(r.d<tg.r+MEDIUMS[CFG.p1.medium].w){ tg.alive=false; PC.hits++; SFX.boom(false); } } });
+    // shots move the practice ship every other flick, to feel movement too
+    practiceScore(); practiceDraw(); },
+  cancel:function(){ inputP.down=false; inputP.preview=null; practiceDraw(); }
+});
+document.getElementById("btnPracticeTop").addEventListener("click", function(){ audioInit(); showView("viewPractice"); practiceReset(); });
+document.getElementById("btnPracticeReset").addEventListener("click", practiceReset);
+document.getElementById("btnPracticeBack").addEventListener("click", function(){ showView(G?"viewGame":"viewSetup"); if(G) draw(); });
+
+/* ---------- first interaction unlocks audio ---------- */
+document.addEventListener("pointerdown", function(){ audioInit(); }, {passive:true});
+</script>
+</body>
+</html>
