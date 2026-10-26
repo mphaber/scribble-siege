@@ -112,6 +112,7 @@ table.spec td{border:1.5px solid var(--line);padding:5px 8px;vertical-align:top;
     <div class="hudbar">
       <span class="turnBadge" id="turnBadge">Your turn</span>
       <span class="hpPips" id="hpPips"></span>
+      <span class="hpPips" id="clockPips" style="color:#b3541e;"></span>
       <span class="row">
         <button class="btn small" id="btnHow2">📖 Rules</button>
         <button class="btn small" id="btnSettings2">🔊 Sound</button>
@@ -203,6 +204,7 @@ table.spec td{border:1.5px solid var(--line);padding:5px 8px;vertical-align:top;
   <label class="lbl">Master volume</label><input type="range" id="volMaster" min="0" max="100" value="80"/>
   <label class="lbl">Music volume</label><input type="range" id="volMusic" min="0" max="100" value="40"/>
   <label class="lbl">Sound effects volume</label><input type="range" id="volSfx" min="0" max="100" value="85"/>
+  <label class="lbl">Lunchroom ambience level (distant chatter, trays, chairs, the odd laugh)</label><input type="range" id="volAmb" min="0" max="100" value="55"/>
   <label class="lbl">Classroom / lunchroom ambience</label>
   <div class="row"><span class="chip sel" id="ambOn">On</span><span class="chip" id="ambOff">Off</span></div>
   <label class="lbl">Light ambient music</label>
@@ -236,7 +238,7 @@ document.addEventListener("touchstart", declareAudioSession, {passive:true});
 document.addEventListener("visibilitychange", function(){ if(!document.hidden) declareAudioSession(); });
 
 /* ---------- Settings persistence (best effort) ---------- */
-var SETTINGS = { master:0.8, music:0.4, sfx:0.85, ambience:true, musicOn:true, tutorialSeen:false };
+var SETTINGS = { master:0.8, music:0.4, sfx:0.85, amb:0.55, ambience:true, musicOn:true, tutorialSeen:false };
 try{
   var saved = localStorage.getItem("scribbleSiegeSettings");
   if(saved){ var sp = JSON.parse(saved); for(var k in sp) SETTINGS[k]=sp[k]; }
@@ -244,7 +246,7 @@ try{
 function saveSettings(){ try{ localStorage.setItem("scribbleSiegeSettings", JSON.stringify(SETTINGS)); }catch(e){} }
 
 /* ---------- Audio engine (all synthesized, no files) ---------- */
-var AC=null, masterGain=null, musicGain=null, sfxGain=null, ambNodes=null, musicTimer=null;
+var AC=null, masterGain=null, musicGain=null, sfxGain=null, ambGain=null, ambNodes=null, musicTimer=null, ambSched=null;
 function audioInit(){
   declareAudioSession();
   if(AC) { if(AC.state!=="running") AC.resume(); return; }
@@ -254,7 +256,8 @@ function audioInit(){
     masterGain = AC.createGain(); masterGain.gain.value = SETTINGS.master; masterGain.connect(AC.destination);
     musicGain = AC.createGain(); musicGain.gain.value = SETTINGS.music; musicGain.connect(masterGain);
     sfxGain = AC.createGain(); sfxGain.gain.value = SETTINGS.sfx; sfxGain.connect(masterGain);
-    startAmbience(); startMusic();
+    ambGain = AC.createGain(); ambGain.gain.value = SETTINGS.amb; ambGain.connect(masterGain);
+    startAmbience(); startMusic(); startAmbScheduler();
   }catch(e){ AC=null; }
 }
 function noiseBuffer(dur){
@@ -262,13 +265,13 @@ function noiseBuffer(dur){
   for(var i=0;i<d.length;i++) d[i]=Math.random()*2-1;
   return b;
 }
-function playNoise(dur, freq, q, gain, type){
+function playNoise(dur, freq, q, gain, type, dest){
   if(!AC) return; declareAudioSession();
   var src=AC.createBufferSource(); src.buffer=noiseBuffer(dur);
   var f=AC.createBiquadFilter(); f.type=type||"bandpass"; f.frequency.value=freq; f.Q.value=q||1;
   var g=AC.createGain(); g.gain.setValueAtTime(gain, AC.currentTime);
   g.gain.exponentialRampToValueAtTime(0.001, AC.currentTime+dur);
-  src.connect(f); f.connect(g); g.connect(sfxGain); src.start(); src.stop(AC.currentTime+dur);
+  src.connect(f); f.connect(g); g.connect(dest||sfxGain); src.start(); src.stop(AC.currentTime+dur);
 }
 function playTone(freqA, freqB, dur, gain, type, dest){
   if(!AC) return; declareAudioSession();
@@ -299,16 +302,130 @@ function startAmbience(){
   stopAmbience();
   var src = AC.createBufferSource(); src.buffer = noiseBuffer(3); src.loop = true;
   var f = AC.createBiquadFilter(); f.type="lowpass"; f.frequency.value=420;
-  var g = AC.createGain(); g.gain.value=0.016;
+  var g = AC.createGain(); g.gain.value=0.05;
   var lfo = AC.createOscillator(); lfo.frequency.value=0.13;
-  var lg = AC.createGain(); lg.gain.value=0.007;
+  var lg = AC.createGain(); lg.gain.value=0.02;
   lfo.connect(lg); lg.connect(g.gain);
-  src.connect(f); f.connect(g); g.connect(masterGain); src.start(); lfo.start();
+  src.connect(f); f.connect(g); g.connect(ambGain||masterGain); src.start(); lfo.start();
   ambNodes={src:src,lfo:lfo};
-  // distant bell now and then
-  ambNodes.bellTimer = setInterval(function(){ if(SETTINGS.ambience && Math.random()<0.5) playTone(1046,1040,1.1,0.02,"sine",musicGain); }, 45000);
 }
-function stopAmbience(){ if(ambNodes){ try{ambNodes.src.stop(); ambNodes.lfo.stop();}catch(e){} clearInterval(ambNodes.bellTimer); ambNodes=null; } }
+function stopAmbience(){ if(ambNodes){ try{ambNodes.src.stop(); ambNodes.lfo.stop();}catch(e){} ambNodes=null; } }
+/* ---- Lunchroom life: occasional sounds surfacing from the room tone.
+   All synthesized, all quiet, all routed through the ambience gain. ---- */
+function ambEvent(){
+  if(!AC || !SETTINGS.ambience || document.hidden) return;
+  var amb = ambGain||sfxGain;
+  var pick = Math.random();
+  if(pick < 0.34){ // muffled chatter burst: a few far-off voices mumbling
+    var n = 2+Math.floor(Math.random()*3);
+    for(var i=0;i<n;i++){
+      (function(i){
+        setTimeout(function(){
+          if(!AC || document.hidden) return;
+          var f0 = 300+Math.random()*380;
+          playNoise(0.22+Math.random()*0.2, f0, 5, 0.10, "bandpass", amb);
+          playTone(150+Math.random()*120, 110+Math.random()*60, 0.16, 0.018, "triangle", amb);
+        }, i*(140+Math.random()*160));
+      })(i);
+    }
+  } else if(pick < 0.52){ // a kid laughing somewhere in the room (staggered little chorus)
+    var kids = 1+Math.floor(Math.random()*2);
+    for(var k=0;k<kids;k++){
+      (function(k){
+        var base = 520+Math.random()*260, has = 3+Math.floor(Math.random()*2);
+        for(var hI=0;hI<has;hI++){
+          setTimeout(function(){
+            if(!AC || document.hidden) return;
+            playTone(base*(0.92+Math.random()*0.14), base*0.72, 0.09, 0.028, "sawtooth", amb);
+            playNoise(0.07, base*2.1, 2.5, 0.05, "bandpass", amb);
+          }, k*230 + hI*115);
+        }
+      })(k);
+    }
+  } else if(pick < 0.70){ // tray clatter: ticks and a metallic ping
+    var ticks = 2+Math.floor(Math.random()*3);
+    for(var tI=0;tI<ticks;tI++){
+      (function(tI){ setTimeout(function(){ if(!AC || document.hidden) return;
+        playNoise(0.045, 2800+Math.random()*900, 7, 0.16, "highpass", amb); }, tI*(70+Math.random()*80)); })(tI);
+    }
+    setTimeout(function(){ if(!AC || document.hidden) return;
+      playTone(1900+Math.random()*700, 1500, 0.22, 0.022, "square", amb); }, 60+Math.random()*120);
+  } else if(pick < 0.86){ // chair scrape across the floor
+    if(!AC) return;
+    var src=AC.createBufferSource(); src.buffer=noiseBuffer(0.5);
+    var f=AC.createBiquadFilter(); f.type="bandpass"; f.Q.value=3.5;
+    f.frequency.setValueAtTime(240+Math.random()*120, AC.currentTime);
+    f.frequency.exponentialRampToValueAtTime(720+Math.random()*260, AC.currentTime+0.42);
+    var g=AC.createGain(); g.gain.setValueAtTime(0.0001, AC.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.11, AC.currentTime+0.1);
+    g.gain.exponentialRampToValueAtTime(0.0001, AC.currentTime+0.48);
+    src.connect(f); f.connect(g); g.connect(amb); src.start(); src.stop(AC.currentTime+0.5);
+  } else { // distant bell, two soft tones down the hall
+    playTone(1046, 1038, 1.0, 0.020, "sine", amb);
+    setTimeout(function(){ if(!AC || document.hidden) return; playTone(784, 778, 1.2, 0.016, "sine", amb); }, 650);
+  }
+}
+function startAmbScheduler(){
+  if(ambSched) return;
+  ambSched = setInterval(function(){
+    if(!AC || !SETTINGS.ambience || document.hidden) return;
+    if(Math.random()<0.55) ambEvent();
+  }, 4200);
+}
+/* Pause the room politely when the tab/app is backgrounded. */
+document.addEventListener("visibilitychange", function(){
+  if(!AC) return;
+  if(document.hidden){ stopAmbience(); }
+  else if(SETTINGS.ambience){ startAmbience(); }
+});
+/* ---- The spectator kids around the table: a little crowd of voices ---- */
+function kidVoice(f0, f1, dur, gain, delay, dest){
+  if(!AC) return;
+  var t0 = AC.currentTime + (delay||0);
+  var o = AC.createOscillator(); o.type="triangle";
+  o.frequency.setValueAtTime(f0, t0);
+  o.frequency.exponentialRampToValueAtTime(Math.max(50,f1), t0+dur);
+  var o2 = AC.createOscillator(); o2.type="sine"; // wobbly kid vibrato
+  o2.frequency.value = 9+Math.random()*4;
+  var og = AC.createGain(); og.gain.value = f0*0.012;
+  o2.connect(og); og.connect(o.frequency);
+  var f = AC.createBiquadFilter(); f.type="bandpass"; f.frequency.value=f0*2.3; f.Q.value=1.1;
+  var g = AC.createGain();
+  g.gain.setValueAtTime(0.0001, t0);
+  g.gain.exponentialRampToValueAtTime(gain, t0+dur*0.22);
+  g.gain.exponentialRampToValueAtTime(0.0001, t0+dur);
+  o.connect(f); o2.connect(f); f.connect(g); g.connect(dest||sfxGain);
+  o.start(t0); o.stop(t0+dur+0.05); o2.start(t0); o2.stop(t0+dur+0.05);
+  playNoiseAt(t0, dur*0.8, f0*2.2, 2, gain*0.5, dest);
+}
+function playNoiseAt(t0, dur, freq, q, gain, dest){
+  if(!AC) return;
+  var src=AC.createBufferSource(); src.buffer=noiseBuffer(Math.max(0.1,dur));
+  var f=AC.createBiquadFilter(); f.type="bandpass"; f.frequency.value=freq; f.Q.value=q;
+  var g=AC.createGain(); g.gain.setValueAtTime(0.0001, t0);
+  g.gain.exponentialRampToValueAtTime(gain, t0+dur*0.3);
+  g.gain.exponentialRampToValueAtTime(0.0001, t0+dur);
+  src.connect(f); f.connect(g); g.connect(dest||sfxGain); src.start(t0); src.stop(t0+dur+0.05);
+}
+function crowdCheer(scale, delay0){
+  var n = 5+Math.floor(Math.random()*3);
+  for(var i=0;i<n;i++){
+    kidVoice(470+Math.random()*300, 800+Math.random()*340, 0.45+Math.random()*0.4, 0.05*scale, (delay0||0)+i*0.07+Math.random()*0.06);
+  }
+}
+function crowdAww(scale, delay0){
+  var n = 5+Math.floor(Math.random()*3);
+  for(var i=0;i<n;i++){
+    kidVoice(540+Math.random()*190, 250+Math.random()*70, 0.75+Math.random()*0.3, 0.042*scale, (delay0||0)+i*0.06+Math.random()*0.05);
+  }
+}
+function crowdReact(kind){
+  if(!AC) return;
+  declareAudioSession();
+  if(kind==="draw"){ crowdCheer(0.5, 0); crowdAww(0.55, 0.12); }
+  else if(kind==="win"){ crowdCheer(1, 0); if(CFG.mode==="2p") crowdAww(0.5, 0.18); }
+  else if(kind==="lose"){ crowdAww(1, 0); crowdCheer(0.35, 0.2); }
+}
 var MUSIC_NOTES=[262,294,330,392,440,523,587,659];
 function startMusic(){
   if(musicTimer) return;
@@ -681,7 +798,7 @@ function newGame(obstacles){
     obstacles: obstacles||makeObstacles(CFG.battlefield==="random"?"random":CFG.battlefield),
     traces:[], particles:[], stickmen:[], selected:null, over:false, winner:null,
     reserve:[CFG.deployment==="all"?0:CFG.fighterCount-Math.ceil(CFG.fighterCount/2), CFG.deployment==="all"?0:CFG.fighterCount-Math.ceil(CFG.fighterCount/2)],
-    editor:null, anim:null, shake:0, flashShield:-1, lastRoll:null
+    editor:null, anim:null, shake:0, flashShield:-1, lastRoll:null, clock:null, draw:false
   };
   if(CFG.deployment!=="launchbay") G.reserve=[0,0];
   log("A coin flip says "+playerName(G.turn)+" goes first. Blow up the enemy base — 3 hits!");
@@ -709,7 +826,14 @@ function updateHUD(){
   if(!G) return;
   var tb=document.getElementById("turnBadge");
   var col=PLAYER_COLORS[playerCfg(G.turn).color].hex;
-  tb.textContent = G.over ? "Match over" : (CFG.mode==="1p" ? (G.turn===0?"Your turn":"CPU is thinking…") : playerName(G.turn)+"'s turn");
+  tb.textContent = G.draw ? "Draw" : G.over ? "Match over" : (CFG.mode==="1p" ? (G.turn===0?"Your turn":"CPU is thinking…") : playerName(G.turn)+"'s turn");
+  var cp=document.getElementById("clockPips");
+  if(cp){
+    if(G.clock && !G.over){
+      var pips=""; for(var ci2=0;ci2<5;ci2++) pips+= ci2<G.clock.left ? "●" : "○";
+      cp.textContent="⏱ "+playerName(G.clock.side)+" must hit the base: "+pips;
+    } else cp.textContent="";
+  }
   tb.style.borderColor=col; tb.style.color=col;
   document.getElementById("hpPips").innerHTML =
     "🔵 Your base "+hearts(G.bases[0].hp,baseMaxHp())+" &nbsp;·&nbsp; 🔴 Enemy base "+hearts(G.bases[1].hp,baseMaxHp())+
@@ -724,6 +848,7 @@ function updateHUD(){
   var sel=G.selected?findThing(G.selected):null;
   document.getElementById("selInfo").textContent = sel ? ("Selected: "+thingLabel(sel)+(sel.turret?" (fires as your turn action)":"")+" — now flick from it!") : "Nothing selected. Tap one of your "+(CFG.theme==="knights"?"knights or towers":CFG.theme==="tanks"?"tanks or cannons":"ships or turrets")+".";
   document.getElementById("hintLine").textContent = coachActive ? "Coach is guiding you — follow the margin notes!" :
+    (G.clock && !G.over) ? "⏱ Stalemate clock: "+playerName(G.clock.side)+" has "+G.clock.left+" of their own turns left to land a hit on the enemy base — no hit means a draw. (A side with no fighters and no working defenses loses at once.)" :
     (CFG.mode==="1p"&&G.turn===1 ? "CPU is lining up a flick…" : "Tap your fighter to select it, then "+(CFG.control==="aimed"?"drag from it and release":"flick from it")+".");
 }
 
@@ -731,21 +856,81 @@ function updateHUD(){
    PAPER + DRAWING (mixed media: pencil world, colored units,
    vivid crayon / gel-pen traces)
    ============================================================ */
+/* ---- Generated sample-style art, composited with multiply so the
+   white of the drawing vanishes into the sheet like real ink. ---- */
+var ART={};
+["mothership-blue","mothership-purple","turret","asteroid1","asteroid2","asteroid3","ship-orange","ship-yellow",
+ "castle-gray","castle-purple","tower","knight-mounted","knight-foot","rock1","rock2","forest",
+ "bunker-blue","bunker-purple","cannon","tank-light","tank-heavy","hill","ruin","rock3"].forEach(function(n){
+  var im=new Image();
+  im.onload=function(){ if(window.G) draw(); if(window.PC) practiceDraw(); };
+  im.src="assets/pieces/"+n+".png"; ART[n]=im;
+});
+function artReady(n){ var im=ART[n]; return !!(im && im.complete && im.naturalWidth>0); }
+var HUES=[5,208,145,268,33,330,180,0]; // target hue per PLAYER_COLORS index (7 = black)
+var tintCache={};
+function artTinted(name, colorIdx, baseHue){
+  var im=ART[name]; if(!im||!im.naturalWidth) return null;
+  if(colorIdx==null) return im;
+  var key=name+"|"+colorIdx;
+  if(tintCache[key]) return tintCache[key];
+  var cv2=document.createElement("canvas"); cv2.width=im.naturalWidth; cv2.height=im.naturalHeight;
+  var g=cv2.getContext("2d");
+  try{
+    if(colorIdx===7) g.filter="grayscale(0.9) brightness(0.72)";
+    else { var d=((HUES[colorIdx]-baseHue)%360+360)%360; if(d>180) d-=360; g.filter="hue-rotate("+d+"deg)"; }
+  }catch(e){}
+  g.drawImage(im,0,0);
+  try{ g.filter="none"; }catch(e){}
+  tintCache[key]=cv2; return cv2;
+}
+function pieceFor(name, colorIdx, baseHue){
+  if(!artReady(name)) return null;
+  if(colorIdx==null) return ART[name];
+  return artTinted(name, colorIdx, baseHue);
+}
+function drawArt(c, img, x, y, w, h, rot, alpha){
+  if(!img) return false;
+  c.save(); c.translate(x,y); if(rot) c.rotate(rot);
+  c.globalCompositeOperation="multiply";
+  if(alpha!=null) c.globalAlpha=alpha;
+  c.drawImage(img, -w/2, -h/2, w, h);
+  c.restore(); return true;
+}
+function fitArt(img, bw, bh){
+  var iw=img.naturalWidth||img.width, ih=img.naturalHeight||img.height;
+  var s=Math.min(bw/iw, bh/ih); return {w:iw*s, h:ih*s};
+}
+function sr(n){ var x=Math.sin(n*127.1+311.7)*43758.5453; return x-Math.floor(x); } // stable pseudo-random (no shimmer between frames)
+
 function drawPaper(c){
   c.save();
-  // base fill
-  var fill="#fdfdf8";
+  // base fill — aged cream for the notebook papers
+  var fill="#f8f1da";
   if(CFG.paper==="construction") fill=CFG.constructionColor;
   if(CFG.paper==="newspaper"||CFG.paper==="comic") fill="#f1ead9";
+  if(CFG.paper==="plain") fill="#faf6ea";
   c.fillStyle=fill; c.fillRect(0,0,FW,FH);
-  // grain
-  c.globalAlpha=0.05; c.fillStyle="#8a7a5f";
-  for(var i=0;i<130;i++){ c.fillRect(Math.random()*FW, Math.random()*FH, 2, 2); }
+  // paper grain + fiber flecks (seeded, so the sheet doesn't shimmer)
+  for(var i=0;i<170;i++){
+    c.globalAlpha=0.04+sr(i*3)*0.05; c.fillStyle= i%5? "#8a7a5f":"#6d5c40";
+    c.fillRect(sr(i*7+1)*FW, sr(i*13+2)*FH, 1.6+sr(i)*2.4, 1.4);
+  }
+  for(var fi=0;fi<42;fi++){ // little fibers
+    c.globalAlpha=0.07; c.strokeStyle="#7a6a4d"; c.lineWidth=0.8;
+    var fx=sr(fi*17+3)*FW, fy=sr(fi*23+5)*FH, fa=sr(fi*29)*3.14;
+    c.beginPath(); c.moveTo(fx,fy); c.lineTo(fx+Math.cos(fa)*7, fy+Math.sin(fa)*7); c.stroke();
+  }
   c.globalAlpha=1;
   if(CFG.paper==="looseleaf"){
     c.strokeStyle="rgba(90,140,210,0.55)"; c.lineWidth=1.4;
     for(var y=44;y<FH;y+=34){ c.beginPath(); c.moveTo(0,y); c.lineTo(FW,y); c.stroke(); }
     c.strokeStyle="rgba(225,110,110,0.6)"; c.beginPath(); c.moveTo(52,0); c.lineTo(52,FH); c.stroke();
+    // slightly ragged torn edge down the hole side
+    c.strokeStyle="rgba(150,128,92,0.55)"; c.lineWidth=1.6; c.beginPath();
+    if(CFG.layout==="face"){ for(var ry=0;ry<=FH;ry+=26){ var rx=2+sr(ry*1.7)*3.4; ry===0?c.moveTo(rx,ry):c.lineTo(rx,ry); } }
+    else { for(var rx2=0;rx2<=FW;rx2+=26){ var ry2=2+sr(rx2*1.7)*3.4; rx2===0?c.moveTo(rx2,ry2):c.lineTo(rx2,ry2); } }
+    c.stroke();
     c.fillStyle="#e8e2d2";
     var holes = CFG.layout==="face" ? [[26,120],[26,FH/2],[26,FH-120]] : [[120,26],[FW/2,26],[FW-120,26]];
     holes.forEach(function(h){ c.beginPath(); c.arc(h[0],h[1],13,0,6.29); c.fill(); c.strokeStyle="#b9b09a"; c.stroke(); });
@@ -756,16 +941,30 @@ function drawPaper(c){
     for(var y2=0;y2<FH;y2+=24){ c.beginPath(); c.moveTo(0,y2); c.lineTo(FW,y2); c.stroke(); }
   }
   if(CFG.paper==="newspaper"||CFG.paper==="comic"){
-    c.globalAlpha=0.16; c.fillStyle="#3a362c";
-    c.font="7px serif";
-    var words="THE DAILY SCRIBBLE lunchroom gazette extra extra read all about it cafeteria news weather sports comics funnies ";
-    for(var yy=14; yy<FH; yy+=13){ var line=""; while(line.length<110) line+=words; c.fillText(line, 8+((yy*7)%20), yy); }
+    // faded print suggested with wavy squiggle lines — no lettering on the sheet
+    c.strokeStyle="#3a362c"; c.lineWidth=1.5;
+    for(var yy=16; yy<FH-8; yy+=13){
+      c.globalAlpha=0.13;
+      for(var colx=10; colx<FW-30; colx+=118){
+        if(CFG.paper==="comic" && yy>FH*0.40 && yy<FH*0.40+140 && colx>40 && colx<FW-260) continue; // leave the comic panels clear
+        var len=70+sr(yy*3+colx)*36;
+        c.beginPath(); c.moveTo(colx,yy);
+        for(var sx=0;sx<=len;sx+=9) c.lineTo(colx+sx, yy+Math.sin(sx*0.7+yy)*1.1);
+        c.stroke();
+      }
+    }
     c.globalAlpha=1;
     if(CFG.paper==="comic"){
       c.globalAlpha=0.20; c.strokeStyle="#3a362c"; c.lineWidth=2;
-      for(var cx=0;cx<3;cx++){ c.strokeRect(60+cx*220, FH*0.42, 190, 130); }
-      c.font="bold 22px 'Comic Sans MS'"; c.fillStyle="#3a362c";
-      c.fillText("POW!", 110, FH*0.42+70); c.fillText("SKRIBBLE!", 300, FH*0.42+70); c.fillText("HA!", 560, FH*0.42+70);
+      for(var cx=0;cx<3;cx++){
+        var px0=60+cx*220, py0=FH*0.42;
+        c.strokeRect(px0, py0, 190, 130);
+        // a little crayon starburst inside each panel instead of a caption
+        var bx=px0+95, by=py0+65;
+        c.beginPath();
+        for(var sp=0;sp<16;sp++){ var aa=sp/16*6.29, rr= sp%2? 13:30; var vx=bx+Math.cos(aa)*rr, vy=by+Math.sin(aa)*rr; sp?c.lineTo(vx,vy):c.moveTo(vx,vy); }
+        c.closePath(); c.stroke();
+      }
       c.globalAlpha=1;
     }
   }
@@ -778,6 +977,20 @@ function drawPaper(c){
   c.beginPath(); c.ellipse(FW*0.3,FH*0.6,70,16,0.4,0,6.29); c.fill();
   c.beginPath(); c.ellipse(FW*0.75,FH*0.3,55,12,-0.3,0,6.29); c.fill();
   c.globalAlpha=1;
+  // faint pencil doodles in the margins of the sheet — little stars, swirls, tiny rocks
+  c.save(); c.strokeStyle="rgba(80,80,95,0.20)"; c.lineWidth=1.3;
+  for(var di=0;di<14;di++){
+    var dxp=sr(di*31+7)*FW, dyp=sr(di*37+11)*FH, kind=di%3;
+    if(kind===0){ // four-point star
+      c.beginPath(); c.moveTo(dxp,dyp-7); c.quadraticCurveTo(dxp,dyp,dxp+7,dyp); c.quadraticCurveTo(dxp,dyp,dxp,dyp+7);
+      c.quadraticCurveTo(dxp,dyp,dxp-7,dyp); c.quadraticCurveTo(dxp,dyp,dxp,dyp-7); c.stroke();
+    } else if(kind===1){ // swirl
+      c.beginPath(); for(var sa=0;sa<9;sa+=0.5){ var srr=sa*0.75, sxx=dxp+Math.cos(sa+di)*srr, syy=dyp+Math.sin(sa+di)*srr; sa===0?c.moveTo(sxx,syy):c.lineTo(sxx,syy); } c.stroke();
+    } else { // tiny rock
+      c.beginPath(); c.moveTo(dxp-6,dyp+3); c.lineTo(dxp-2,dyp-4); c.lineTo(dxp+5,dyp-2); c.lineTo(dxp+6,dyp+3); c.closePath(); c.stroke();
+    }
+  }
+  c.restore();
   c.restore();
 }
 function drawBaseZones(c){
@@ -787,30 +1000,59 @@ function drawBaseZones(c){
     c.fillRect(z.x,z.y,z.w,z.h); c.restore();
     c.save(); c.strokeStyle="rgba(60,60,70,.45)"; c.setLineDash([7,6]); c.lineWidth=1.6;
     c.strokeRect(z.x+2,z.y+2,z.w-4,z.h-4); c.setLineDash([]); c.restore();
-    var bc=baseCenter(p);
-    c.save(); c.font="bold 12px 'Segoe Print',sans-serif"; c.fillStyle="rgba(60,60,70,.55)"; c.textAlign="center";
-    c.fillText("BASE ZONE — base stays in here, same size both sides", bc.x, CFG.layout==="face" ? (p===0? FH-6 : 16) : bc.y- BASE_H);
-    c.restore();
+    // no lettering on the paper: the tinted zone and the base drawing explain themselves
   }
 }
 function pencilStroke(c, fn){ c.save(); c.strokeStyle="rgba(70,70,80,0.85)"; c.lineWidth=1.8; c.lineJoin="round"; fn(); c.restore(); }
 function drawObstacle(c,o){
+  // Generated sample-style pieces first (multiply onto the paper); vector doodle as fallback.
+  var vi = Math.abs(Math.round(o.x*3+o.y*7))%3;
+  if(o.type==="asteroid"){
+    var an=["asteroid1","asteroid2","asteroid3"][vi];
+    if(artReady(an)){ var im=ART[an], s=2.35*o.r, hh=s*(im.naturalHeight/im.naturalWidth);
+      drawArt(c, im, o.x, o.y, s, hh, o.rot||0);
+      if(o.carved>0){ c.save(); c.globalAlpha=0.92; c.fillStyle="#f6efdb"; c.beginPath(); c.arc(o.x,o.y,o.r*0.42*o.carved,0,6.29); c.fill();
+        c.strokeStyle="rgba(90,85,80,.5)"; c.setLineDash([3,4]); c.stroke(); c.restore(); }
+      return;
+    }
+  }
+  if(o.type==="forest" && artReady("forest")){
+    c.save(); c.globalAlpha=0.20; c.fillStyle="#3f7d43"; c.beginPath(); c.arc(o.x,o.y,o.r,0,6.29); c.fill(); c.restore();
+    var fim=ART["forest"], fs=2.4*o.r;
+    drawArt(c, fim, o.x, o.y, fs, fs*(fim.naturalHeight/fim.naturalWidth), 0);
+    return;
+  }
+  if(o.type==="rock"){
+    var rn = CFG.theme==="tanks" ? "rock3" : (vi===0?"rock1":"rock2");
+    if(artReady(rn)){ var rim=ART[rn], rs=2.25*o.r; drawArt(c, rim, o.x, o.y, rs, rs*(rim.naturalHeight/rim.naturalWidth), o.rot||0); return; }
+  }
+  if(o.type==="hill" && artReady("hill")){
+    var him=ART["hill"], hs=2.45*o.r;
+    drawArt(c, him, o.x, o.y, hs, hs*(him.naturalHeight/him.naturalWidth), o.rot||0);
+    return;
+  }
+  if(o.type==="ruin" && artReady("ruin")){
+    var uim=ART["ruin"], us=2.3*o.r;
+    drawArt(c, uim, o.x, o.y, us, us*(uim.naturalHeight/uim.naturalWidth), 0);
+    return;
+  }
   c.save(); c.translate(o.x,o.y);
   if(o.type==="asteroid"){
     pencilStroke(c,function(){ c.beginPath();
-      for(var i=0;i<9;i++){ var a=i/9*6.29, r=o.r*(0.78+((i*37)%23)/60); var px=Math.cos(a)*r, py=Math.sin(a)*r; i?c.lineTo(px,py):c.moveTo(px,py); }
-      c.closePath(); c.fillStyle="rgba(150,145,135,0.5)"; c.fill(); c.stroke(); });
-    if(o.carved>0){ c.fillStyle="rgba(253,253,248,0.9)"; c.beginPath(); c.arc(0,0,o.r*0.4*o.carved,0,6.29); c.fill(); }
+      for(var i=0;i<14;i++){ var a=i/14*6.29, r=o.r*(0.8+sr(i*7+o.x)*0.3); var px=Math.cos(a)*r, py=Math.sin(a)*r; i?c.lineTo(px,py):c.moveTo(px,py); }
+      c.closePath(); c.fillStyle="rgba(150,145,135,0.35)"; c.fill(); c.stroke();
+      c.beginPath(); c.arc(-o.r*0.3,-o.r*0.15,o.r*0.2,0,6.29); c.stroke(); c.beginPath(); c.arc(o.r*0.32,o.r*0.25,o.r*0.15,0,6.29); c.stroke(); });
+    if(o.carved>0){ c.fillStyle="rgba(248,241,218,0.92)"; c.beginPath(); c.arc(0,0,o.r*0.42*o.carved,0,6.29); c.fill(); }
   } else if(o.type==="forest"){
     c.fillStyle="rgba(70,140,80,0.28)"; c.beginPath(); c.arc(0,0,o.r,0,6.29); c.fill();
     pencilStroke(c,function(){ for(var i=0;i<6;i++){ var a=i*1.7, tx=Math.cos(a)*o.r*0.5, ty=Math.sin(a)*o.r*0.5;
       c.beginPath(); c.moveTo(tx,ty+9); c.lineTo(tx,ty-4); c.moveTo(tx-8,ty+2); c.lineTo(tx+8,ty+2); c.moveTo(tx-6,ty-5); c.lineTo(tx+6,ty-5); c.stroke(); } });
   } else if(o.type==="rock"){
-    pencilStroke(c,function(){ c.beginPath(); c.moveTo(-o.r,-o.r*0.2); c.lineTo(-o.r*0.3,-o.r*0.8); c.lineTo(o.r*0.7,-o.r*0.5); c.lineTo(o.r,o.r*0.3); c.lineTo(0,o.r*0.6); c.closePath(); c.fillStyle="rgba(140,140,150,0.55)"; c.fill(); c.stroke(); });
+    pencilStroke(c,function(){ c.beginPath(); c.moveTo(-o.r,-o.r*0.2); c.lineTo(-o.r*0.3,-o.r*0.8); c.lineTo(o.r*0.7,-o.r*0.5); c.lineTo(o.r,o.r*0.3); c.lineTo(0,o.r*0.6); c.closePath(); c.fillStyle="rgba(140,140,150,0.55)"; c.fill(); c.stroke();
+      c.beginPath(); c.moveTo(-o.r*0.5,o.r*0.3); c.lineTo(o.r*0.1,-o.r*0.2); c.lineTo(o.r*0.5,o.r*0.35); c.stroke(); });
   } else if(o.type==="hill"){
     c.fillStyle="rgba(190,170,110,0.4)"; c.beginPath(); c.arc(0,0,o.r,0,6.29); c.fill();
     pencilStroke(c,function(){ c.beginPath(); c.arc(0,0,o.r*0.62,0,6.29); c.stroke(); c.beginPath(); c.arc(0,0,o.r*0.3,0,6.29); c.stroke(); });
-    c.font="bold 11px sans-serif"; c.fillStyle="rgba(90,80,50,.7)"; c.textAlign="center"; c.fillText("HILL",0,4);
   } else if(o.type==="ruin"){
     pencilStroke(c,function(){ c.fillStyle="rgba(165,130,95,0.55)"; c.fillRect(-o.r,-o.r*0.7,o.r*2,o.r*1.4); c.strokeRect(-o.r,-o.r*0.7,o.r*2,o.r*1.4);
       c.beginPath(); c.moveTo(-o.r*0.4,-o.r*0.7); c.lineTo(-o.r*0.4,o.r*0.1); c.lineTo(o.r*0.3,o.r*0.1); c.lineTo(o.r*0.3,-o.r*0.7); c.stroke(); });
@@ -825,38 +1067,76 @@ function thingLabel(t){
 }
 function drawThing(c,t){
   var col=PLAYER_COLORS[playerCfg(t.owner).color].hex;
-  c.save(); c.translate(t.x,t.y);
+  var ci=playerCfg(t.owner).color;
   var isSel = G && G.selected===t.id;
-  if(isSel){ c.strokeStyle="#e9a13b"; c.lineWidth=3; c.setLineDash([6,4]); c.beginPath(); c.arc(0,0,30,0,6.29); c.stroke(); c.setLineDash([]); }
-  c.rotate(t.turret? t.angle : t.angle);
-  c.lineJoin="round";
+  if(isSel){ c.save(); c.strokeStyle="#e9a13b"; c.lineWidth=3; c.setLineDash([6,4]); c.beginPath(); c.arc(t.x,t.y,32,0,6.29); c.stroke(); c.restore(); }
+  var drawn=false;
+  if(t.kind==="ship"){
+    var sim=pieceFor("ship-orange", ci, 18);
+    if(sim) drawn=drawArt(c, sim, t.x, t.y, 50, 50*(sim.naturalHeight||sim.height)/(sim.naturalWidth||sim.width), t.angle);
+    if(drawn && t.hp<CFG.shipHp){ c.save(); c.translate(t.x,t.y); c.rotate(t.angle); c.strokeStyle="rgba(40,40,45,.75)"; c.lineWidth=1.8;
+      c.beginPath(); c.moveTo(-6,-7); c.lineTo(1,1); c.lineTo(-3,9); c.stroke(); c.restore(); }
+  } else if(t.kind==="knight"){
+    var kim = t.mounted ? pieceFor("knight-mounted", ci, 352) : pieceFor("knight-foot", ci, 45);
+    if(kim){ var kw = t.mounted?58:42; drawn=drawArt(c, kim, t.x, t.y, kw, kw*(kim.naturalHeight||kim.height)/(kim.naturalWidth||kim.width), t.angle); }
+    if(drawn && !t.mounted){ // dazed spiral over the unhorsed knight — a drawn cue, no words
+      c.save(); c.translate(t.x+10,t.y-24); c.strokeStyle="rgba(43,43,51,.8)"; c.lineWidth=1.6; c.beginPath();
+      for(var sa=0;sa<10;sa+=0.5){ var srr=sa*0.62, sxx=Math.cos(sa)*srr, syy=Math.sin(sa)*srr; sa===0?c.moveTo(sxx,syy):c.lineTo(sxx,syy); } c.stroke(); c.restore();
+    }
+  } else if(t.kind==="tank"){
+    var big=t.cls==="heavy";
+    var tim = big ? pieceFor("tank-heavy", ci, 135) : pieceFor("tank-light", ci, 28);
+    if(tim){ var th = big?58:46, tw = th*(tim.naturalWidth||tim.width)/(tim.naturalHeight||tim.height);
+      drawn=drawArt(c, tim, t.x, t.y, tw, th, t.angle+Math.PI/2); }
+    if(drawn && big && t.hp===1){ c.save(); c.translate(t.x,t.y); c.strokeStyle="rgba(50,45,40,.55)"; c.lineWidth=3;
+      for(var sm=0;sm<4;sm++){ c.beginPath(); c.arc(-8+sm*5,-14-sm*2,4+sm*1.6,0,6.29); c.stroke(); } c.restore(); }
+  } else { // turret / tower / cannon — fixed defense
+    if(t.kind==="tower"){ if(artReady("tower")) drawn=drawArt(c, ART["tower"], t.x, t.y, 34, 42, 0); }
+    else if(t.kind==="cannon"){ var cim=pieceFor("cannon", ci, 215); if(cim) drawn=drawArt(c, cim, t.x, t.y, 48, 48*(cim.naturalHeight||cim.height)/(cim.naturalWidth||cim.width), t.angle+0.7); }
+    else { var uim=pieceFor("turret", ci, 215); if(uim) drawn=drawArt(c, uim, t.x, t.y, 46, 46*(uim.naturalHeight||uim.height)/(uim.naturalWidth||uim.width), t.angle+0.6); }
+  }
+  if(drawn){
+    // forest shelter: a tiny drawn pine over the sheltered knight
+    if(G && !t.turret && CFG.theme==="knights" && inForest(t)){
+      c.save(); c.translate(t.x, t.y-32); c.fillStyle="#2e7d3a"; c.strokeStyle="#20512a"; c.lineWidth=1;
+      c.beginPath(); c.moveTo(0,-8); c.lineTo(6,2); c.lineTo(2,2); c.lineTo(7,9); c.lineTo(-7,9); c.lineTo(-2,2); c.lineTo(-6,2); c.closePath(); c.fill(); c.stroke();
+      c.fillStyle="#6b4a2a"; c.fillRect(-1.2,9,2.4,4); c.restore();
+    }
+    // high ground: a tiny drawn pennant flag
+    if(G && !t.turret && CFG.theme==="tanks" && onHill(t)){
+      c.save(); c.translate(t.x+14, t.y-26); c.strokeStyle="#5a4a22"; c.lineWidth=1.6;
+      c.beginPath(); c.moveTo(0,10); c.lineTo(0,-8); c.stroke();
+      c.fillStyle=col; c.beginPath(); c.moveTo(0,-8); c.lineTo(10,-5); c.lineTo(0,-2); c.closePath(); c.fill(); c.restore();
+    }
+    return;
+  }
+  /* ---- vector fallback while art loads ---- */
+  c.save(); c.translate(t.x,t.y); c.rotate(t.angle); c.lineJoin="round";
   if(t.kind==="ship"){
     c.beginPath(); c.moveTo(20,0); c.lineTo(-14,-13); c.lineTo(-8,0); c.lineTo(-14,13); c.closePath();
     c.fillStyle=col; c.globalAlpha=0.9; c.fill(); c.globalAlpha=1; c.strokeStyle="#2b2b33"; c.lineWidth=2; c.stroke();
-    c.fillStyle="#fff"; c.beginPath(); c.arc(4,0,4,0,6.29); c.fill();
+    c.fillStyle="#fff"; c.fillRect(1,-3,6,6); c.strokeStyle="#2b2b33"; c.lineWidth=1.2; c.strokeRect(1,-3,6,6);
     if(t.hp<CFG.shipHp){ c.strokeStyle="#444"; c.beginPath(); c.moveTo(-4,-6); c.lineTo(2,2); c.lineTo(-2,8); c.stroke(); }
   } else if(t.kind==="knight"){
     if(t.mounted){
       c.strokeStyle=col; c.lineWidth=3.4;
-      c.beginPath(); c.moveTo(-14,8); c.lineTo(10,8); c.moveTo(10,8); c.lineTo(17,-3); c.moveTo(-14,8); c.lineTo(-19,-4); c.stroke(); // horse
+      c.beginPath(); c.moveTo(-14,8); c.lineTo(10,8); c.moveTo(10,8); c.lineTo(17,-3); c.moveTo(-14,8); c.lineTo(-19,-4); c.stroke();
       c.beginPath(); c.moveTo(-16,14); c.lineTo(-11,20); c.moveTo(8,14); c.lineTo(13,20); c.stroke();
-      c.beginPath(); c.moveTo(19,0); c.lineTo(2,-10); c.stroke(); // lance
+      c.beginPath(); c.moveTo(19,0); c.lineTo(2,-10); c.stroke();
       c.fillStyle=col; c.beginPath(); c.arc(0,-9,6,0,6.29); c.fill(); c.strokeStyle="#2b2b33"; c.lineWidth=1.6; c.stroke();
     } else {
       c.strokeStyle=col; c.lineWidth=3;
       c.beginPath(); c.moveTo(0,-4); c.lineTo(0,8); c.moveTo(0,8); c.lineTo(-7,19); c.moveTo(0,8); c.lineTo(7,19); c.moveTo(0,0); c.lineTo(11,-6); c.stroke();
       c.fillStyle=col; c.beginPath(); c.arc(0,-10,5.5,0,6.29); c.fill(); c.strokeStyle="#2b2b33"; c.lineWidth=1.4; c.stroke();
-      c.font="bold 12px sans-serif"; c.fillStyle="#2b2b33"; c.fillText("🐴?", 8,-12);
     }
   } else if(t.kind==="tank"){
-    var big=t.cls==="heavy";
+    var big2=t.cls==="heavy";
     c.fillStyle=col; c.strokeStyle="#2b2b33"; c.lineWidth=2;
-    var w=big?30:24, h=big?22:17;
+    var w=big2?30:24, h=big2?22:17;
     c.beginPath(); c.rect(-w/2,-h/2,w,h); c.fill(); c.stroke();
-    c.beginPath(); c.arc(0,0,big?9:7,0,6.29); c.fillStyle="#fff"; c.fill(); c.stroke();
-    c.beginPath(); c.moveTo(0,0); c.lineTo(big?16:22,0); c.lineWidth=big?6:3.4; c.strokeStyle=col; c.stroke();
-    if(big&&t.hp===1){ c.strokeStyle="rgba(40,40,40,.8)"; c.beginPath(); c.moveTo(-8,-8); c.lineTo(0,0); c.lineTo(-4,8); c.stroke(); }
-  } else { // turret / tower / cannon — fixed defense
+    c.beginPath(); c.arc(0,0,big2?9:7,0,6.29); c.fillStyle="#fff"; c.fill(); c.stroke();
+    c.beginPath(); c.moveTo(0,0); c.lineTo(big2?16:22,0); c.lineWidth=big2?6:3.4; c.strokeStyle=col; c.stroke();
+  } else {
     c.strokeStyle="#2b2b33"; c.lineWidth=2; c.fillStyle=col;
     if(t.kind==="tower"){
       c.fillStyle="rgba(150,130,100,.85)"; c.beginPath(); c.rect(-11,-14,22,28); c.fill(); c.stroke();
@@ -869,69 +1149,137 @@ function drawThing(c,t){
     }
   }
   c.restore();
-  // forest shelter marker
-  if(G && !t.turret && CFG.theme==="knights" && inForest(t)) {
-    c.save(); c.font="13px sans-serif"; c.textAlign="center"; c.fillText("🌲", t.x, t.y-30); c.restore();
+}
+function drawShieldBubble(c, x, y, r, flash){
+  // loose swirly strokes + paint-splatter sparkles, like the sample's bubble
+  c.save(); c.translate(x,y);
+  c.beginPath(); c.arc(0,0,r,0,6.29); c.fillStyle="rgba(110,195,255,0.10)"; c.fill();
+  for(var i=0;i<5;i++){
+    var rr=r*(0.90+0.09*Math.sin(i*2.3+1));
+    c.beginPath(); c.arc(0,0,rr, i*1.35, i*1.35+3.4+(i%2)*1.4);
+    c.strokeStyle= flash? "rgba(140,228,255,0.95)" : "rgba(70,160,235,"+(0.34+0.12*i)+")";
+    c.lineWidth= flash? 4.2 : 2.1; c.lineCap="round"; c.stroke();
   }
-  if(G && !t.turret && CFG.theme==="tanks" && onHill(t)) {
-    c.save(); c.font="11px sans-serif"; c.textAlign="center"; c.fillStyle="#6b5c2e"; c.fillText("⛰ high ground", t.x, t.y-28); c.restore();
+  for(var j=0;j<11;j++){ // sparkle splatter around the rim
+    var a=j*2.35+0.6, sx=Math.cos(a)*r*(1.0+0.05*Math.sin(j*3.1)), sy=Math.sin(a)*r*(1.0+0.05*Math.cos(j*2.2));
+    c.fillStyle="rgba(90,180,250,"+(flash?0.95:0.55)+")";
+    if(j%3===0){ c.save(); c.translate(sx,sy); c.beginPath();
+      c.moveTo(0,-4.6); c.quadraticCurveTo(0,0,4.6,0); c.quadraticCurveTo(0,0,0,4.6); c.quadraticCurveTo(0,0,-4.6,0); c.quadraticCurveTo(0,0,0,-4.6); c.fill(); c.restore(); }
+    else { c.beginPath(); c.arc(sx,sy,1.5,0,6.29); c.fill(); }
   }
+  c.restore();
+}
+function drawFlame(c, x, y, s, seed){
+  // one jagged crayon flame, drawn not lettered
+  var fl = Math.sin(Date.now()/130+seed*2.4)*0.14;
+  c.save(); c.translate(x,y); c.scale(s*(1+fl*0.4), s*(1-fl));
+  var layers=[["#e2492f",11],["#e9a13b",8],["#f7d038",4.8]];
+  layers.forEach(function(L){
+    c.fillStyle=L[0]; c.beginPath();
+    c.moveTo(0,-L[1]);
+    c.quadraticCurveTo(L[1]*0.55,-L[1]*0.35, L[1]*0.42,L[1]*0.5);
+    c.quadraticCurveTo(L[1]*0.2,L[1]*0.95, 0,L[1]*0.95);
+    c.quadraticCurveTo(-L[1]*0.2,L[1]*0.95, -L[1]*0.42,L[1]*0.5);
+    c.quadraticCurveTo(-L[1]*0.55,-L[1]*0.35, 0,-L[1]);
+    c.fill();
+  });
+  c.restore();
+}
+function scorch(c, x, y, r, seed){
+  c.save(); c.translate(x,y); c.globalAlpha=0.5; c.strokeStyle="#3d3830"; c.lineWidth=1.7;
+  for(var i=0;i<7;i++){ c.beginPath();
+    c.arc((sr(seed+i*3)-0.5)*r*1.2, (sr(seed+i*7)-0.5)*r*0.8, r*(0.2+sr(seed+i)*0.3), sr(seed+i*11)*3, sr(seed+i*11)*3+2.4); c.stroke(); }
+  c.restore();
+}
+function baseArtFor(p){
+  var ci=playerCfg(p).color;
+  if(CFG.theme==="space"){
+    if(ci===3) return ART["mothership-purple"];
+    if(ci===1) return ART["mothership-blue"];
+    return artTinted("mothership-blue", ci, 220);
+  }
+  if(CFG.theme==="knights"){
+    if(ci===3) return ART["castle-purple"];
+    return artTinted("castle-purple", ci, 265);
+  }
+  if(ci===3) return ART["bunker-purple"];
+  if(ci===1) return ART["bunker-blue"];
+  return artTinted("bunker-blue", ci, 215);
 }
 function drawBase(c,p){
-  var bc=baseCenter(p), hp=G.bases[p].hp, max=baseMaxHp();
+  var bc=baseCenter(p), hp=G.bases[p].hp;
   var col=PLAYER_COLORS[playerCfg(p).color].hex;
-  c.save(); c.translate(bc.x,bc.y);
-  // Space forcefield bubble
-  if(CFG.theme==="space" && CFG.spaceBase!=="none" && hp> (CFG.spaceBase==="extra"?2: max-1) ){
-    // shield intact while hp above the shield's share
-  }
-  if(CFG.theme==="space" && (CFG.spaceBase==="forcefield"&&hp===3 || CFG.spaceBase==="extra"&&hp>2)){
-    c.beginPath(); c.arc(0,0,BASE_W*0.72,0,6.29);
-    c.fillStyle="rgba(90,190,255,0.16)"; c.fill();
-    c.strokeStyle= (G.flashShield===p)? "#7fe3ff":"rgba(60,160,235,0.75)"; c.lineWidth= G.flashShield===p?5:2.6; c.stroke();
-  }
+  var dd=dirToEnemy(p), rot=Math.atan2(dd.y,dd.x)+Math.PI/2; // art's "up" faces the enemy
+  // Space wall variant (drawn barrier with a door gap — no words)
   if(CFG.theme==="space" && CFG.spaceBase==="wall"){
-    var d=dirToEnemy(p), perp={x:-d.y,y:d.x};
-    c.save(); c.translate(d.x*(BASE_H+16), d.y*(BASE_H+16));
-    c.strokeStyle="rgba(70,70,80,.9)"; c.lineWidth=7;
+    var perp={x:-dd.y,y:dd.x};
+    c.save(); c.translate(bc.x+dd.x*(BASE_H+16), bc.y+dd.y*(BASE_H+16));
+    c.strokeStyle="rgba(70,70,80,.9)"; c.lineWidth=7; c.lineCap="round";
     c.beginPath();
     c.moveTo(perp.x*-BASE_W*0.85, perp.y*-BASE_W*0.85); c.lineTo(perp.x*-20, perp.y*-20);
     c.moveTo(perp.x*20, perp.y*20); c.lineTo(perp.x*BASE_W*0.85, perp.y*BASE_W*0.85);
     c.stroke(); c.restore();
-    c.font="10px sans-serif"; c.fillStyle="rgba(60,60,70,.6)"; c.textAlign="center"; c.fillText("wall — thread the door!", d.x*(BASE_H+30), d.y*(BASE_H+30)+3);
   }
-  c.globalAlpha = hp<=0?0.25:1;
-  if(CFG.theme==="space"){
-    pencilStroke(c,function(){ c.beginPath(); c.ellipse(0,0,BASE_W/2,BASE_H/2,0,0,6.29); c.fillStyle=col; c.globalAlpha=0.85; c.fill(); c.globalAlpha=hp<=0?0.25:1; c.stroke(); });
-    c.fillStyle="#fff"; c.beginPath(); c.arc(0,-4,11,0,6.29); c.fill(); c.strokeStyle="#2b2b33"; c.lineWidth=1.6; c.stroke();
-    c.font="bold 11px sans-serif"; c.fillStyle="#2b2b33"; c.textAlign="center"; c.fillText("MOTHERSHIP",0,BASE_H/2+13);
-  } else if(CFG.theme==="knights"){
-    pencilStroke(c,function(){ c.fillStyle="rgba(155,150,160,.8)"; c.fillRect(-BASE_W/2,-BASE_H/2,BASE_W,BASE_H); c.strokeRect(-BASE_W/2,-BASE_H/2,BASE_W,BASE_H);
-      c.beginPath(); for(var i=0;i<5;i++){ c.moveTo(-BASE_W/2+i*(BASE_W/4), -BASE_H/2); c.lineTo(-BASE_W/2+i*(BASE_W/4), -BASE_H/2-8); c.lineTo(-BASE_W/2+(i+0.5)*(BASE_W/4), -BASE_H/2-8); c.lineTo(-BASE_W/2+(i+0.5)*(BASE_W/4), -BASE_H/2);} c.stroke(); });
-    c.fillStyle=col; c.beginPath(); c.moveTo(0,-BASE_H/2-8); c.lineTo(0,-BASE_H/2-24); c.lineTo(16,-BASE_H/2-19); c.lineTo(0,-BASE_H/2-14); c.closePath(); c.fill();
-    c.font="bold 11px sans-serif"; c.fillStyle="#2b2b33"; c.textAlign="center"; c.fillText("CASTLE",0,5);
-  } else {
-    pencilStroke(c,function(){ c.fillStyle="rgba(170,145,100,.85)"; c.fillRect(-BASE_W/2,-BASE_H/2,BASE_W,BASE_H); c.strokeRect(-BASE_W/2,-BASE_H/2,BASE_W,BASE_H); });
-    if(G.bases[p].armor){ c.fillStyle="rgba(215,185,110,.95)"; c.fillRect(-BASE_W/2-4,-BASE_H/2-9,BASE_W+8,9); c.strokeStyle="#2b2b33"; c.lineWidth=1.4; c.strokeRect(-BASE_W/2-4,-BASE_H/2-9,BASE_W+8,9);
-      c.font="9px sans-serif"; c.fillStyle="#4a3c14"; c.textAlign="center"; c.fillText("SANDBAGS",0,-BASE_H/2-1); }
-    c.font="bold 11px sans-serif"; c.fillStyle="#2b2b33"; c.textAlign="center"; c.fillText("BUNKER HQ",0,5);
+  // body: the generated piece, fitted INSIDE the locked 132x56 footprint
+  var img = artReady(CFG.theme==="space"?"mothership-blue":CFG.theme==="knights"?"castle-purple":"bunker-blue") ? baseArtFor(p) : null;
+  var drewArt=false;
+  if(img){
+    var fb=fitArt(img, BASE_W, BASE_H);
+    drewArt=drawArt(c, img, bc.x, bc.y, fb.w, fb.h, rot, hp<=0?0.38:1);
   }
-  // staged damage
+  if(!drewArt){
+    c.save(); c.translate(bc.x,bc.y); c.rotate(rot); c.globalAlpha=hp<=0?0.3:1;
+    if(CFG.theme==="space"){
+      pencilStroke(c,function(){ c.beginPath(); c.ellipse(0,0,BASE_W/2,BASE_H/2,0,0,6.29); c.fillStyle=col; c.globalAlpha=0.85; c.fill(); c.globalAlpha=hp<=0?0.3:1; c.stroke();
+        c.beginPath(); c.moveTo(-BASE_W/2,4); c.lineTo(BASE_W/2,4); c.stroke();
+        for(var wx=-2;wx<=2;wx++){ c.strokeRect(wx*22-5,-2,10,9); } });
+      c.beginPath(); c.arc(0,-6,12,Math.PI,0); c.fillStyle="rgba(200,230,255,.85)"; c.fill(); c.strokeStyle="#2b2b33"; c.lineWidth=1.6; c.stroke();
+    } else if(CFG.theme==="knights"){
+      pencilStroke(c,function(){ c.fillStyle="rgba(155,150,160,.8)"; c.fillRect(-BASE_W/2,-BASE_H/2,BASE_W,BASE_H); c.strokeRect(-BASE_W/2,-BASE_H/2,BASE_W,BASE_H);
+        c.beginPath(); for(var i=0;i<5;i++){ c.moveTo(-BASE_W/2+i*(BASE_W/4), -BASE_H/2); c.lineTo(-BASE_W/2+i*(BASE_W/4), -BASE_H/2-8); c.lineTo(-BASE_W/2+(i+0.5)*(BASE_W/4), -BASE_H/2-8); c.lineTo(-BASE_W/2+(i+0.5)*(BASE_W/4), -BASE_H/2);} c.stroke(); });
+      c.fillStyle=col; c.beginPath(); c.moveTo(0,-BASE_H/2-8); c.lineTo(0,-BASE_H/2-24); c.lineTo(16,-BASE_H/2-19); c.lineTo(0,-BASE_H/2-14); c.closePath(); c.fill();
+    } else {
+      pencilStroke(c,function(){ c.fillStyle="rgba(170,145,100,.85)"; c.fillRect(-BASE_W/2,-BASE_H/2,BASE_W,BASE_H); c.strokeRect(-BASE_W/2,-BASE_H/2,BASE_W,BASE_H); });
+    }
+    c.restore();
+  }
+  // Tanks: the sandbag armor is drawn bags in front of the bunker while it lasts
+  if(CFG.theme==="tanks" && hp>0){
+    if(G.bases[p].armor){
+      c.save(); c.translate(bc.x+dd.x*(BASE_H/2+3), bc.y+dd.y*(BASE_H/2+3)); c.rotate(Math.atan2(dd.y,dd.x)+Math.PI/2);
+      c.fillStyle="rgba(216,185,110,.95)"; c.strokeStyle="#6d5a26"; c.lineWidth=1.2;
+      for(var bx=-3;bx<=3;bx++){ c.beginPath(); c.ellipse(bx*17, 0, 10.5, 5.5, 0, 0, 6.29); c.fill(); c.stroke(); }
+      for(var bx2=-2;bx2<=2;bx2++){ c.beginPath(); c.ellipse(bx2*17+8, -6, 10.5, 5.5, 0, 0, 6.29); c.fill(); c.stroke(); }
+      c.restore();
+    } else {
+      scorch(c, bc.x+dd.x*BASE_H*0.4, bc.y+dd.y*BASE_H*0.4, 30, p*13+4);
+    }
+  }
+  // staged damage: health reads visually only — cracks, scorch, smoke, fire
   if(hp<=2 && hp>0){
-    c.strokeStyle="#333"; c.lineWidth=2;
-    c.beginPath(); c.moveTo(-BASE_W*0.3,-10); c.lineTo(-BASE_W*0.1,2); c.lineTo(-BASE_W*0.24,12); c.stroke();
+    c.save(); c.translate(bc.x,bc.y); c.strokeStyle="rgba(35,32,28,.85)"; c.lineWidth=2;
+    c.beginPath(); c.moveTo(-BASE_W*0.30,-10); c.lineTo(-BASE_W*0.10,2); c.lineTo(-BASE_W*0.24,13); c.stroke();
+    c.beginPath(); c.moveTo(BASE_W*0.18,-14); c.lineTo(BASE_W*0.30,-2); c.stroke(); c.restore();
+    scorch(c, bc.x-BASE_W*0.18, bc.y+2, 24, p*7+2);
   }
   if(hp<=1 && hp>0){
-    c.font="17px sans-serif"; c.textAlign="center"; c.fillText("🔥", -BASE_W*0.28, -BASE_H/2-2); c.fillText("🔥", BASE_W*0.3, 4);
-    c.strokeStyle="rgba(80,80,80,.5)"; c.beginPath(); c.arc(BASE_W*0.2,-BASE_H/2-14,8+((Date.now()/300)%3),0,6.29); c.stroke();
+    drawFlame(c, bc.x-BASE_W*0.28, bc.y-BASE_H/2+2, 1, p);
+    drawFlame(c, bc.x+BASE_W*0.30, bc.y-BASE_H*0.2, 0.75, p+3);
+    c.save(); c.strokeStyle="rgba(90,88,92,.5)"; c.lineWidth=1.8;
+    var pu=((Date.now()/600)%3);
+    c.beginPath(); c.arc(bc.x+BASE_W*0.2, bc.y-BASE_H/2-12-pu*2, 7+pu*1.6, 0, 6.29); c.stroke();
+    c.beginPath(); c.arc(bc.x-BASE_W*0.24, bc.y-BASE_H/2-8-pu, 5+pu, 0, 6.29); c.stroke();
+    c.restore();
   }
-  if(hp<=0){ c.font="30px sans-serif"; c.textAlign="center"; c.fillText("💥",0,8); }
-  c.restore();
-  // hp label
-  c.save(); c.font="bold 12.5px sans-serif"; c.textAlign="center"; c.fillStyle=col;
-  var ly = CFG.layout==="face" ? (p===0? bc.y+BASE_H/2+26 : bc.y-BASE_H/2-16) : bc.y+BASE_H/2+20;
-  c.fillText(playerName(p)+" base: "+Math.max(0,hp)+"/"+max+" hits left", bc.x, ly);
-  c.restore();
+  if(hp<=0){
+    scorch(c, bc.x, bc.y, 46, p*5+9);
+    c.save(); c.translate(bc.x,bc.y); c.strokeStyle="rgba(35,32,28,.8)"; c.lineWidth=2.4;
+    c.beginPath(); c.moveTo(-BASE_W*0.4,-12); c.lineTo(-BASE_W*0.05,4); c.lineTo(-BASE_W*0.3,16); c.moveTo(BASE_W*0.05,-16); c.lineTo(BASE_W*0.28,0); c.lineTo(BASE_W*0.12,15); c.stroke(); c.restore();
+  }
+  // Space forcefield bubble goes over everything (present = shield up, gone = popped)
+  if(CFG.theme==="space" && (CFG.spaceBase==="forcefield"&&hp===3 || CFG.spaceBase==="extra"&&hp>2)){
+    drawShieldBubble(c, bc.x, bc.y, BASE_W*0.63, G.flashShield===p);
+  }
 }
 function drawTrace(c,tr){
   var pc=PLAYER_COLORS[tr.color].hex;
@@ -953,6 +1301,10 @@ function spawnStickmen(x,y,n){
   SFX.scurry();
 }
 function spawnBoom(x,y,big){
+  // the big crayon & gel-pen starburst, plus splatter
+  var spikes=[]; var ns=big?14:10;
+  for(var si=0;si<ns;si++) spikes.push({a:si/ns*6.29+(Math.random()-0.5)*0.3, l:(big?66:44)*(0.6+Math.random()*0.6), col:["#e2492f","#e9a13b","#f2c229","#1769c2","#e05299"][si%5]});
+  G.particles.push({burst:true,x:x,y:y,vx:0,vy:0,t:0,max:big?30:22,r:big?70:46,spikes:spikes});
   for(var i=0;i<(big?26:12);i++){ var a=Math.random()*6.29, s=1+Math.random()*(big?4:2.4);
     G.particles.push({x:x,y:y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,t:0,max:26+Math.random()*22,r:2+Math.random()*(big?6:3.4),col:["#e2492f","#e9a13b","#f7e08a","#555"][i%4]}); }
   G.shake=Math.min(14,(big?12:6));
@@ -970,7 +1322,18 @@ function draw(){
   // particles
   G.particles=G.particles.filter(function(pt){ return pt.t<pt.max; });
   G.particles.forEach(function(pt){ pt.x+=pt.vx; pt.y+=pt.vy; pt.t++;
-    ctx.save(); ctx.globalAlpha=1-pt.t/pt.max; ctx.fillStyle=pt.col; ctx.beginPath(); ctx.arc(pt.x,pt.y,pt.r,0,6.29); ctx.fill(); ctx.restore(); });
+    ctx.save(); ctx.globalAlpha=1-pt.t/pt.max;
+    if(pt.burst){ // jagged multi-color starburst with splatter dots
+      var grow=0.35+0.65*Math.min(1, pt.t/6);
+      pt.spikes.forEach(function(sp){
+        ctx.strokeStyle=sp.col; ctx.lineWidth=4.5; ctx.lineCap="round";
+        ctx.beginPath(); ctx.moveTo(pt.x+Math.cos(sp.a)*8, pt.y+Math.sin(sp.a)*8);
+        ctx.lineTo(pt.x+Math.cos(sp.a)*sp.l*grow, pt.y+Math.sin(sp.a)*sp.l*grow); ctx.stroke();
+        ctx.fillStyle=sp.col; ctx.beginPath(); ctx.arc(pt.x+Math.cos(sp.a)*sp.l*grow*1.18, pt.y+Math.sin(sp.a)*sp.l*grow*1.18, 2.6, 0, 6.29); ctx.fill();
+      });
+      ctx.fillStyle="#fff3b0"; ctx.beginPath(); ctx.arc(pt.x,pt.y,10*grow,0,6.29); ctx.fill();
+    } else { ctx.fillStyle=pt.col; ctx.beginPath(); ctx.arc(pt.x,pt.y,pt.r,0,6.29); ctx.fill(); }
+    ctx.restore(); });
   // stickmen fleeing (comical, unharmed)
   G.stickmen=G.stickmen.filter(function(s){ return s.t<150 && s.x>-30&&s.x<FW+30&&s.y>-30&&s.y<FH+30; });
   G.stickmen.forEach(function(s){ s.x+=s.vx; s.y+=s.vy; s.t++;
@@ -979,15 +1342,18 @@ function draw(){
     ctx.beginPath(); ctx.arc(0,-8,3.4,0,6.29); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(0,-5); ctx.lineTo(0,3); ctx.moveTo(0,3); ctx.lineTo(-4+run,10); ctx.moveTo(0,3); ctx.lineTo(4-run,10);
     ctx.moveTo(0,-2); ctx.lineTo(-6,-8-run*0.4); ctx.moveTo(0,-2); ctx.lineTo(6,-8+run*0.4); ctx.stroke();
-    ctx.font="8px sans-serif"; ctx.fillText("!", 5,-12);
     ctx.restore(); });
   // aim preview / editor hints
   if(input.preview){ drawTrace(ctx,{points:input.preview,color:playerCfg(G.turn).color,width:MEDIUMS[playerCfg(G.turn).medium].w,age:0,dash:true}); }
   if(G.editor){ drawEditor(ctx); }
-  if(G.lastRoll){ ctx.save(); ctx.font="bold 19px 'Segoe Print',sans-serif"; ctx.textAlign="center";
-    ctx.fillStyle="#fffbe8"; ctx.strokeStyle="#2b2b33"; var tw=ctx.measureText(G.lastRoll.text).width+26;
-    ctx.fillRect(G.lastRoll.x-tw/2, G.lastRoll.y-30, tw, 34); ctx.strokeRect(G.lastRoll.x-tw/2, G.lastRoll.y-30, tw, 34);
-    ctx.fillStyle="#2b2b33"; ctx.fillText(G.lastRoll.text, G.lastRoll.x, G.lastRoll.y-6); ctx.restore(); }
+  if(G.lastRoll){ // the forest roll shows as a little drawn die face — pips, not words
+    ctx.save(); ctx.translate(G.lastRoll.x, G.lastRoll.y-24);
+    ctx.fillStyle="#fffbe8"; ctx.strokeStyle= G.lastRoll.n===1? "#2e8b57":"#c23b2a"; ctx.lineWidth=2.4;
+    ctx.beginPath(); ctx.rect(-17,-17,34,34); ctx.fill(); ctx.stroke();
+    ctx.fillStyle="#2b2b33";
+    var pips={1:[[0,0]],2:[[-8,-8],[8,8]],3:[[-8,-8],[0,0],[8,8]],4:[[-8,-8],[8,-8],[-8,8],[8,8]]}[G.lastRoll.n]||[[0,0]];
+    pips.forEach(function(pp){ ctx.beginPath(); ctx.arc(pp[0],pp[1],3.4,0,6.29); ctx.fill(); });
+    ctx.restore(); }
   ctx.restore();
   if(G.anim || G.particles.length || G.stickmen.length || G.shake>0 || (G.bases[0].hp===1||G.bases[1].hp===1)){
     cancelAnimationFrame(rafId); rafId=requestAnimationFrame(draw);
@@ -1065,10 +1431,12 @@ function damageBase(owner, byPlayer, opts){
     G.bases[owner].armor=false; SFX.thunk();
     log("🟨 Sandbags absorb the cannon hit on "+playerName(owner)+"'s bunker! Mortars would have skipped them…");
     spawnBoom(baseCenter(owner).x, baseCenter(owner).y, false);
+    noteBaseHit(owner);
     return true;
   }
   var wasShield = CFG.theme==="space" && ((CFG.spaceBase==="forcefield"&&G.bases[owner].hp===3)||(CFG.spaceBase==="extra"&&G.bases[owner].hp>2));
   G.bases[owner].hp--;
+  noteBaseHit(owner);
   if(wasShield){ G.flashShield=owner; SFX.shield(); setTimeout(function(){ G.flashShield=-1; draw(); },450);
     log("🛡 FORCEFIELD DOWN! "+playerName(owner)+"'s mothership is naked now."); }
   else if(G.bases[owner].hp===2){ SFX.boom(false); log("💥 Hit! "+playerName(owner)+"'s base is cracked and smoking. (2 hits left)"); }
@@ -1094,18 +1462,57 @@ function unhorse(k, why){
   k.mounted=false; SFX.thunk();
   log("🐴 Unhorsed! "+playerName(k.owner)+"'s knight is on foot — walk him home to his castle to remount. "+(why||""));
 }
-function checkStalemate(){
-  if(G.over) return;
-  for(var p=0;p<2;p++){
-    if(allUnits(p).length===0 && allTurrets(p).length===0 && G.reserve[p]===0){
-      log(playerName(p)+" has no fighters and no turrets left to act with.");
-      endMatch(1-p);
+function sideCanAct(p){ return allUnits(p).length>0 || allTurrets(p).length>0 || G.reserve[p]>0; }
+function checkStalemate(){ evaluateClock(); }
+/* STALEMATE CLOCK (locked rule, Oct 26 2026): when a side loses its last fighter,
+   the side that still has fighters gets 5 of its OWN turns to land a hit on the
+   enemy base. A landed base hit clears the clock (it re-arms if the situation
+   recurs). Clock out with no hit = DRAW. But a side with no fighters AND no
+   working turrets/towers/cannons (and no reserves to launch) cannot act at all
+   and LOSES immediately — that supersedes the clock. */
+function evaluateClock(){
+  if(!G || G.over) return;
+  var can0=sideCanAct(0), can1=sideCanAct(1);
+  if(!can0 && !can1){ endMatchDraw("Neither side can act any more."); return; }
+  if(!can0){ log(playerName(0)+" has no fighters, no working defenses, and nothing left to launch — they cannot act at all."); endMatch(1); return; }
+  if(!can1){ log(playerName(1)+" has no fighters, no working defenses, and nothing left to launch — they cannot act at all."); endMatch(0); return; }
+  var f0=allUnits(0).length>0, f1=allUnits(1).length>0;
+  if(f0!==f1){
+    var side=f0?0:1;
+    if(!G.clock || G.clock.side!==side){
+      G.clock={side:side, left:5};
+      log("⏱ STALEMATE CLOCK! "+playerName(1-side)+" is out of fighters. "+playerName(side)+" has 5 of their own turns to land a hit on the enemy base — or it's a draw!");
     }
+  } else if(G.clock){
+    G.clock=null;
+    log("Both sides have fighters again — the stalemate clock is gone.");
   }
+  updateHUD();
+}
+function noteBaseHit(owner){
+  // a landed hit on the fighter-less side's base clears the clock
+  if(G.clock && owner===1-G.clock.side){
+    G.clock=null;
+    log("⏱ Base hit! The stalemate clock is cleared — play on.");
+    updateHUD();
+  }
+}
+function endMatchDraw(why){
+  if(G.over) return;
+  G.over=true; G.winner=null; G.draw=true; G.clock=null;
+  log("🤝 "+(why||"The stalemate clock ran out with no base hit.")+" It's a draw — nobody camps their way to a win.");
+  updateHUD(); draw();
+  crowdReact("draw");
+  setTimeout(function(){
+    document.getElementById("overTitle").textContent="🤝 Stalemate — it's a draw!";
+    document.getElementById("overText").textContent="The clock ran out: the side with fighters couldn't land a base hit in 5 turns. Honours even, crayons down.";
+    document.getElementById("overModal").classList.add("open");
+  }, 900);
 }
 function endMatch(winner){
   if(G.over) return;
-  G.over=true; G.winner=winner;
+  G.over=true; G.winner=winner; G.clock=null;
+  crowdReact(CFG.mode==="2p" ? "win" : (winner===0 ? "win" : "lose"));
   updateHUD(); draw();
   setTimeout(function(){
     document.getElementById("overTitle").textContent = "💥 "+playerName(winner)+" wins!";
@@ -1274,9 +1681,9 @@ function resolveShot(shooter, end, vec){
         if(!carved.has(ob)){
           carved.add(ob);
           var roll=1+Math.floor(Math.random()*4);
-          if(roll!==1){ G.lastRoll={x:pt.x,y:pt.y,text:"🎲 rolled "+roll+" — arrow sticks in a tree! 🌲"}; setTimeout(function(){G.lastRoll=null;draw();},1600);
+          if(roll!==1){ G.lastRoll={x:pt.x,y:pt.y,n:roll}; setTimeout(function(){G.lastRoll=null;draw();},1600);
             log("🌲 Arrow into the forest: rolled "+roll+". Only a 1 gets through — it thunks into a trunk."); stopped=true; break; }
-          else { G.lastRoll={x:pt.x,y:pt.y,text:"🎲 rolled 1 — it gets through! 🍀"}; setTimeout(function(){G.lastRoll=null;draw();},1600);
+          else { G.lastRoll={x:pt.x,y:pt.y,n:1}; setTimeout(function(){G.lastRoll=null;draw();},1600);
             log("🍀 LUCKY! Rolled a 1 — the arrow threads the forest!"); }
         }
       } else if(CFG.theme==="knights"&&ob.type==="rock"){ stopped=true; log("Arrow stops at the rock."); break; }
@@ -1296,7 +1703,7 @@ function resolveShot(shooter, end, vec){
     // fighters & turrets along the path (all intersections count)
     for(var p3=0;p3<2;p3++){
       G.units[p3].forEach(function(o){
-        if(o.alive && Math.hypot(pt.x-o.x,pt.y-o.y) < 20 + MEDIUMS[medium].w){
+        if(o.alive && o!==shooter && Math.hypot(pt.x-o.x,pt.y-o.y) < 20 + MEDIUMS[medium].w){
           if(o.owner===owner && CFG.friendly==="none") return;
           if(o.owner===owner && CFG.friendly==="partial"||o.owner!==owner||CFG.friendly==="full") hitFighter(o, owner, {});
         }
@@ -1344,7 +1751,9 @@ function afterAction(thing, action){
   if(CFG.turnStructure==="fast" && G.fastPhase==="move" && action==="move" && !thing.turret && thing.alive){
     G.fastPhase="shoot"; setAction("shoot");
     log("Fast Battle: now the shot! Flick again from the same fighter (or End Turn).");
-    updateHUD(); return;
+    updateHUD();
+    if(CFG.mode==="1p" && G.turn===1) setTimeout(cpuTurn, 850); // CPU takes its shot phase too
+    return;
   }
   if(CFG.turnStructure==="ramming"){ /* move already attacked */ }
   endTurn();
@@ -1386,6 +1795,12 @@ function endTurn(){
   var prev=G.turn;
   autoTurrets(prev);
   if(G.over) return;
+  // stalemate clock burns down only on the fighter-having side's own turns
+  if(G.clock && G.clock.side===prev){
+    G.clock.left--;
+    if(G.clock.left<=0){ endMatchDraw(); return; }
+    log("⏱ Stalemate clock: "+playerName(prev)+" has "+G.clock.left+" turn"+(G.clock.left===1?"":"s")+" left to hit the enemy base.");
+  }
   G.turn=1-G.turn; G.fastPhase="move"; setAction("move"); G.selected=null;
   G.traces.forEach(function(t){ /* ages already advance per trace drawn */ });
   updateHUD(); draw();
@@ -1415,28 +1830,117 @@ document.getElementById("btnLaunch").addEventListener("click", function(){
     kind:CFG.theme==="space"?"ship":CFG.theme==="knights"?"knight":"tank", cls:CFG.theme==="tanks"?"light":null, hp:CFG.theme==="space"?CFG.shipHp:1, mounted:true };
   G.units[p].push(nu);
   log("🚀 "+playerName(p)+" launches a fresh "+thingLabel(nu)+" from the base!");
-  SFX.pop(); endTurn();
+  SFX.pop(); evaluateClock(); if(!G.over) endTurn();
 });
 
 /* ============================================================
    CPU
    ============================================================ */
+/* ---- CPU flick simulation: it "sees" the trace before it commits ----
+   Mirrors the real resolvers' first-intersection rules without mutating state. */
+function simMoveOutcome(u, end){
+  var pts=sampleLine({x:u.x,y:u.y}, end, 5);
+  for(var s=1;s<pts.length;s++){
+    var pt=pts[s];
+    if(baseHitAt(pt, 1-u.owner)){
+      if(u.kind==="knight") return {kind: u.mounted?"basehit":"stop", t:pt.t};
+      if(u.kind==="ship") return {kind:"death", t:pt.t};
+      return {kind:"stop", t:pt.t};
+    }
+    if(u.kind==="knight" && !u.mounted && baseHitAt(pt, u.owner)) return {kind:"remount", t:pt.t};
+    if(wallBlocks({x:u.x,y:u.y}, pt, 1-u.owner)) return {kind: u.kind==="knight"?"stop":"death", t:pt.t};
+    var ob=obstacleAt(pt, 6);
+    if(ob){
+      if(u.kind==="tank" && ob.type==="hill") return {kind:"hill", t:pt.t};
+      if(u.kind==="knight" && ob.type==="forest") return {kind:"forest", t:pt.t};
+      if(u.kind==="knight" && ob.type==="rock") return {kind: u.mounted?"unhorse":"death", t:pt.t};
+      return {kind:"death", t:pt.t};
+    }
+    var hitU=null;
+    for(var p=0;p<2;p++) for(var q=0;q<G.units[p].length;q++){ var o=G.units[p][q];
+      if(o.alive&&o!==u&&Math.hypot(pt.x-o.x,pt.y-o.y)<24){ hitU=o; break; } if(hitU)break; }
+    if(hitU){
+      if(hitU.owner===u.owner) return {kind:"blocked", t:pt.t};
+      if(u.kind==="knight") return {kind: hitU.kind==="knight" ? "goodhit" : "stop", t:pt.t};
+      if(u.kind==="tank" && hitU.kind==="tank"){
+        var uw=u.cls==="heavy"?2:1, fw=hitU.cls==="heavy"?2:1;
+        return {kind: uw>fw ? "goodhit" : "death", t:pt.t};
+      }
+      return {kind:"death", t:pt.t}; // ship collisions are mutual
+    }
+    var hitT=null;
+    for(var p2=0;p2<2;p2++) for(var q2=0;q2<G.turrets[p2].length;q2++){ var t2=G.turrets[p2][q2];
+      if(t2.alive&&Math.hypot(pt.x-t2.x,pt.y-t2.y)<20){ hitT=t2; break; } if(hitT)break; }
+    if(hitT){
+      if(hitT.owner===u.owner) return {kind:"blocked", t:pt.t};
+      if(u.kind==="knight") return {kind:"goodhit", t:pt.t};
+      if(u.kind==="ship") return {kind:"death", t:pt.t};
+      return {kind:"blocked", t:pt.t};
+    }
+  }
+  if((end.x<=2||end.x>=FW-2||end.y<=2||end.y>=FH-2) && CFG.edge==="off") return {kind:"death", t:1};
+  return {kind:"clear", t:1};
+}
+function simShotOutcome(shooter, end){
+  var owner=shooter.owner, medium=playerCfg(owner).medium;
+  var start={x:shooter.x,y:shooter.y};
+  if(shooter.kind==="tank" && shooter.cls==="heavy" && !shooter.turret){
+    // mortar: only the landing point matters — check the blast for value
+    var R=40, bcE=baseCenter(1-owner), ownDanger=false, hit=false;
+    for(var p=0;p<2;p++) G.units[p].forEach(function(o){ if(o.alive&&Math.hypot(o.x-end.x,o.y-end.y)<R+16){ if(o.owner===owner) ownDanger=true; else hit=true; } });
+    for(var p2=0;p2<2;p2++) G.turrets[p2].forEach(function(t){ if(t.alive&&Math.hypot(t.x-end.x,t.y-end.y)<R+12){ if(t.owner===owner) ownDanger=true; else hit=true; } });
+    if(baseHitAt(end,1-owner)||Math.hypot(end.x-bcE.x,end.y-bcE.y)<R+BASE_W/2) return {kind:"base"};
+    if(ownDanger && !hit) return {kind:"own"};
+    return {kind: hit?"target":"miss"};
+  }
+  var pts=sampleLine(start,end,5), carved=new Set();
+  for(var s=1;s<pts.length;s++){
+    var pt=pts[s];
+    if(CFG.edge==="wrap"&&CFG.theme==="space"&&(pt.x<0||pt.x>FW||pt.y<0||pt.y>FH)){ var wp={x:pt.x,y:pt.y}; wrapPoint(wp); pt.x=wp.x; pt.y=wp.y; }
+    for(var bp=0;bp<2;bp++){
+      if(baseHitAt(pt,bp)){
+        if(bp===owner){ if(CFG.friendly==="full") return {kind:"own"}; }
+        else { if(wallBlocks(start,pt,bp)) return {kind:"blocked"}; return {kind:"base"}; }
+      }
+    }
+    if(wallBlocks(start,pt,1-owner)) return {kind:"blocked"};
+    var ob=obstacleAt(pt,2);
+    if(ob){
+      if(CFG.theme==="knights"&&ob.type==="forest"){ if(!carved.has(ob)) return {kind:"risky"}; }
+      else if(CFG.theme==="knights"&&ob.type==="rock") return {kind:"blocked"};
+      else if(CFG.theme==="tanks"&&(ob.type==="ruin"||ob.type==="hill")){
+        if(!(shooter.kind==="tank"&&onHill(shooter)&&ob.type==="ruin")) return {kind:"blocked"};
+      }
+      else {
+        if(CFG.obstacle==="tunnel"){ carved.add(ob); }
+        else if(CFG.obstacle==="block") return {kind:"blocked"};
+        else if(CFG.obstacle==="destroy") return {kind:"clears"};
+      }
+    }
+    var done=null;
+    for(var p3=0;p3<2&&!done;p3++){
+      G.units[p3].forEach(function(o){ if(!done&&o.alive&&o!==shooter&&Math.hypot(pt.x-o.x,pt.y-o.y)<20+MEDIUMS[medium].w){
+        done = o.owner===owner ? (CFG.friendly==="none"? null : {kind:"own"}) : {kind:"target"}; } });
+      G.turrets[p3].forEach(function(t){ if(!done&&t.alive&&t!==shooter&&Math.hypot(pt.x-t.x,pt.y-t.y)<17+MEDIUMS[medium].w){
+        done = t.owner===owner ? (CFG.friendly==="none"? null : {kind:"own"}) : {kind:"target"}; } });
+    }
+    if(done) return done;
+  }
+  return {kind:"miss"};
+}
 function cpuTurn(){
   if(!G||G.over||G.turn!==1) return;
   var err = CFG.cpuDiff==="recess"?0.34 : CFG.cpuDiff==="study"?0.07 : 0.18;
-  var p=1, myUnits=allUnits(p), myTurrets=allTurrets(p);
-  var foeBase=baseCenter(0);
-  function aimAt(from, tx, ty, wobble){
-    var ang=Math.atan2(ty-from.y, tx-from.x)+(Math.random()-0.5)*2*(wobble||err);
-    return ang;
-  }
+  var budget = CFG.cpuDiff==="recess"?6 : CFG.cpuDiff==="study"?26 : 14; // candidate flicks it bothers to simulate
+  var p=1, foeBase=baseCenter(0);
+  var clockPush = !!(G.clock && G.clock.side===1); // stalemate clock running against the CPU: shove at the base, no camping
   function flick(thing, ang, len, action){
     G.selected=thing.id;
     var end={x:thing.x+Math.cos(ang)*len, y:thing.y+Math.sin(ang)*len};
-    // animate a ghost preview trace for readability
     G.anim={thing:thing, end:end};
     setTimeout(function(){
       G.anim=null;
+      if(!G||G.over) return;
       if(action==="shoot") resolveShot(thing, end, {x:Math.cos(ang),y:Math.sin(ang)});
       else resolveMove(thing, end, {x:Math.cos(ang),y:Math.sin(ang)});
     }, 550);
@@ -1444,61 +1948,82 @@ function cpuTurn(){
   }
   // Launch Bay / Reinforcements: sometimes launch
   if(G.reserve[p]>0 && CFG.deployment!=="all" && Math.random()<0.4){ document.getElementById("btnLaunch").click(); return; }
-  if(CFG.theme==="knights"){
-    var mounted=myUnits.filter(function(u){return u.mounted;});
-    var foot=myUnits.filter(function(u){return !u.mounted;});
-    if(foot.length && Math.random()<0.75){ // walk home to remount (personality)
-      var f0=foot[0], home=baseCenter(p);
-      flick(f0, aimAt(f0, home.x, home.y), Math.min(maxLen(f0,"move"), Math.hypot(home.x-f0.x,home.y-f0.y)+10), "move"); return;
+  var cands=[];
+  function addCand(thing, action, ang, len, intent){ cands.push({thing:thing, action:action, ang:ang, len:len, intent:intent}); }
+  var myUnits=allUnits(p), myTurrets=allTurrets(p);
+  var foes=allUnits(0), foeTurrets=allTurrets(0);
+  /* Shot candidates: honest lines at the base, fighters, turrets */
+  myUnits.concat(myTurrets).forEach(function(t){
+    if(CFG.theme==="knights" && !t.turret) return; // knights have no ranged shot
+    if(CFG.turnStructure==="ramming" && !t.turret) return; // ramming: units attack by moving
+    var tgts=[{x:foeBase.x,y:foeBase.y,base:true}].concat(foes).concat(foeTurrets);
+    tgts.forEach(function(tg){
+      var d=Math.hypot(tg.x-t.x, tg.y-t.y);
+      if(d>maxLen(t,"shoot")+26) return;
+      addCand(t, "shoot", Math.atan2(tg.y-t.y, tg.x-t.x), Math.min(maxLen(t,"shoot"), d+10), tg.base ? (clockPush?130:72) : 46);
+    });
+    if(CFG.theme==="space" && CFG.edge==="wrap" && !t.turret)
+      addCand(t, "shoot", Math.random()<0.5?0.12:Math.PI-0.12, maxLen(t,"shoot"), 26); // wrap trick shot — simulated like everything else
+  });
+  /* Move candidates: theme intent first, sampled hops second */
+  myUnits.forEach(function(u){
+    var dB=Math.hypot(foeBase.x-u.x, foeBase.y-u.y);
+    if(u.kind==="knight"){
+      if(!u.mounted){
+        var home=baseCenter(p), dh=Math.hypot(home.x-u.x, home.y-u.y);
+        addCand(u, "move", Math.atan2(home.y-u.y, home.x-u.x), Math.min(maxLen(u,"move"), dh+12), 78); // walk home to remount
+        var advK=dirToEnemy(p);
+        addCand(u, "move", Math.atan2(advK.y,advK.x)+(Math.random()-0.5)*0.8, maxLen(u,"move")*0.7, 18);
+      } else {
+        addCand(u, "move", Math.atan2(foeBase.y-u.y, foeBase.x-u.x), Math.min(maxLen(u,"move"), dB), clockPush?115:64); // charge the castle
+        foes.forEach(function(f){ var d=Math.hypot(f.x-u.x,f.y-u.y); if(d<maxLen(u,"move")+22) addCand(u, "move", Math.atan2(f.y-u.y,f.x-u.x), Math.min(maxLen(u,"move"), d), 52); });
+        foeTurrets.forEach(function(f){ var d=Math.hypot(f.x-u.x,f.y-u.y); if(d<maxLen(u,"move")+22) addCand(u, "move", Math.atan2(f.y-u.y,f.x-u.x), Math.min(maxLen(u,"move"), d), 44); });
+      }
+      return;
     }
-    if(mounted.length){
-      var k=mounted[Math.floor(Math.random()*mounted.length)];
-      var targetBase = Math.random()<0.7;
-      var tx=targetBase?foeBase.x: (allUnits(0)[0]?allUnits(0)[0].x:foeBase.x);
-      var ty=targetBase?foeBase.y: (allUnits(0)[0]?allUnits(0)[0].y:foeBase.y);
-      flick(k, aimAt(k,tx,ty), maxLen(k,"move"), "move"); return;
+    var hops = CFG.cpuDiff==="study"?5 : CFG.cpuDiff==="lunch"?4 : 3;
+    var adv=dirToEnemy(p), baseAng=Math.atan2(adv.y, adv.x);
+    for(var i=0;i<hops;i++)
+      addCand(u, "move", baseAng+(Math.random()-0.5)*1.6, maxLen(u,"move")*(0.45+Math.random()*0.55), clockPush?58:30);
+    var want = (u.kind==="tank"&&u.cls==="heavy") ? 290 : 370;
+    if(dB>want) addCand(u, "move", Math.atan2(foeBase.y-u.y, foeBase.x-u.x), Math.min(maxLen(u,"move"), dB-want+50), clockPush?95:50);
+    if(u.kind==="tank" && !clockPush){
+      G.obstacles.filter(function(o){return o.type==="hill";}).forEach(function(h){
+        var d=Math.hypot(h.x-u.x,h.y-u.y); if(d<maxLen(u,"move")+22) addCand(u, "move", Math.atan2(h.y-u.y,h.x-u.x), Math.min(maxLen(u,"move"), d), 46);
+      });
     }
-    if(myTurrets.length && allUnits(0).length){ var t0=myTurrets[0], f1=allUnits(0)[0];
-      flick(t0, aimAt(t0,f1.x,f1.y), Math.min(430,Math.hypot(f1.x-t0.x,f1.y-t0.y)+8), "shoot"); return; }
+  });
+  if(!cands.length){ checkStalemate(); if(!G.over) endTurn(); return; }
+  /* Simulate the most promising candidates and pick the best-scoring one.
+     Death moves score so low they are only ever chosen when literally
+     everything is bad — and then the latest-dying one is the least-bad. */
+  var MOVE_SCORE={death:-1000, unhorse:-70, blocked:-35, stop:-8, clear:0, forest:6, hill:26, goodhit:58, basehit:96, remount:62};
+  var SHOT_SCORE={base:105, target:62, clears:14, risky:-18, miss:-22, blocked:-48, own:-85};
+  var lastStand = myUnits.length===1;
+  cands.sort(function(a,b){ return b.intent-a.intent; });
+  var best=null, sims=0;
+  for(var ci=0; ci<cands.length && sims<budget; ci++){
+    var cd=cands[ci]; sims++;
+    var end={x:cd.thing.x+Math.cos(cd.ang)*cd.len, y:cd.thing.y+Math.sin(cd.ang)*cd.len};
+    var sc;
+    if(cd.action==="move"){
+      var mo=simMoveOutcome(cd.thing, end);
+      sc = cd.intent + (MOVE_SCORE[mo.kind]||0) + (mo.kind==="death" ? mo.t*120 - (lastStand?160:0) : 0);
+      cd.outcome=mo.kind;
+    } else {
+      var so=simShotOutcome(cd.thing, end);
+      sc = cd.intent + (SHOT_SCORE[so.kind]||0);
+      cd.outcome=so.kind;
+    }
+    cd.score=sc;
+    if(!best || sc>best.score) best=cd;
   }
-  if(CFG.theme==="tanks"){
-    var heavies=myUnits.filter(function(u){return u.cls==="heavy";});
-    var lights=myUnits.filter(function(u){return u.cls!=="heavy";});
-    if(heavies.length){
-      var hv=heavies[0], dBase=Math.hypot(foeBase.x-hv.x, foeBase.y-hv.y);
-      if(dBase<330 && Math.random()<0.8){ flick(hv, aimAt(hv,foeBase.x,foeBase.y), dBase, "shoot"); return; }
-      if(Math.random()<0.5){ var hill=G.obstacles.filter(function(o){return o.type==="hill";})[0];
-        var tgt=hill||foeBase; flick(hv, aimAt(hv,tgt.x,tgt.y), maxLen(hv,"move"), "move"); return; }
-    }
-    if(lights.length){
-      var lt=lights[Math.floor(Math.random()*lights.length)], d2=Math.hypot(foeBase.x-lt.x,foeBase.y-lt.y);
-      if(d2<400 && Math.random()<0.65){ flick(lt, aimAt(lt,foeBase.x,foeBase.y), d2, "shoot"); return; }
-      var hill2=G.obstacles.filter(function(o){return o.type==="hill";})[0];
-      var tgt2=(Math.random()<0.5&&hill2)?hill2:foeBase;
-      flick(lt, aimAt(lt,tgt2.x,tgt2.y), maxLen(lt,"move")*(0.7+Math.random()*0.3), "move"); return;
-    }
-    if(myTurrets.length){ var ct=myTurrets[0], cf=allUnits(0)[0]||foeBase; flick(ct, aimAt(ct,cf.x,cf.y), Math.min(430,Math.hypot(cf.x-ct.x,cf.y-ct.y)+8), "shoot"); return; }
-  }
-  // Space (and fallback)
-  var ships=myUnits;
-  if(ships.length){
-    var sh=ships[Math.floor(Math.random()*ships.length)];
-    var dB=Math.hypot(foeBase.x-sh.x, foeBase.y-sh.y);
-    var shootChance = CFG.cpuDiff==="study"?0.75:0.55;
-    if(dB<420 && Math.random()<shootChance){
-      var ang=aimAt(sh, foeBase.x, foeBase.y);
-      // wrap-happy personality: sometimes shoot off the side edge on purpose
-      if(Math.random()<0.18){ ang = Math.random()<0.5? 0.15 : Math.PI-0.15; log("🌀 CPU tries a wrap trick shot!"); }
-      flick(sh, ang, Math.min(maxLen(sh,"shoot"), dB+10), "shoot"); return;
-    }
-    var adv=dirToEnemy(p);
-    var ang2=Math.atan2(adv.y,adv.x)+(Math.random()-0.5)*0.8;
-    flick(sh, ang2, maxLen(sh,"move")*(0.65+Math.random()*0.35), "move"); return;
-  }
-  if(myTurrets.length){ var tt=myTurrets[0], tf=allUnits(0)[0]||foeBase;
-    flick(tt, aimAt(tt,tf.x,tf.y), Math.min(430,Math.hypot(tf.x-tt.x,tf.y-tt.y)+8), "shoot"); return; }
-  // nothing to do
-  checkStalemate(); if(!G.over) endTurn();
+  if(!best){ checkStalemate(); if(!G.over) endTurn(); return; }
+  // Human-like execution: the difficulty wobble is applied AFTER choosing,
+  // so the CPU means well but still flicks like a kid at a lunch table.
+  var ang2 = best.ang + (Math.random()-0.5)*2*err;
+  var len2 = best.len * (best.action==="shoot" ? (0.96+Math.random()*0.08) : 1);
+  flick(best.thing, ang2, len2, best.action);
 }
 
 /* ============================================================
@@ -1642,8 +2167,6 @@ function drawEditor(c){
   var mz=midZone();
   c.save(); c.strokeStyle="rgba(226,73,47,.7)"; c.setLineDash([8,6]); c.lineWidth=2;
   c.strokeRect(mz.x,mz.y,mz.w,mz.h); c.setLineDash([]);
-  c.font="bold 13px sans-serif"; c.fillStyle="rgba(226,73,47,.8)"; c.textAlign="center";
-  c.fillText("MIDDLE ZONE — obstacles live here only", mz.x+mz.w/2, mz.y-8);
   if(G.editor.pts&&G.editor.pts.length>1){ c.strokeStyle=PLAYER_COLORS[playerCfg(0).color].hex; c.lineWidth=MEDIUMS[CFG.p1.medium].w;
     c.beginPath(); G.editor.pts.forEach(function(p,i){ i?c.lineTo(p.x,p.y):c.moveTo(p.x,p.y); }); c.stroke(); }
   c.restore();
@@ -1756,7 +2279,8 @@ function howHTML(){
     CFG.theme==="knights" ?
     "<h3>🏰 Knights</h3><p>Knights have <b>no ranged shot</b> — the flick is a <b>charge</b>. Crossing an enemy knight unhorses him; reaching the castle scores a hit <b>and unhorses the charger</b>. On foot: short walk flicks, can't hurt the castle, one more hit and he's out. Touch your own castle to <b>remount</b>. Archer towers fire arrows as your turn action. <b>Rocks</b> block charges and arrows and unhorse on impact. <b>Forests</b> end a charge inside them, halve mounted movement, and shelter anyone inside: only <b>1-in-4</b> arrows get through.</p>" :
     "<h3>🛡️ Tanks</h3><p><b>Light Cannon:</b> fast long flicks, straight shells blocked by hills and ruins, dies in 1 hit. <b>Heavy Mortar:</b> slow short flicks, lobs a shell that arcs <b>over</b> everything and bursts at its landing point; takes 2 hits (first leaves it smoking and slower). <b>Heavier tank wins a ram.</b> Hills are drivable high ground: crossing halves your distance, but from the top a cannon fires over low cover. The bunker's <b>sandbags absorb the first straight cannon hit</b> — mortars skip them entirely.</p>";
-  return "<p><b>The heart of it:</b> flick your fighters across the paper. Blow up the <b>enemy base in 3 hits</b> to win — you never have to mop up their fighters. If a side loses all fighters <i>and</i> turrets, it can't act and loses.</p>"+
+  return "<p><b>The heart of it:</b> flick your fighters across the paper. Blow up the <b>enemy base in 3 hits</b> to win — you never have to mop up their fighters.</p>"+
+  "<p><b>⏱ The stalemate clock:</b> when a side loses its last fighter, the clock starts for the side that still has fighters: it has <b>5 of its own turns</b> to land a hit on the enemy base (watch the pips burn down beside the turn badge). Land a hit and the clock clears — play continues, and it can re-arm later. Run out of turns with no base hit and the match is a <b>draw</b>, not a win for the camper. One hard edge: a side with no fighters <i>and</i> no functioning turrets/towers/cannons left (and nothing in reserve to launch) can't take any action at all, so it <b>loses immediately</b> — that beats the clock.</p>"+
   "<p><b>A turn (Classic):</b> tap one of your fighters or defense turrets, choose Move or Shoot, and flick once. Traces stay on the paper and fade; the newest is always darkest; traces never collide.</p>"+
   themeRules+
   "<h3>The fair-base rule</h3><p>Every base — mothership, castle, bunker — uses the <b>same modest, capped footprint</b> for both players, centered inside its own base zone (the end 12% of the sheet). Bases never stick out into the battlefield, can't be resized or moved, and turrets sit inside the same zone. Battles are won in the middle of the page.</p>"+
@@ -1773,6 +2297,7 @@ function syncSettingsUI(){
   document.getElementById("volMaster").value=Math.round(SETTINGS.master*100);
   document.getElementById("volMusic").value=Math.round(SETTINGS.music*100);
   document.getElementById("volSfx").value=Math.round(SETTINGS.sfx*100);
+  document.getElementById("volAmb").value=Math.round(SETTINGS.amb*100);
   document.getElementById("ambOn").className="chip"+(SETTINGS.ambience?" sel":"");
   document.getElementById("ambOff").className="chip"+(!SETTINGS.ambience?" sel":"");
   document.getElementById("musOn").className="chip"+(SETTINGS.musicOn?" sel":"");
@@ -1782,12 +2307,13 @@ function applyVolumes(){
   if(masterGain) masterGain.gain.value=SETTINGS.master;
   if(musicGain) musicGain.gain.value=SETTINGS.music;
   if(sfxGain) sfxGain.gain.value=SETTINGS.sfx;
+  if(ambGain) ambGain.gain.value=SETTINGS.amb;
   saveSettings();
 }
-["volMaster","volMusic","volSfx"].forEach(function(id){
+["volMaster","volMusic","volSfx","volAmb"].forEach(function(id){
   document.getElementById(id).addEventListener("input", function(e){
     var v=parseInt(e.target.value,10)/100;
-    if(id==="volMaster") SETTINGS.master=v; if(id==="volMusic") SETTINGS.music=v; if(id==="volSfx") SETTINGS.sfx=v;
+    if(id==="volMaster") SETTINGS.master=v; if(id==="volMusic") SETTINGS.music=v; if(id==="volSfx") SETTINGS.sfx=v; if(id==="volAmb") SETTINGS.amb=v;
     audioInit(); applyVolumes();
   });
 });
@@ -1804,6 +2330,13 @@ document.querySelectorAll("[data-close]").forEach(function(b){
 
 /* ---------- Dev Log ---------- */
 document.getElementById("devBody").textContent =
+"Oct 26, 2026 (later) — Art & words pass, smarter CPU, lunchroom sound, stalemate clock.\n\n"+
+"ART, REBUILT FROM THE SAMPLES: the major pieces are no longer code-drawn clip shapes. Motherships (blue + purple), gun turret, three scribble asteroids, triangle fighters, castles (gray + purple), archer tower, knights mounted and on foot, rocks, forest, bunkers (blue + purple) with sandbags, bunker cannon, Light and Heavy tanks, hill, and ruin were generated as drawings in the exact mixed-media sample style Matthew picked, cut into individual pieces, and are composited onto the sheet with multiply blending — the white of the drawing disappears, the ruled lines show through, and the ink sits ON the paper. Other player colors are careful hue-shifts of the same drawings. Pieces are scaled to fit the SAME locked geometry: bases still render inside the identical capped "+BASE_W+"×"+BASE_H+" footprint, enemy bases face the player, and no collision number changed. Damage is the same drawing getting wrecked: swirly translucent shield bubble with splatter sparkles while the forcefield holds, then cracks and scorch, then drawn crayon flames and smoke, then a scorched wreck. Explosions are now jagged multi-color crayon/gel starbursts with splatter dots. The paper itself got older: cream looseleaf, seeded grain and fiber flecks (stable, no shimmer), ragged edge by the binder holes, and faint pencil doodles (stars, swirls, tiny rocks) in the margins. HOW CLOSE THIS LANDS TO THE SAMPLES IS MATTHEW'S EYE TO JUDGE — it is not declared matched from code inspection.\n\n"+
+"WORDS OFF THE PAPER: the mothership/castle/bunker name labels, the 'Base Zone' lettering, the per-base health text that overlapped it, obstacle captions, the wall's caption, the editor's zone caption, and the forest-roll text popup are all gone. Nothing is lettered onto the sheet in any theme: base health reads purely from the staged damage (bubble, cracks, smoke, flames), the forest roll shows as a little drawn die face (pips), shelter shows as a tiny drawn pine, high ground as a tiny pennant, an unhorsed knight gets a daze spiral. Words live only in the UI chrome off the paper (menus, buttons, How to Play, turn/pass prompts, the battle log).\n\n"+
+"CPU, LESS DUMB (not a genius): before flicking, the CPU now simulates candidate traces against the real first-intersection rules and rejects moves whose first contact is an obstacle death, an edge death under the active edge rule, or a losing collision — unless literally every candidate is bad, in which case it takes the least-bad (latest-dying) one. Shots are only knowingly fired down lines that reach a fighter, turret, or the base under the active obstacle rule (tunneling counts, blocked doesn't), the wrap rule, forest odds for arrows, and hill cover for tanks. Theme intent stays: Space wrap-aware, Knights charge and walk home to remount, Tanks hunt hills and lob mortars. It takes the free base shot when a clean line exists. Aim stays human: difficulty scales both the wobble AND how many candidates it bothers to simulate (Recess 6, Lunchroom 14, Study Hall 26), so it stays beatable and characterful. Also fixed: in Fast Battle the CPU now takes its shot phase instead of stalling.\n\n"+
+"LUNCHROOM SOUND: the room is alive under the same guarded ambient session — a soft room-tone bed plus occasional synthesized events at low volume (muffled chatter bursts, a kid laughing, trays clattering with a metallic ping, a chair scraping, a distant two-tone bell), all routed through a new dedicated Lunchroom Ambience slider next to Master/Music/SFX, default ON at a tasteful low level, and the room pauses politely when the tab/app is backgrounded. The kids gathered around the table react at the whistle: a little staggered chorus of kid voices cheers the winner (with a sympathetic descending 'aww' underneath in 2P), an 'aww' carries a loss, and a half-and-half murmur meets a draw — a few voices around one lunch table, not a stadium.\n\n"+
+"STALEMATE CLOCK (new locked rule): when a side loses its last fighter, the side that still has fighters has 5 of its own turns to land a hit on the enemy base; a landed hit clears the clock (it can re-arm), and burning all 5 turns with no hit ends the match in a DRAW. A side with no fighters AND no working turrets/towers/cannons (and no reserves) can't act at all and loses immediately, superseding the clock. The clock shows as five pips in the turn bar (chrome, off the paper) with the explanation in the turn prompt and How to Play. Under the clock the CPU drops its camping/hill-sitting and pushes at the base.\n\n"+
+"————————————————\n\n"+
 "Oct 26, 2026 — Scribble Siege Build 1 (design locked by Matthew Haber after 35 questions, plus his final change).\n\n"+
 "BUILT: Full game, all three themes together (Space / Knights / Tanks), each with its real rules — forcefield mothership (hit 1 of 3), tunneling shots, wrap edges; knights charge-only with unhorse / walk-home / remount, towers as separate 1-hit targets, forest 1-in-4 cover and half mounted speed, rocks block; Light Cannon + Heavy Mortar tanks, heavier-wins rams, drivable hills with high-ground fire, sandbags that absorb cannon hit 1 and are skipped by mortars. Win is always the base in 3 hits, never a mop-up. 1P vs CPU (3 difficulties + per-theme personalities) and 2P pass-and-play with a pass interstitial.\n\n"+
 "FULL VARIATION MENU (Matthew's explicit choice): presets Classic / Fast Battle / Ramming / Competitive / Reinforcements / Launch Bay on top of switches for turn structure, all three flick controls (True Flick / Hybrid / Aimed), fighter count, ship toughness, mothership defense (forcefield / wall+door / extra shield / none), defense mode (player / auto / none), obstacle behavior, edge rule, deployment, friendly fire (Partial default), per-player flicker + drawing medium + color with real trace-width gameplay differences, face-to-face or side-by-side layout, 7 paper surfaces (looseleaf default; busy papers faded under the game), and battlefields (preset / random / stamps / freehand / empty) with middle-zone-only, no-overlap, budget fairness rules.\n\n"+
@@ -1835,10 +2368,11 @@ function practiceDraw(){
     ctxP.beginPath(); ctxP.arc(0,0,t.r,0,6.29); ctxP.stroke();
     ctxP.beginPath(); ctxP.arc(0,0,t.r*0.55,0,6.29); ctxP.stroke();
     ctxP.fillStyle="#e2492f"; ctxP.beginPath(); ctxP.arc(0,0,4,0,6.29); ctxP.fill(); ctxP.restore(); });
-  // a couple of practice obstacles
-  ctxP.save(); ctxP.strokeStyle="rgba(70,70,80,.7)"; ctxP.lineWidth=1.8; ctxP.fillStyle="rgba(150,145,135,.45)";
-  ctxP.beginPath(); ctxP.arc(FW*0.3,FH*0.45,44,0,6.29); ctxP.fill(); ctxP.stroke();
-  ctxP.beginPath(); ctxP.arc(FW*0.72,FH*0.6,36,0,6.29); ctxP.fill(); ctxP.stroke(); ctxP.restore();
+  // a couple of practice obstacles — scribble asteroids, same art as the match
+  if(artReady("asteroid1")){ drawArt(ctxP, ART["asteroid1"], FW*0.3, FH*0.45, 104, 98, 0.4); drawArt(ctxP, ART["asteroid3"], FW*0.72, FH*0.6, 86, 86, 2.1); }
+  else { ctxP.save(); ctxP.strokeStyle="rgba(70,70,80,.7)"; ctxP.lineWidth=1.8; ctxP.fillStyle="rgba(150,145,135,.45)";
+    ctxP.beginPath(); ctxP.arc(FW*0.3,FH*0.45,44,0,6.29); ctxP.fill(); ctxP.stroke();
+    ctxP.beginPath(); ctxP.arc(FW*0.72,FH*0.6,36,0,6.29); ctxP.fill(); ctxP.stroke(); ctxP.restore(); }
   drawThingP(ctxP, PC.thing);
   if(inputP.preview) drawTraceP(ctxP,{points:inputP.preview,color:CFG.p1.color,width:MEDIUMS[CFG.p1.medium].w,age:0,dash:true});
   ctxP.restore();
