@@ -275,6 +275,57 @@ table.spec td{border:1.5px solid var(--line);padding:5px 8px;vertical-align:top;
   <button class="btn primary" data-close="devModal" style="margin-top:10px;">Close</button>
 </div></div>
 
+<script src="assets/knights-plate.js"></script>
+<script src="assets/pieces/asteroid1.js"></script>
+<script src="assets/pieces/asteroid2.js"></script>
+<script src="assets/pieces/asteroid3.js"></script>
+<script src="assets/pieces/fighters/dart-blue.js"></script>
+<script src="assets/pieces/fighters/dart-green.js"></script>
+<script src="assets/pieces/fighters/dart-orange.js"></script>
+<script src="assets/pieces/fighters/dart-purple.js"></script>
+<script src="assets/pieces/fighters/dart-red.js"></script>
+<script src="assets/pieces/fighters/dart-teal.js"></script>
+<script src="assets/pieces/fighters/rocket-blue.js"></script>
+<script src="assets/pieces/fighters/rocket-green.js"></script>
+<script src="assets/pieces/fighters/rocket-orange.js"></script>
+<script src="assets/pieces/fighters/rocket-purple.js"></script>
+<script src="assets/pieces/fighters/rocket-red.js"></script>
+<script src="assets/pieces/fighters/rocket-teal.js"></script>
+<script src="assets/pieces/fighters/tri-blue.js"></script>
+<script src="assets/pieces/fighters/tri-green.js"></script>
+<script src="assets/pieces/fighters/tri-orange.js"></script>
+<script src="assets/pieces/fighters/tri-purple.js"></script>
+<script src="assets/pieces/fighters/tri-red.js"></script>
+<script src="assets/pieces/fighters/tri-teal.js"></script>
+<script src="assets/pieces/knights/foot-blue.js"></script>
+<script src="assets/pieces/knights/foot-green.js"></script>
+<script src="assets/pieces/knights/foot-orange.js"></script>
+<script src="assets/pieces/knights/foot-purple.js"></script>
+<script src="assets/pieces/knights/foot-red.js"></script>
+<script src="assets/pieces/knights/foot-teal.js"></script>
+<script src="assets/pieces/knights/mounted-blue.js"></script>
+<script src="assets/pieces/knights/mounted-green.js"></script>
+<script src="assets/pieces/knights/mounted-orange.js"></script>
+<script src="assets/pieces/knights/mounted-purple.js"></script>
+<script src="assets/pieces/knights/mounted-red.js"></script>
+<script src="assets/pieces/knights/mounted-teal.js"></script>
+<script src="assets/pieces/mothership.js"></script>
+<script src="assets/pieces/ship.js"></script>
+<script src="assets/pieces/tanks/heavy-blue.js"></script>
+<script src="assets/pieces/tanks/heavy-green.js"></script>
+<script src="assets/pieces/tanks/heavy-orange.js"></script>
+<script src="assets/pieces/tanks/heavy-purple.js"></script>
+<script src="assets/pieces/tanks/heavy-red.js"></script>
+<script src="assets/pieces/tanks/heavy-teal.js"></script>
+<script src="assets/pieces/tanks/light-blue.js"></script>
+<script src="assets/pieces/tanks/light-green.js"></script>
+<script src="assets/pieces/tanks/light-orange.js"></script>
+<script src="assets/pieces/tanks/light-purple.js"></script>
+<script src="assets/pieces/tanks/light-red.js"></script>
+<script src="assets/pieces/tanks/light-teal.js"></script>
+<script src="assets/pieces/turret.js"></script>
+<script src="assets/space-plate.js"></script>
+<script src="assets/tanks-plate.js"></script>
 <script>
 "use strict";
 /* ============================================================
@@ -1051,6 +1102,7 @@ var ART={};
    literal URL) worked. Every loader below therefore names its file
    in full. Do not "tidy" these back into loops over path pieces. */
 function loadArt(src){
+  if(window.__SS_ASSETS&&window.__SS_ASSETS[src])src=window.__SS_ASSETS[src]; // text-snapshot build: artwork ships as base64 JS modules
   var im=new Image();
   im.onload=function(){ if(window.G) draw(); if(window.PC) practiceDraw(); };
   im.onerror=function(){ im.__failed=true; if(window.G) draw(); };
@@ -1078,6 +1130,7 @@ ART["asteroid3"]=loadArt("assets/pieces/asteroid3.webp");
    ============================================================ */
 var PLATE_BROKEN={}; // a plate whose file failed to load: that theme falls back to the drawn board (see plateCfg)
 function loadPlate(src, key){
+  if(window.__SS_ASSETS&&window.__SS_ASSETS[src])src=window.__SS_ASSETS[src]; // text-snapshot build: artwork ships as base64 JS modules
   var im=new Image();
   im.onload=function(){ if(window.G) draw(); };
   im.onerror=function(){ PLATE_BROKEN[key]=true; if(window.G) draw(); };
