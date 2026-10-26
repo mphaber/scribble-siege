@@ -590,17 +590,58 @@ function crowdCheer(scale, delay0){
     kidVoice(470+Math.random()*300, 800+Math.random()*340, 0.45+Math.random()*0.4, 0.11*scale, (delay0||0)+i*0.07+Math.random()*0.06, crowdDest());
   }
 }
-function crowdAww(scale, delay0){
-  // per-voice gain 0.042 -> 0.09, same crowd bus treatment as the cheer
+/* The OLD aww — a plain tone cluster. It stays ONLY as the draw murmur;
+   the defeat aww below was reworked (Matthew, Oct 26 2026: "it sounds
+   mechanical — it should sound like a bunch of kids saying awwww"). */
+function crowdMurmur(scale, delay0){
   var n = 7+Math.floor(Math.random()*3);
   for(var i=0;i<n;i++){
     kidVoice(540+Math.random()*190, 250+Math.random()*70, 0.75+Math.random()*0.3, 0.09*scale, (delay0||0)+i*0.06+Math.random()*0.05, crowdDest());
   }
 }
+/* DEFEAT AWW, REWORKED as a formant kids' chorus that articulates "awwww":
+   each voice is a sawtooth source run through two resonant bandpass
+   FORMANTS that glide the way that vowel moves — open "ah" rounding
+   toward "aw/oo" (F1 840→540, F2 1280→860, kid-scaled) — while the pitch
+   FALLS about a third (×0.79) over about a second. Eight young voices,
+   staggered by up to ~120 ms like one group reaction (not an arpeggio),
+   spread across kid-range base pitches with slight detune and wobble,
+   plus a breath of noise mixed in so it never reads as an organ chord.
+   Same crowd bus, same limiter, same loudness as the old aww. */
+function awwVoice(f0, delay, dur, gain){
+  if(!AC) return;
+  var t0=AC.currentTime+(delay||0), dest=crowdDest();
+  var o=AC.createOscillator(); o.type="sawtooth";
+  o.frequency.setValueAtTime(f0, t0);
+  o.frequency.exponentialRampToValueAtTime(Math.max(60,f0*0.79), t0+dur); // down about a third
+  var vib=AC.createOscillator(); vib.frequency.value=5+Math.random()*2.5;
+  var vg=AC.createGain(); vg.gain.value=f0*0.014; // wobble
+  vib.connect(vg); vg.connect(o.frequency);
+  var f1=AC.createBiquadFilter(); f1.type="bandpass"; f1.Q.value=3.2;
+  f1.frequency.setValueAtTime(840, t0); f1.frequency.exponentialRampToValueAtTime(540, t0+dur);
+  var f2=AC.createBiquadFilter(); f2.type="bandpass"; f2.Q.value=5;
+  f2.frequency.setValueAtTime(1280, t0); f2.frequency.exponentialRampToValueAtTime(860, t0+dur);
+  var g2=AC.createGain(); g2.gain.value=0.55;
+  var g=AC.createGain();
+  g.gain.setValueAtTime(0.0001, t0);
+  g.gain.exponentialRampToValueAtTime(gain, t0+dur*0.16);
+  g.gain.setValueAtTime(gain, t0+dur*0.62);
+  g.gain.exponentialRampToValueAtTime(0.0001, t0+dur);
+  o.connect(f1); f1.connect(g); o.connect(f2); f2.connect(g2); g2.connect(g);
+  g.connect(dest);
+  o.start(t0); o.stop(t0+dur+0.05); vib.start(t0); vib.stop(t0+dur+0.05);
+  playNoiseAt(t0, dur*0.85, 1500, 0.7, gain*0.22, dest); // breath mixed in
+}
+function crowdAww(scale, delay0){
+  var n=8;
+  for(var i=0;i<n;i++){
+    awwVoice(470+Math.random()*230+(Math.random()-0.5)*18, (delay0||0)+Math.random()*0.12, 0.95+Math.random()*0.3, 0.13*scale);
+  }
+}
 function crowdReact(kind){
   if(!AC) return;
   declareAudioSession();
-  if(kind==="draw"){ crowdCheer(0.5, 0); crowdAww(0.55, 0.12); }
+  if(kind==="draw"){ crowdCheer(0.5, 0); crowdMurmur(0.55, 0.12); }
   else if(kind==="win"){ crowdCheer(1, 0); if(CFG.mode==="2p") crowdAww(0.5, 0.18); }
   else if(kind==="lose"){ crowdAww(1, 0); crowdCheer(0.35, 0.2); }
 }
@@ -648,7 +689,7 @@ function defaultCfg(){
     fighterCount:3, tankMix:"2L1H",
     shipHp:1, spaceBase:"forcefield", defense:"player",
     obstacle:"tunnel", edge:"wrap", deployment:"produce", friendly:"partial",
-    cpuDiff:"lunch", layout:"face",
+    cpuDiff:"lunch", layout:"face", siege:true,
     paper:"looseleaf", constructionColor:CONSTRUCTION_COLORS[2],
     battlefield:"preset",
     p1:{flicker:"pencil", medium:"pencil", color:0, name:"Player 1"},
@@ -793,6 +834,14 @@ function renderVariants(){
   var g=document.createElement("div"); g.className="grid"; g.style.marginTop="8px";
   var c1=document.createElement("div"), c2=document.createElement("div");
   c1.appendChild(selRow("Turn structure","turnStructure",[["classic","Classic — move OR shoot, one flick"],["fast","Fast Battle — move, then shoot"],["ramming","Ramming — one flick moves and attacks"]]));
+  (function(){
+    var w=document.createElement("div");
+    var l=document.createElement("label"); l.className="lbl"; l.textContent="Siege Momentum (Momentum + Breach)"; w.appendChild(l);
+    w.appendChild(chipRow([{v:true,t:"⚔️ On (default)"},{v:false,t:"Off — classic"}], CFG.siege, function(v){ CFG.siege=v; }));
+    var d=document.createElement("p"); d.className="small";
+    d.textContent="On: movement flicks aimed toward the enemy base travel up to 20% farther (straight at it = 1.20x; sideways or backward = no change, never a penalty — shots are NOT boosted), and every counted hit on a base also brings down the nearest still-standing enemy defense structure (Breach). Off: both rules off — classic distances and base hits, exactly as before.";
+    w.appendChild(d); c1.appendChild(w);
+  })();
   c1.appendChild(selRow("Flick control scheme","control",[["true","True Flick — swipe speed is power, no preview"],["hybrid","Hybrid — direction shows, distance is skill"],["aimed","Aimed — dotted preview with a max-length cap"]]));
   c1.appendChild(selRow("Fighters per side (also the production cap)","fighterCount",[["2","2"],["3","3 (default)"],["4","4"],["5","5"]]));
   CFG.fighterCount=parseInt(CFG.fighterCount,10);
@@ -848,7 +897,7 @@ function renderVariants(){
   body.appendChild(info);
   var thn=document.createElement("p"); thn.className="kbdNote";
   thn.textContent = CFG.theme==="space" ? "Space obstacles: asteroids. Shots tunnel through them (default); flying into one destroys your ship." :
-    CFG.theme==="knights" ? "Knights obstacles: rocks (block charges & arrows, unhorse on impact) and forests (shelter: only 1-in-4 arrows get through; mounted movement inside is three-quarter distance)." :
+    CFG.theme==="knights" ? "Knights obstacles: rocks (block charges & arrows, unhorse on impact) and forests (never slow or stop a charge — ride straight through; ending a move inside shelters you: only 1-in-4 arrows get through)." :
     "Tanks obstacles: hills (drivable high ground — crossing cuts your distance to three-quarters; from the top, cannon fire clears low cover) and ruined buildings (block straight shells; mortars fly over).";
   body.appendChild(thn);
 }
@@ -1182,7 +1231,7 @@ var PLATES={
       {t:"rock",x:0.720,y:0.555,r:0.021},{t:"rock",x:0.270,y:0.595,r:0.027},{t:"rock",x:0.470,y:0.605,r:0.027},
       {t:"rock",x:0.510,y:0.618,r:0.023},{t:"rock",x:0.550,y:0.612,r:0.019},{t:"rock",x:0.240,y:0.640,r:0.019},
       {t:"rock",x:0.370,y:0.685,r:0.030},{t:"rock",x:0.570,y:0.692,r:0.019},{t:"rock",x:0.770,y:0.678,r:0.028},
-      // drawn green clusters — forests (ellipses over the clusters): arrow cover, mounted 0.75x, foot unslowed
+      // drawn green clusters — forests (ellipses over the clusters): arrow cover for a knight who ENDS inside; charges ride through unslowed and unstopped
       {t:"forest",x:0.334,y:0.286,rx:0.085,ry:0.033},{t:"forest",x:0.665,y:0.277,rx:0.080,ry:0.026},
       {t:"forest",x:0.766,y:0.337,rx:0.078,ry:0.036},{t:"forest",x:0.430,y:0.360,rx:0.064,ry:0.027},
       {t:"forest",x:0.607,y:0.400,rx:0.059,ry:0.031},{t:"forest",x:0.684,y:0.433,rx:0.036,ry:0.018},
@@ -2059,6 +2108,17 @@ function obsContains(o, pt, pad){
 }
 function inForest(pt){ return G.obstacles.some(function(o){ return o.type==="forest" && obsContains(o,pt,0); }); }
 function onHill(pt){ return G.obstacles.some(function(o){ return o.type==="hill" && obsContains(o,pt,0); }); }
+/* Movement collision: like obstacleAt, except a forest is NOT an obstacle
+   to a knight — forests neither stop nor slow a charge any more. If a
+   solid obstacle shares the spot, that one is the hit instead. */
+function moveObstacleAt(pt, pad, u){
+  var ob=obstacleAt(pt, pad);
+  if(ob && u && u.kind==="knight" && ob.type==="forest"){
+    var rest=G.obstacles.filter(function(o){ return o!==ob && o.type!=="forest" && !o.erased && obsContains(o, pt, pad||0); });
+    return rest[0]||null;
+  }
+  return ob;
+}
 function obstacleAt(pt,pad){ return G.obstacles.filter(function(o){
   if(o.erased) return false;
   if(!obsContains(o, pt, pad||0)) return false;
@@ -2091,6 +2151,26 @@ function wrapPoint(pt){
   if(pt.x<0){ pt.x+=FW; wrapped=true; } if(pt.x>FW){ pt.x-=FW; wrapped=true; }
   if(pt.y<0){ pt.y+=FH; wrapped=true; } if(pt.y>FH){ pt.y-=FH; wrapped=true; }
   return wrapped;
+}
+/* SIEGE MOMENTUM — MOMENTUM (Oct 26, 2026): a MOVEMENT flick aimed toward
+   the enemy base travels farther. The multiplier is 1 + 0.20 × alignment,
+   where alignment is the flick direction's dot product with the board
+   axis toward the enemy base (dirToEnemy — toward the opponent's end
+   face-to-face, toward their side side-by-side): straight at them 1.20x,
+   sideways 1.0x, backward 1.0x — never a penalty. Fighters only, every
+   turn structure, Knights charges included (their movement IS their
+   attack); shots and turret fire are never boosted. Applied inside
+   resolveMove and mirrored in the CPU's simMoveOutcome so planning and
+   reality agree; the Aimed preview applies it too. Other modifiers
+   (Tanks hill cost) still stack on top. */
+function momentumEnd(u, end){
+  if(!CFG.siege) return end;
+  var dx=end.x-u.x, dy=end.y-u.y, L=Math.hypot(dx,dy);
+  if(L<1) return end;
+  var d=dirToEnemy(u.owner), align=(dx*d.x+dy*d.y)/L;
+  if(align<=0) return end;
+  var m=1+0.20*align;
+  return {x:u.x+dx*m, y:u.y+dy*m};
 }
 function maxLen(thing, action){
   if(thing.turret) return 430;
@@ -2142,8 +2222,26 @@ function damageBase(owner, byPlayer, opts){
     SFX.boom(true); spawnEscape(bc.x, bc.y, 6);
     log("🎉 "+playerName(owner)+"'s base BLOWS UP! "+(CFG.theme==="space"?"The whole crew ejects in tiny escape pods and bobs away, unharmed.":"The crew escapes, waving their arms. Nobody is hurt — it's paper."));
     endMatch(1-owner);
+  } else if(byPlayer!==owner){
+    breachHit(owner); // SIEGE MOMENTUM — BREACH: a counted hit that doesn't end the game also brings down the nearest guard structure
   }
   return true;
+}
+/* SIEGE MOMENTUM — BREACH (Oct 26, 2026): when a side lands a counted hit
+   on the enemy base (hp actually drops — the Space forcefield hit counts,
+   a sandbag-absorbed hit does not, and the game-ending third hit needs
+   no breach), the nearest still-standing defense structure of that base's
+   side is destroyed too, with its usual crew-escape gag (killThing does
+   it). No structure standing: nothing extra. A breach kill is a structure
+   kill only — it adds NO sudden-death base damage and touches the
+   stalemate clock only through the base hit's own existing effect. */
+function breachHit(defOwner){
+  if(!CFG.siege || !G || G.over) return;
+  var bc=baseCenter(defOwner), best=null, bd=Infinity;
+  G.turrets[defOwner].forEach(function(t){ if(t.alive){ var d=Math.hypot(t.x-bc.x, t.y-bc.y); if(d<bd){ bd=d; best=t; } } });
+  if(!best) return;
+  log("🧱 BREACH! The base hit brings the nearest "+thingLabel(best).toLowerCase()+" down with it!");
+  killThing(best, "Brought down by the breach!");
 }
 function killThing(t, why){
   if(!t.alive) return;
@@ -2257,19 +2355,21 @@ function endMatch(winner){
 
 /* ---- MOVE resolution: first intersection only ---- */
 function resolveMove(u, end, vec){
+  end=momentumEnd(u, end); // SIEGE MOMENTUM: movement toward the enemy base travels farther (never shots — this is the move resolver)
   var pts=sampleLine({x:u.x,y:u.y}, end, 5);
   var shooterMedium=playerCfg(u.owner).medium;
   var travel=pts;
-  // forest / hill slowdown for knights & tanks: terrain costs a quarter of
-  // the distance (0.75x — tuned Oct 26 2026: half distance felt like
-  // wasting a whole turn). Knights on foot are NOT slowed by forest.
+  // Terrain slowdown: TANKS ONLY — climbing a hill costs a quarter of the
+  // distance (0.75x), stacking on top of Momentum as before. FORESTS NO
+  // LONGER SLOW KNIGHTS AT ALL (Matthew, Oct 26 2026: crossing one still
+  // took too long): the mounted 0.75x cost is gone — a knight travels
+  // through forest at full open-ground distance, mounted or on foot.
   var slowFactor=1;
-  if(u.kind==="knight"&&u.mounted){ for(var i=0;i<pts.length;i++){ if(inForest(pts[i])){ slowFactor=0.75; break; } } }
   if(u.kind==="tank"){ for(var j=0;j<pts.length;j++){ if(onHill(pts[j])){ slowFactor=Math.min(slowFactor,0.75); break; } } }
   if(slowFactor<1){
     var keep=Math.max(2,Math.floor(pts.length*slowFactor));
     travel=pts.slice(0,keep);
-    log((u.kind==="knight"?"🌲 Forest! The trees cut a mounted move to three-quarter distance.":"⛰ Hill! Climbing cuts the move to three-quarter distance."));
+    log("⛰ Hill! Climbing cuts the move to three-quarter distance.");
   }
   var stopAt=travel.length-1, hitSomething=null;
   for(var s=1;s<travel.length;s++){
@@ -2280,8 +2380,12 @@ function resolveMove(u, end, vec){
     if(baseHitAt(pt, u.owner) && u.kind==="knight" && !u.mounted){ stopAt=s; hitSomething={type:"remount", pt:pt}; break; }
     // wall
     if(wallBlocks({x:u.x,y:u.y}, pt, 1-u.owner)){ stopAt=s; hitSomething={type:"wall", pt:pt}; break; }
-    // obstacles
-    var ob=obstacleAt(pt, 6);
+    // obstacles — a FOREST never stops a knight: he rides straight through
+    // (the scan keeps going, so an enemy, a rock or the castle on the far
+    // side — or inside the trees — still resolves exactly as on open
+    // ground; moveObstacleAt makes sure a rock sharing the same spot
+    // still counts even if the forest is listed first)
+    var ob=moveObstacleAt(pt, 6, u);
     if(ob){ stopAt=s; hitSomething={type:"obstacle", ob:ob, pt:pt}; break; }
     // fighters
     var hitU=null;
@@ -2318,8 +2422,6 @@ function resolveMove(u, end, vec){
         u.mounted=true; u.x=finalPt.x; u.y=finalPt.y; SFX.pop(); log("🐴 Remounted! Back to full charging strength.");
       } else if(hitSomething.type==="obstacle"&&hitSomething.ob.type==="rock"){
         u.x=finalPt.x; u.y=finalPt.y; unhorse(u,"Clanged into a rock.");
-      } else if(hitSomething.type==="obstacle"&&hitSomething.ob.type==="forest"){
-        u.x=finalPt.x; u.y=finalPt.y; log("🌲 Charge ends inside the forest — sheltered here (arrows: only 1-in-4 get through).");
       } else if(hitSomething.type==="obstacle"){
         u.x=finalPt.x; u.y=finalPt.y;
       } else if(hitSomething.type==="unit"){
@@ -2335,6 +2437,8 @@ function resolveMove(u, end, vec){
         u.x=finalPt.x; u.y=finalPt.y; unhorse(u,"Clanged into a "+thingLabel(hitSomething.unit).toLowerCase()+" standing guard — structures block a charge like any obstacle.");
       } else if(hitSomething.type==="wall"){ u.x=finalPt.x; u.y=finalPt.y; log("The wall stops the charge cold."); }
     } else { u.x=finalPt.x; u.y=finalPt.y; }
+    // wherever the charge came to rest, ENDING inside a forest is what shelters a knight now
+    if(inForest(u)) log("🌲 In the forest — sheltered here (arrows: only 1-in-4 get through).");
     // remount check if ended touching own castle
     if(!u.mounted && baseHitAt({x:u.x,y:u.y}, u.owner)){ u.mounted=true; SFX.pop(); log("🐴 Walked home and remounted!"); }
     afterAction(u, "move");
@@ -2679,6 +2783,7 @@ document.getElementById("btnLaunch").addEventListener("click", function(){
 /* ---- CPU flick simulation: it "sees" the trace before it commits ----
    Mirrors the real resolvers' first-intersection rules without mutating state. */
 function simMoveOutcome(u, end){
+  end=momentumEnd(u, end); // mirror the real resolver: Momentum boosts the CPU's planned flicks exactly as it boosts yours
   var pts=sampleLine({x:u.x,y:u.y}, end, 5);
   for(var s=1;s<pts.length;s++){
     var pt=pts[s];
@@ -2689,10 +2794,9 @@ function simMoveOutcome(u, end){
     }
     if(u.kind==="knight" && !u.mounted && baseHitAt(pt, u.owner)) return {kind:"remount", t:pt.t};
     if(wallBlocks({x:u.x,y:u.y}, pt, 1-u.owner)) return {kind: u.kind==="knight"?"stop":"death", t:pt.t};
-    var ob=obstacleAt(pt, 6);
+    var ob=moveObstacleAt(pt, 6, u); // forests don't stop knights in the sim either — ride through, no phantom stops
     if(ob){
       if(u.kind==="tank" && ob.type==="hill") return {kind:"hill", t:pt.t};
-      if(u.kind==="knight" && ob.type==="forest") return {kind:"forest", t:pt.t};
       if(u.kind==="knight" && ob.type==="rock") return {kind: u.mounted?"unhorse":"death", t:pt.t};
       return {kind:"death", t:pt.t};
     }
@@ -2871,7 +2975,7 @@ function cpuTurn(){
 /* ============================================================
    INPUT — three flick control schemes
    ============================================================ */
-var input={down:false, sx:0, sy:0, x:0, y:0, t:0, thing:null, preview:null, path:[]};
+var input={down:false, sx:0, sy:0, x:0, y:0, t:0, thing:null, preview:null, path:[], pan:null};
 function toLogical(e, canvas){
   var r=canvas.getBoundingClientRect();
   return { x:(e.clientX-r.left)*(canvas.width/r.width), y:(e.clientY-r.top)*(canvas.height/r.height) };
@@ -2896,31 +3000,48 @@ function setupPointer(canvas, opts){
   canvas.addEventListener("pointercancel", function(){ opts.cancel && opts.cancel(); });
 }
 setupPointer(cv, {
-  down: function(pt){
-    if(!G||G.over) return;
+  down: function(pt, e){
+    if(!G) return;
     if(G.editor){ editorDown(pt); return; }
-    if(CFG.mode==="1p"&&G.turn===1) return;
-    var t=pickThing(pt, G.turn);
+    if(input.down||input.pan) return; // a second finger never hijacks a gesture already running — the first finger keeps it
+    /* A drag starting on one of the current player's fighters is the
+       flick/aim gesture. Anything else — empty paper, an enemy piece, the
+       CPU's turn, the read-only final board — is a PAN candidate: drag
+       the paper to look around (see move/up below). */
+    var t=null;
+    if(!G.over && !(CFG.mode==="1p"&&G.turn===1)) t=pickThing(pt, G.turn);
     if(t){ input.flipArmed = (G.selected===t.id) && modeChoiceApplies(t); // a plain re-TAP (no drag) on the picked fighter flips Move/Shoot on release
       G.selected=t.id; input.thing=t; input.down=true; input.sx=pt.x; input.sy=pt.y; input.x=pt.x; input.y=pt.y; input.t=performance.now(); input.path=[pt]; updateHUD(); draw(); }
+    else if(e){ input.pan={id:e.pointerId, sx:e.clientX, sy:e.clientY, lx:e.clientX, ly:e.clientY, active:false}; }
   },
-  move: function(pt){
+  move: function(pt, e){
     if(G&&G.editor){ editorMove(pt); return; }
+    if(input.pan){
+      if(!e || e.pointerId!==input.pan.id) return;
+      var pdx=e.clientX-input.pan.lx, pdy=e.clientY-input.pan.ly;
+      input.pan.lx=e.clientX; input.pan.ly=e.clientY;
+      if(!input.pan.active && Math.hypot(e.clientX-input.pan.sx, e.clientY-input.pan.sy)>9) input.pan.active=true; // small threshold: a plain tap stays a tap
+      if(input.pan.active) window.scrollBy(-pdx, -pdy); // the view follows the finger; the browser clamps at the page edges — no overshoot
+      return;
+    }
     if(!input.down||!input.thing) return;
     input.x=pt.x; input.y=pt.y; input.path.push(pt);
     var t=input.thing;
     if(CFG.control==="aimed"){
       var dx=pt.x-t.x, dy=pt.y-t.y, L=Math.hypot(dx,dy), cap=maxLen(t, effectiveAction(t));
       var cl=Math.min(L,cap);
-      if(L>1) input.preview=[{x:t.x,y:t.y},{x:t.x+dx/L*cl, y:t.y+dy/L*cl}];
+      if(L>1){ var pvEnd={x:t.x+dx/L*cl, y:t.y+dy/L*cl};
+        if(effectiveAction(t)==="move") pvEnd=momentumEnd(t, pvEnd); // the preview shows the TRUE travel distance, Momentum boost included — never the unboosted one
+        input.preview=[{x:t.x,y:t.y},pvEnd]; }
     } else if(CFG.control==="hybrid"){
       var dx2=pt.x-t.x, dy2=pt.y-t.y, L2=Math.hypot(dx2,dy2);
       if(L2>4) input.preview=[{x:t.x,y:t.y},{x:t.x+dx2/L2*46, y:t.y+dy2/L2*46}];
     }
     draw();
   },
-  up: function(pt){
+  up: function(pt, e){
     if(G&&G.editor){ editorUp(pt); return; }
+    if(input.pan){ input.pan=null; return; } // a pan — or a plain empty-paper tap — creates no trace, selects nothing, costs no turn
     if(!input.down||!input.thing) return;
     var t=input.thing; input.down=false; input.preview=null;
     var act=effectiveAction(t);
@@ -2949,7 +3070,7 @@ setupPointer(cv, {
     doAction(t, act, {x:t.x+dir.x*len, y:t.y+dir.y*len}, dir);
     draw();
   },
-  cancel: function(){ input.down=false; input.preview=null; input.flipArmed=false; if(G) draw(); }
+  cancel: function(){ input.down=false; input.preview=null; input.flipArmed=false; input.pan=null; if(G) draw(); }
 });
 /* Re-tapping the already-selected fighter flips the Move/Shoot pick.
    Only a plain tap reaches here (both too-short-release paths call it);
@@ -3160,20 +3281,23 @@ function howHTML(){
   var themeRules = CFG.theme==="space" ?
     "<h3>🚀 Space</h3><p>Ships die in "+CFG.shipHp+" hit(s). Shots <b>tunnel through asteroids</b>, carving holes (variation: block / destroy). Flying into an asteroid, a ship, or a wall destroys your ship; ship-vs-ship collisions destroy both. The <b>mothership forcefield is hit 1 of 3</b> — it flashes, ripples, and drops; hit 2 cracks and burns; hit 3 blows it. Two player-fired gun turrets stand guard beside it — <b>on your turn they pulse gold because they can SHOOT</b>: tap one, then flick from it, exactly like firing a fighter (there's a Fire button in the turn card too). Default edge: ships and shots <b>wrap</b> around the sides of space.</p>" :
     CFG.theme==="knights" ?
-    "<h3>🏰 Knights</h3><p>Knights have <b>no ranged shot</b> — the flick is a <b>charge</b>. Crossing an enemy knight unhorses him; reaching the castle scores a hit <b>and unhorses the charger</b>. On foot: short walk flicks, can't hurt the castle, one more hit and he's out. Touch your own castle to <b>remount</b>. Archer towers fire arrows as your turn action. <b>Rocks</b> block charges and arrows and unhorse on impact. <b>Forests</b> end a charge inside them, cut mounted movement to <b>three-quarters</b> (knights on foot are unslowed), and shelter anyone inside: only <b>1-in-4</b> arrows get through.</p>" :
+    "<h3>🏰 Knights</h3><p>Knights have <b>no ranged shot</b> — the flick is a <b>charge</b>. Crossing an enemy knight unhorses him; reaching the castle scores a hit <b>and unhorses the charger</b>. On foot: short walk flicks, can't hurt the castle, one more hit and he's out. Touch your own castle to <b>remount</b>. Archer towers fire arrows as your turn action. <b>Rocks</b> block charges and arrows and unhorse on impact. <b>Forests</b> never slow or stop a charge — ride straight through at full distance. But <b>end your move inside one</b> and you are sheltered: only <b>1-in-4</b> arrows get through the trees.</p>" :
     "<h3>🛡️ Tanks</h3><p><b>Light Cannon:</b> fast long flicks, straight shells blocked by hills and ruins, dies in 1 hit. <b>Heavy Mortar:</b> slow short flicks, lobs a shell that arcs <b>over</b> everything and bursts at its landing point; takes 2 hits (first leaves it smoking and slower). <b>Heavier tank wins a ram.</b> Hills are drivable high ground: crossing cuts your distance to <b>three-quarters</b>, but from the top a cannon fires over low cover. The bunker's <b>sandbags absorb the first straight cannon hit</b> — mortars skip them entirely.</p>";
   return "<p><b>The heart of it:</b> flick your fighters across the paper. Blow up the <b>enemy base in 3 hits</b> to win — you never have to mop up their fighters.</p>"+
   "<p><b>🏭 Production (the default game):</b> losing fighters never ends your game by itself. Instead of moving or shooting, spend your turn action to <b>build a new fighter at your base</b> — a ship launches, a knight trains, a tank rolls out — as long as you're below your <b>Fighter Count cap</b>. There's no total pool limit; production is how you refill. One catch: <b>production has a cooldown</b> — after a base builds a fighter, it can't build again on your next turn (the button says so); the turn after, it's ready. (Variants can change this: Launch Bay starts you with half your force, and <b>Hardcore</b> turns production off entirely.)</p>"+
   "<p><b>⏱ The stalemate clock:</b> when a side loses its last fighter, the clock starts for the side that still has fighters: it has <b>its surviving fighters + 2</b> of its own turns to land a hit on the enemy base — <b>1 fighter left = 3 turns, 2 = 4, 3 = 5</b> — so the side that played defensively and kept its fleet earns the longer chance. The count is set from the fleet standing at the moment the clock starts; fighters lost while it runs <b>don't shrink it</b>, and if the clock clears and later re-arms, it counts the fleet standing then. The turn bar counts it down in big numbers (DRAW IN 5… 4… …), turning red and pulsing at 2 and 1. Land a hit and the clock clears — play continues, and it can re-arm later. If the fighter-less side simply <b>builds a replacement fighter</b>, it's not fighter-less any more and the clock clears on the spot — and a fighter-less side whose production is only on cooldown still counts as able to act, so the clock never punishes it for waiting one turn. Run out of turns with no base hit and the match is a <b>draw</b>, not a win for the camper. One hard edge: a side that can take <i>no action at all</i> — no fighters, no functioning turrets/towers/cannons, and no way to build or launch one, now or after cooldown (Hardcore, or an empty Launch Bay) — <b>loses immediately</b>; that beats the clock.</p>"+
   "<p><b>⚡ Sudden death at turn 40:</b> turns are counted for both sides together. If no base has fallen by the <b>end of turn 40</b>, the match ends on the spot and the side that has dealt <b>more total base damage</b> wins — every landed base hit counts, shield pops included (the forcefield is hit 1 of 3). Level damage is a <b>draw</b>. From turn 30 the turn bar shows <b>Turn N of 40</b> with the running damage score, so the cap never ambushes anyone.</p>"+
   "<p><b>A turn (Classic):</b> tap one of your fighters or defense structures, choose Move or Shoot, and flick once — or spend the turn on production instead. Traces stay on the paper and fade; the newest is always darkest; traces never collide.</p>"+
+  "<p><b>🖐 Looking around:</b> drag the paper to look around the board; drag your fighter to flick it.</p>"+
+  "<p><b>⚔️ Momentum:</b> a <b>movement</b> flick aimed <b>toward the enemy base travels farther</b> — up to <b>20% farther</b> flicking straight at it (1.20x), fading to no boost sideways, and <b>never a penalty</b> backward. Knights charges count (their movement is their attack); <b>shots do not</b> — Space and Tanks guns and turret fire keep their exact ranges. The aim preview shows the true boosted distance, and the Tanks hill cost still stacks on top.</p>"+
+  "<p><b>🧱 Breach:</b> every hit that lands on a base — <b>the Space forcefield hit counts</b> — also brings down the <b>nearest still-standing defense structure</b> guarding that base: a gun turret, archer tower or bunker cannon, its crew escaping as usual. If no structure stands, nothing extra happens. Momentum and Breach are one package — the <b>Siege Momentum</b> switch in Variants turns both off for the classic game.</p>"+
   "<p><b>🏃/💥 The Move / Shoot switch:</b> the big two-sided switch in the turn card is the choice — the picked side lights up (blue for Move, red for Shoot) and <b>stays picked</b> for your next fighter and your next turn until you flip it. Shortcut: <b>tap the already-selected fighter again</b> to flip the pick. The flick's aim cue follows the same pick (fine dots = Move, long dashes = Shoot), so what the switch shows is what the flick does. In <b>Fast Battle</b> the switch follows the turn for you — Move first, then Shoot — and says so. Knights charge (move + hit in one) and Ramming flicks don't split Move and Shoot at all.</p>"+
   "<p><b>🏁 After the whistle:</b> the results screen has a <b>View Board</b> button — it hides the results and shows the final board exactly as the match ended, traces, damage, wrecks and survivors in place. It's look-only; <b>Back to results</b> returns you to Rematch / Change setup / View Board.</p>"+
   themeRules+
   "<h3>The fair-base rule</h3><p>Every base — mothership, castle, bunker — uses the <b>same modest, capped footprint</b> for both players, centered inside its own base zone (the end 12% of the sheet). Bases never stick out into the battlefield, can't be resized or moved. Battles are won in the middle of the page.</p>"+
   "<h3>Defense structures stand apart — and block</h3><p>Gun turrets, archer towers, and bunker cannons are <b>freestanding structures in front of the base</b>, guarding the approach — not attached to it. They are <b>obstacles</b>: a fighter whose move trace reaches one resolves exactly like hitting an obstacle (a ship or tank is wrecked — the heavier-tank-wins rule does <i>not</i> apply to structures; a knight's charge stops and unhorses him), whether the structure is the enemy's or your own. Shots still destroy them in 1 hit, as before. Thread the gap between them, or shoot them down first.</p>"+
   "<h3>Tools are real — and shared</h3><p><b>Both players always use the same flicker and the same drawing medium</b> — one shared choice per match, picked in Variants; the CPU uses them too. Traces and beams are identical in type, texture and width on both sides; <b>only the color differs</b>. <b>Pencil</b> traces are thin and precise (thread gaps, must truly touch). <b>Crayon</b> is fat and wobbly (clips easily, clumsy in gaps). <b>Pen</b> is in between. The shared flicker (pencil/pen) changes the feel for everyone: a pen flick is steadier than a pencil flick.</p>"+
-  "<h3>Active switches this match</h3><p>Turn structure: <b>"+CFG.turnStructure+"</b> · Control: <b>"+CFG.control+"</b> · Friendly fire: <b>"+CFG.friendly+"</b> (default Partial: your shots can hit your own fighters, never your own base) · Edge: <b>"+CFG.edge+"</b> · Obstacles: <b>"+CFG.obstacle+"</b> · Deployment: <b>"+CFG.deployment+"</b> · Defense: <b>"+CFG.defense+"</b>.</p>"+
+  "<h3>Active switches this match</h3><p>Turn structure: <b>"+CFG.turnStructure+"</b> · Control: <b>"+CFG.control+"</b> · Friendly fire: <b>"+CFG.friendly+"</b> (default Partial: your shots can hit your own fighters, never your own base) · Edge: <b>"+CFG.edge+"</b> · Obstacles: <b>"+CFG.obstacle+"</b> · Deployment: <b>"+CFG.deployment+"</b> · Defense: <b>"+CFG.defense+"</b> · Siege Momentum: <b>"+(CFG.siege?"on":"off")+"</b>.</p>"+
   "<p>When <i>any</i> structure is destroyed — mothership, castle, bunker, turret, tower, or cannon — its crew escapes on screen, completely unharmed: on land, little stick figures run out and flee off the paper; in Space, the crew ejects in tiny escape pods that bob away into the margin. It's paper. Everyone's fine.</p>";
 }
 function openHow(){ document.getElementById("howBody").innerHTML=howHTML(); document.getElementById("howModal").classList.add("open"); }
@@ -3214,6 +3338,12 @@ document.querySelectorAll("[data-close]").forEach(function(b){
 
 /* ---------- Dev Log ---------- */
 document.getElementById("devBody").textContent =
+"Oct 26, 2026 (night, latest) — FORESTS LET KNIGHTS THROUGH, THE PAPER SCROLLS, SIEGE MOMENTUM (MOMENTUM + BREACH), AND AN AWW THAT SOUNDS LIKE KIDS.\n\n"+
+"1) FORESTS NO LONGER SLOW OR STOP A CHARGE (Knights — Matthew: crossing forests still took too long). Two frictions compounded: a mounted knight's move through forest cost a quarter of its distance (0.75x), and a charge that entered a forest ended inside it, so a wide forest ate whole turns. BOTH ARE GONE. A knight now rides through forest at full open-ground distance, mounted or on foot (multiplier 1.0), and a charge whose line crosses a forest and exits the far side within range rides through and ends where the flick ends. The usual rules still bite mid-crossing: crossing an enemy knight inside the trees unhorses him, hitting a rock still stops the charge and unhorses (a rock sharing a spot with forest still counts), and reaching the castle still scores and unhorses at its foot. What forests KEEP is shelter: a knight who ENDS his move inside a forest is covered — archer arrows into the forest still get through only 1 in 4, both arrow rolls exactly as before. The CPU's flick simulation matches: no phantom stops or slowdowns around forests in its candidate moves. Tanks hills are untouched (still 0.75x) — Matthew flagged forests only.\n\n"+
+"2) DRAG THE PAPER TO LOOK AROUND. Dragging on the board used to do nothing unless it started on a fighter, so scrolling meant dragging in the margins. Now a drag that starts on EMPTY paper pans the view with the finger — up and down, and sideways where the page runs wide — clamping at the edges with no overshoot. Past a small movement threshold it is a pan; a plain tap keeps its old behavior (nothing). A pan never draws a trace, never selects or deselects, and never touches the turn. A drag starting on one of your fighters is still the flick/aim gesture in all three control schemes, previews included, exactly as before; a second finger can't hijack a gesture already running. The same empty-paper drag pans the read-only View Board screen. How to Play says it plainly: drag the paper to look around the board; drag your fighter to flick it.\n\n"+
+"3) SIEGE MOMENTUM (Matthew chose 'Apply Momentum + Breach') — the attacking-vs-defense rebalance, both rules ON by default, one Variants switch ('Siege Momentum') turns both off for classic behavior. (a) MOMENTUM: a movement flick aimed toward the enemy base travels farther — multiplier 1 + 0.20 × alignment with the board axis toward the enemy base (toward their end face-to-face, toward their side side-by-side). Straight at them: 1.20x. Sideways: 1.0x. Backward: 1.0x, never a penalty. It applies to fighter movement in every turn structure, to Knights charges (their movement IS their attack), and to CPU movements identically — the CPU's candidate-flick simulation applies the same boosted distances, so its planning matches reality. It does NOT apply to shots: Space/Tanks Shoot actions and turret fire keep their exact current ranges. The Aimed preview shows the true boosted travel distance, never the unboosted one. Other modifiers still stack as today (the Tanks hill cost multiplies in on top). (b) BREACH: when a side lands a hit on the enemy base — any hit that counts toward the 3, the Space forcefield hit included; a sandbag-absorbed hit does not count, and the game-ending third hit needs no breach — the nearest still-standing enemy defense structure to that base (Space turret, Knights archer tower, Tanks bunker cannon) is ALSO destroyed, with its usual crew-escape gag (escape pods in Space). No structure standing: nothing extra. A breach kill is a structure kill only: it adds no base damage to the sudden-death tally and interacts with the stalemate clock only through the base hit's own existing effect. With the switch OFF, distances and base hits behave exactly as before.\n\n"+
+"4) THE DEFEAT AWW SOUNDS LIKE KIDS NOW (Matthew: 'the aww sound on defeat should sound exactly like a bunch of kids saying awwww — it sounds mechanical now'). The old aww was a cluster of plain detuned tones — an organ chord with a pitch drop. It is replaced by a FORMANT kids' chorus: eight young voices, each a sawtooth source run through two resonant bandpass formants that glide like the vowel in 'aww' (open 'ah' rounding toward 'aw/oo', F1 840→540 Hz, F2 1280→860 Hz) while the pitch falls about a third (×0.79) over about a second. Voices start near together like a group reaction (staggered 0–120 ms, not an arpeggio), spread across kid-range pitches with slight individual detune and wobble, and a touch of breath noise is mixed in so it never sounds synthetic. It stays on the same crowd bus and limiter at the same loudness, on the guarded ambient session, and plays wherever the defeat aww played before — triggers unchanged. The cheer is untouched, and a draw still uses the old murmur, unchanged.\n\n"+
+"————————————————\n\n"+
 "Oct 26, 2026 (night, latest) — VIEW THE FINAL BOARD, ONE BIG MOVE/SHOOT SWITCH, AND A STALEMATE CLOCK THAT SCALES WITH YOUR FLEET.\n\n"+
 "1) VIEW BOARD. The game-over screen (Rematch / Change setup) gains a third option, '👁 View Board'. Tapping it hides the results and shows the final board exactly as the match ended — all traces, damage stages, wrecks and surviving pieces in place — with a '← Back to results' control in the chrome above the board that returns to the results screen with all three options. The view is read-only by construction: every ending (base destruction, sudden-death decision, draw, outright loss) funnels through the same end-of-match state, and the board's input, End Turn, production and turret-fire controls all refuse to act once a match is over — so the final-board view can only ever look, in all three themes, 1P and 2P.\n\n"+
 "2) MOVE vs SHOOT IS NOW ONE BIG SWITCH. The Move/Shoot choice for a selected fighter was two small segment buttons that silently reset to Move every turn — too easy to miss or fumble. Now the turn card carries one tall two-segment switch (66px targets, '🏃 MOVE' / '💥 SHOOT') with the active side filled unmistakably (blue for Move, red for Shoot) and a line underneath naming the current pick. (a) STICKY PICK: in Classic, your pick now stays picked — across new selections AND across turns — for the rest of the match, until you flip it; it no longer resets silently. (b) SHORTCUT: tapping the already-selected fighter again (a plain tap, no drag) flips the pick too; a real flick-drag never flips. (c) ONE SOURCE OF TRUTH: the flick's aim cue is drawn from the same effective action the flick will use, and the cue styling follows the mode (fine dots = Move, long dashes = Shoot), so the switch and the cue can never disagree. (d) FAST BATTLE: the switch follows the phase automatically — Move first, then Shoot — and the note under it says Fast Battle is setting it; RAMMING stays locked to Move (every flick moves and attacks) and says so. Knights charges and their combined actions are untouched, as are Tanks' combined ram rules — this targets the structures where a real move-or-shoot choice exists.\n\n"+
