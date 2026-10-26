@@ -32,6 +32,13 @@ button{font-family:inherit; cursor:pointer;}
 .btn.gold{background:var(--gold);color:#3a2a08;}
 .btn.small{min-height:44px;padding:6px 12px;font-size:15px;}
 .btn:disabled{opacity:.45;pointer-events:none;}
+.btn.big{min-height:62px;font-size:20px;padding:14px 28px;border-radius:14px;}
+/* ---------- ☰ menu (How to Play / Practice / Settings / Dev Log live here) ---------- */
+.menuWrap{position:relative;display:inline-block;}
+.menuPanel{position:absolute;right:0;top:calc(100% + 6px);background:var(--panel);border:2.5px solid var(--ink);border-radius:12px;box-shadow:5px 5px 0 rgba(0,0,0,.3);padding:6px;display:none;z-index:60;min-width:238px;}
+.menuPanel.open{display:block;}
+.menuPanel button{display:flex;align-items:center;width:100%;min-height:48px;padding:10px 12px;background:none;border:0;border-radius:8px;font-size:16px;font-weight:700;color:var(--ink);text-align:left;cursor:pointer;}
+.menuPanel button:hover,.menuPanel button:active{background:#f3e9cd;}
 .chip{display:inline-block;padding:8px 14px;border:2.5px solid var(--ink);border-radius:999px;background:#fff;
   font-weight:700;font-size:15px;cursor:pointer;min-height:44px;line-height:26px;user-select:none;}
 .chip.sel{background:var(--ink);color:#fff;}
@@ -72,6 +79,11 @@ canvas#cv{display:block;width:100%;height:auto;touch-action:none;}
 .seg button{border:0;background:#fff;padding:10px 14px;font-size:15px;font-weight:700;min-height:48px;}
 .seg button.on{background:var(--ink);color:#fff;}
 .logBox{background:#fff;border:2px solid var(--ink);border-radius:10px;padding:8px 10px;font-size:13.5px;max-height:150px;overflow:auto;line-height:1.5;}
+/* stalemate countdown in the turn bar (UI chrome — never on the paper) */
+#clockPips{font-weight:800;display:inline-block;}
+#clockPips.hot{color:#c1271b !important;font-size:17px;animation:clockPulse .85s ease-in-out infinite;}
+@keyframes clockPulse{0%,100%{transform:scale(1);}50%{transform:scale(1.14);}}
+@media (prefers-reduced-motion: reduce){ #clockPips.hot{animation:none;} }
 /* ---------- modals ---------- */
 .modalBack{position:fixed;inset:0;background:rgba(20,16,8,.62);display:none;align-items:center;justify-content:center;z-index:60;padding:14px;}
 .modalBack.open{display:flex;}
@@ -89,22 +101,37 @@ table.spec td{border:1.5px solid var(--line);padding:5px 8px;vertical-align:top;
 <body>
 <div class="wrap">
 
-  <!-- ================= SETUP ================= -->
+  <!-- ================= SETUP (one screen) ================= -->
   <section id="viewSetup">
-    <h1>✏️ Scribble Siege</h1>
-    <p>Flick battles on a sheet of paper. Blow up the enemy base in <b>3 hits</b> — never a mop-up. 1P vs CPU or 2P pass-and-play.</p>
-    <div class="row" style="margin:8px 0;">
-      <button class="btn small" id="btnHowTop">📖 How to Play</button>
-      <button class="btn small" id="btnSettingsTop">🔊 Sound &amp; Settings</button>
-      <button class="btn small" id="btnPracticeTop">🎯 Practice Sheet</button>
-      <button class="btn small" id="btnDevTop">🛠 Dev Log</button>
+    <div class="row" style="justify-content:space-between;align-items:flex-start;flex-wrap:nowrap;">
+      <div>
+        <h1>✏️ Scribble Siege</h1>
+        <p>Flick battles on a sheet of paper. Blow up the enemy base in <b>3 hits</b> — never a mop-up. Lose a fighter? Your base builds another.</p>
+      </div>
+      <span class="menuWrap" style="flex:0 0 auto;margin-top:6px;">
+        <button class="btn small" id="btnMenuTop">☰ Menu</button>
+        <span class="menuPanel" id="menuPanelTop">
+          <button data-menu="how">📖 How to Play</button>
+          <button data-menu="practice">🎯 Practice Sheet</button>
+          <button data-menu="settings">🔊 Sound &amp; Settings</button>
+          <button data-menu="dev">🛠 Dev Log</button>
+        </span>
+      </span>
     </div>
-    <div class="steps" id="stepDots"></div>
-    <div class="card" id="stepCard"></div>
-    <div class="row" style="margin-top:12px;justify-content:space-between;">
-      <button class="btn" id="btnBack">← Back</button>
-      <button class="btn primary" id="btnNext">Next →</button>
+    <div class="card">
+      <h2>War</h2>
+      <div class="grid" id="themeGrid"></div>
+      <h2 style="margin-top:16px;">Players</h2>
+      <div id="modeChips"></div>
+      <h2 style="margin-top:16px;">Paper</h2>
+      <div class="grid" id="paperGrid"></div>
+      <div id="paperExtra"></div>
     </div>
+    <div class="row" style="margin-top:14px;">
+      <button class="btn primary big" id="btnStart" style="flex:1 1 240px;">✏️ Start Play!</button>
+      <button class="btn big" id="btnVariants" style="flex:0 1 auto;">🎛 Variants</button>
+    </div>
+    <p class="small" style="color:#f3ead2;">Defaults are the fun-first game — production on, Lunchroom CPU, standard tools. Every preset and switch from the full rulebook lives in <b>Variants</b>.</p>
   </section>
 
   <!-- ================= GAME ================= -->
@@ -114,8 +141,15 @@ table.spec td{border:1.5px solid var(--line);padding:5px 8px;vertical-align:top;
       <span class="hpPips" id="hpPips"></span>
       <span class="hpPips" id="clockPips" style="color:#b3541e;"></span>
       <span class="row">
-        <button class="btn small" id="btnHow2">📖 Rules</button>
-        <button class="btn small" id="btnSettings2">🔊 Sound</button>
+        <span class="menuWrap">
+          <button class="btn small" id="btnMenuGame">☰ Menu</button>
+          <span class="menuPanel" id="menuPanelGame">
+            <button data-menu="how">📖 How to Play</button>
+            <button data-menu="practice">🎯 Practice Sheet</button>
+            <button data-menu="settings">🔊 Sound &amp; Settings</button>
+            <button data-menu="dev">🛠 Dev Log</button>
+          </span>
+        </span>
         <button class="btn small" id="btnQuit">✕ Quit to Setup</button>
       </span>
     </div>
@@ -211,6 +245,16 @@ table.spec td{border:1.5px solid var(--line);padding:5px 8px;vertical-align:top;
   <div class="row"><span class="chip sel" id="musOn">On</span><span class="chip" id="musOff">Off</span></div>
   <p class="small">Audio uses the guarded <b>ambient</b> session, so game sound mixes with your other apps (music, podcasts) instead of pausing them. Real mixing can only be confirmed on your own device.</p>
   <button class="btn primary" data-close="setModal" style="margin-top:10px;">Done</button>
+</div></div>
+
+<div class="modalBack" id="varModal"><div class="modal" style="max-width:760px;">
+  <h2>🎛 Variants — the full rulebook drawer</h2>
+  <p class="small">Presets, every switch, tools, CPU and battlefield. Whatever is set here applies to the next game you start.</p>
+  <div id="variantsBody"></div>
+  <div class="row" style="margin-top:14px;justify-content:space-between;">
+    <button class="btn" id="btnResetDefaults">↺ Reset to Defaults</button>
+    <button class="btn primary" data-close="varModal">Done</button>
+  </div>
 </div></div>
 
 <div class="modalBack" id="devModal"><div class="modal">
@@ -457,7 +501,7 @@ var PRESETS={
   fast:{label:"Fast Battle", desc:"Move, then shoot, every turn. Quicker and bloodier.", cfg:{turnStructure:"fast"}},
   ramming:{label:"Ramming", desc:"One flick moves you AND attacks what it crosses (Tanks folk style).", cfg:{turnStructure:"ramming"}},
   competitive:{label:"Competitive", desc:"Both players forced onto the same flicker + medium. Pure skill.", cfg:{sameTools:true}},
-  reinforcements:{label:"Reinforcements", desc:"Spend a turn to launch a replacement fighter from your base.", cfg:{deployment:"reinforce"}},
+  hardcore:{label:"Hardcore", desc:"No reinforcements — every fighter you lose is gone for good. The harsh original game.", cfg:{deployment:"none"}},
   launchbay:{label:"Launch Bay", desc:"Start with about half your force; launch the rest as turn actions.", cfg:{deployment:"launchbay", turnStructure:"classic"}}
 };
 
@@ -469,7 +513,7 @@ function defaultCfg(){
     turnStructure:"classic", control:"aimed",
     fighterCount:3, tankMix:"2L1H",
     shipHp:1, spaceBase:"forcefield", defense:"player",
-    obstacle:"tunnel", edge:"wrap", deployment:"all", friendly:"partial",
+    obstacle:"tunnel", edge:"wrap", deployment:"produce", friendly:"partial",
     cpuDiff:"lunch", layout:"face",
     paper:"looseleaf", constructionColor:CONSTRUCTION_COLORS[2],
     battlefield:"preset",
@@ -490,207 +534,177 @@ function applyPreset(key){
 }
 
 /* ============================================================
-   SETUP WIZARD
+   SETUP — ONE SCREEN (theme / players / paper + Start),
+   with the full variation menu in the Variants drawer.
    ============================================================ */
-var STEPS=[
-  {id:"mode", title:"1 · Players & Theme"},
-  {id:"rules", title:"2 · Preset & Switches"},
-  {id:"tools", title:"3 · Flickers, Tools & Colors"},
-  {id:"paper", title:"4 · Paper Surface"},
-  {id:"field", title:"5 · Battlefield"},
-  {id:"go", title:"6 · Ready!"}
-];
-var stepIdx=0;
-var stepCard=document.getElementById("stepCard");
-function renderStepDots(){
-  var d=document.getElementById("stepDots"); d.innerHTML="";
-  STEPS.forEach(function(s,i){ var el=document.createElement("div"); el.className="stepdot"+(i===stepIdx?" on":""); el.textContent=s.title; d.appendChild(el); });
-  document.getElementById("btnBack").disabled = stepIdx===0;
-  document.getElementById("btnNext").textContent = stepIdx===STEPS.length-1 ? "✏️ Start the battle!" : "Next →";
-}
-function chipRow(items, current, cb, cls){
-  var div=document.createElement("div"); div.className="row";
-  items.forEach(function(it){
-    var c=document.createElement("span"); c.className="chip"+(it.v===current?" sel "+(cls||""):""); c.textContent=it.t;
-    c.addEventListener("click", function(){ audioInit(); cb(it.v); renderStep(); });
-    div.appendChild(c);
+function chipRow(opts, current, onPick){
+  var row=document.createElement("div"); row.className="row";
+  opts.forEach(function(o){
+    var c=document.createElement("button"); c.type="button"; c.className="chip"+(String(o.v)===String(current)?" sel":"");
+    c.textContent=o.t;
+    c.addEventListener("click", function(){ audioInit(); onPick(o.v); refreshUI(); });
+    row.appendChild(c);
   });
-  return div;
+  return row;
 }
 function selRow(label, key, opts){
   var wrap=document.createElement("div");
   var l=document.createElement("label"); l.className="lbl"; l.textContent=label; wrap.appendChild(l);
   var s=document.createElement("select");
-  opts.forEach(function(o){ var op=document.createElement("option"); op.value=o[0]; op.textContent=o[1]; s.appendChild(op); });
-  s.value=CFG[key];
-  s.addEventListener("change", function(){ CFG[key]=s.value; });
+  opts.forEach(function(o){
+    var op=document.createElement("option"); op.value=o[0]; op.textContent=o[1]; s.appendChild(op);
+  });
+  s.value=String(CFG[key]);
+  s.addEventListener("change", function(){ CFG[key]=s.value; refreshUI(); });
   wrap.appendChild(s);
   return wrap;
 }
-function renderStep(){
-  renderStepDots();
-  var id=STEPS[stepIdx].id; stepCard.innerHTML="";
-  var h=document.createElement("h2"); stepCard.appendChild(h);
-  if(id==="mode"){
-    h.textContent="Who's playing, and which war?";
-    stepCard.appendChild(chipRow([{v:"1p",t:"🤖 1P vs CPU"},{v:"2p",t:"👥 2P Pass-and-Play"}], CFG.mode, function(v){ CFG.mode=v; }));
-    var grid=document.createElement("div"); grid.className="grid"; grid.style.marginTop="12px";
-    [["space","🚀","SPACE","Mothership + forcefield. Ships, gun turrets, tunneling shots through asteroids, wrap-around edges."],
-     ["knights","🏰","KNIGHTS","Castle + archer towers. Knights charge — no ranged shots. Get unhorsed, walk home, remount. Forests shelter, rocks block."],
-     ["tanks","🛡️","TANKS","Bunker HQ + sandbags. Light Cannon (fast, straight shots) and Heavy Mortar (slow, lobs over cover). Heavier tank wins a ram."]]
-    .forEach(function(t){
-      var b=document.createElement("button"); b.className="themeCard"+(CFG.theme===t[0]?" sel":"");
-      b.innerHTML='<span class="big">'+t[1]+'</span> <b style="font-size:19px;">'+t[2]+'</b><p class="small" style="color:var(--ink);">'+t[3]+'</p>';
-      b.addEventListener("click", function(){ audioInit(); CFG.theme=t[0]; renderStep(); });
-      grid.appendChild(b);
+function refreshUI(){ renderHome(); if(document.getElementById("varModal").classList.contains("open")) renderVariants(); }
+
+function renderHome(){
+  // THEME
+  var grid=document.getElementById("themeGrid"); grid.innerHTML="";
+  [["space","🚀","SPACE","Mothership + forcefield. Ships, gun turrets, tunneling shots through asteroids, wrap-around edges."],
+   ["knights","🏰","KNIGHTS","Castle + archer towers. Knights charge — no ranged shots. Get unhorsed, walk home, remount. Forests shelter, rocks block."],
+   ["tanks","🛡️","TANKS","Bunker HQ + sandbags. Light Cannon (fast, straight shots) and Heavy Mortar (slow, lobs over cover). Heavier tank wins a ram."]]
+  .forEach(function(t){
+    var b=document.createElement("button"); b.className="themeCard"+(CFG.theme===t[0]?" sel":"");
+    b.innerHTML='<span class="big">'+t[1]+'</span> <b style="font-size:19px;">'+t[2]+'</b><p class="small" style="color:var(--ink);">'+t[3]+'</p>';
+    b.addEventListener("click", function(){ audioInit(); CFG.theme=t[0]; refreshUI(); });
+    grid.appendChild(b);
+  });
+  // PLAYERS
+  var mc=document.getElementById("modeChips"); mc.innerHTML="";
+  mc.appendChild(chipRow([{v:"1p",t:"🤖 1P vs CPU"},{v:"2p",t:"👥 2P Pass-and-Play"}], CFG.mode, function(v){ CFG.mode=v; }));
+  // PAPER
+  var g2=document.getElementById("paperGrid"); g2.innerHTML="";
+  PAPERS.forEach(function(pp){
+    var b=document.createElement("button"); b.className="themeCard"+(CFG.paper===pp.id?" sel":"");
+    var prev="";
+    if(pp.id==="looseleaf") prev="background:repeating-linear-gradient(#fff 0 14px,#bcd2ee 14px 15px);";
+    if(pp.id==="graph") prev="background:repeating-linear-gradient(#eef4fb 0 9px,#b9cfea 9px 10px),repeating-linear-gradient(90deg,#eef4fb 0 9px,#b9cfea 9px 10px);";
+    if(pp.id==="plain") prev="background:#fff;";
+    if(pp.id==="construction") prev="background:"+CFG.constructionColor+";";
+    if(pp.id==="ripped") prev="background:#fdfdf6;clip-path:polygon(2% 8%,12% 2%,30% 6%,55% 1%,80% 5%,97% 3%,99% 40%,96% 75%,99% 96%,70% 93%,40% 99%,15% 94%,3% 98%,1% 55%);border:0;";
+    if(pp.id==="newspaper") prev="background:repeating-linear-gradient(#efe9d8 0 5px,#d9d0ba 5px 6px);";
+    if(pp.id==="comic") prev="background:linear-gradient(90deg,#f3ecd9 49%,#cbbf9f 49%,#cbbf9f 51%,#f3ecd9 51%);";
+    b.innerHTML='<div class="paperPrev" style="'+prev+'"></div><b>'+pp.label+'</b><p class="small" style="color:var(--ink);">'+pp.desc+'</p>';
+    b.addEventListener("click", function(){ CFG.paper=pp.id; refreshUI(); });
+    g2.appendChild(b);
+  });
+  var ex=document.getElementById("paperExtra"); ex.innerHTML="";
+  if(CFG.paper==="construction"){
+    var l=document.createElement("label"); l.className="lbl"; l.textContent="Construction paper color"; ex.appendChild(l);
+    var row=document.createElement("div"); row.className="row";
+    CONSTRUCTION_COLORS.forEach(function(c){
+      var s=document.createElement("span"); s.className="swatch"+(CFG.constructionColor===c?" sel":""); s.style.background=c;
+      s.addEventListener("click", function(){ CFG.constructionColor=c; refreshUI(); });
+      row.appendChild(s);
     });
-    stepCard.appendChild(grid);
-    var lay=document.createElement("div"); lay.style.marginTop="10px";
-    lay.appendChild(selRow("Table layout (bases top & bottom, or left & right)","layout",[["face","Face-to-face — portrait sheet, bases top & bottom"],["side","Side-by-side — landscape sheet, bases left & right"]]));
-    stepCard.appendChild(lay);
-    if(CFG.mode==="1p"){
-      var d=document.createElement("div");
-      d.appendChild(selRow("CPU difficulty","cpuDiff",[["recess","Recess — big aim wobble, casual choices"],["lunch","Lunchroom — a fair fight (default)"],["study","Study Hall — sharp aim, smart picks"]]));
-      var per=document.createElement("p"); per.className="small";
-      per.textContent="CPU personality: Space plays calculating and wrap-happy · Knights charges aggressively and walks unhorsed knights home · Tanks races for the hills and lobs mortars over cover.";
-      d.appendChild(per); stepCard.appendChild(d);
-    }
+    ex.appendChild(row);
   }
-  if(id==="rules"){
-    h.textContent="Preset first — then tinker with the switches";
-    var pr=document.createElement("div"); pr.className="grid";
-    Object.keys(PRESETS).forEach(function(key){
-      var b=document.createElement("button"); b.className="themeCard"+(CFG.preset===key?" sel":"");
-      b.innerHTML="<b>"+PRESETS[key].label+"</b><p class='small' style='color:var(--ink);'>"+PRESETS[key].desc+"</p>";
-      b.addEventListener("click", function(){ audioInit(); applyPreset(key); renderStep(); });
-      pr.appendChild(b);
-    });
-    stepCard.appendChild(pr);
-    var g=document.createElement("div"); g.className="grid"; g.style.marginTop="8px";
-    var c1=document.createElement("div"), c2=document.createElement("div");
-    c1.appendChild(selRow("Turn structure","turnStructure",[["classic","Classic — move OR shoot, one flick"],["fast","Fast Battle — move, then shoot"],["ramming","Ramming — one flick moves and attacks"]]));
-    c1.appendChild(selRow("Flick control scheme","control",[["true","True Flick — swipe speed is power, no preview"],["hybrid","Hybrid — direction shows, distance is skill"],["aimed","Aimed — dotted preview with a max-length cap"]]));
-    c1.appendChild(selRow("Fighters per side","fighterCount",[["2","2"],["3","3 (default)"],["4","4"],["5","5"]]));
-    CFG.fighterCount=parseInt(CFG.fighterCount,10);
-    if(CFG.theme==="tanks") c1.appendChild(selRow("Tank mix (Lights + Heavies)","tankMix",[["allL","All Light Cannon"],["2L1H","2 Light + 1 Heavy (default)"],["1L2H","1 Light + 2 Heavy"],["allH","All Heavy Mortar"]]));
-    c1.appendChild(selRow("Friendly fire","friendly",[["partial","Partial — fighters yes, your base is safe from you (default)"],["full","Full — even your own base can fall to you"],["none","None — your traces pass over your own side"]]));
-    c2.appendChild(selRow("Defense turrets / towers / cannons","defense",[["player","Player-fired — firing one is your turn action (default)"],["auto","Auto-firing — they shoot the nearest enemy at end of your turn"],["none","No turrets"]]));
-    c2.appendChild(selRow("Obstacle behavior (projectiles)","obstacle",[["tunnel","Tunnel through, carving holes (default)"],["block","Block shots completely"],["destroy","A hit destroys the obstacle"]]));
-    c2.appendChild(selRow("Edge rule","edge",[["wrap","Wrap around to the other side"],["off","Off the page destroys the fighter"],["stop","Stop at the edge"]]));
-    c2.appendChild(selRow("Deployment","deployment",[["all","All deployed at the start (default)"],["reinforce","Reinforcements — spend a turn to launch a replacement"],["launchbay","Launch Bay — start with half, launch the rest in play"]]));
-    if(CFG.theme==="space"){
-      c2.appendChild(selRow("Ship toughness","shipHp",[["1","1 hit (default)"],["2","2 hits — damaged after hit 1"]]));
-      CFG.shipHp=parseInt(CFG.shipHp,10);
-      c2.appendChild(selRow("Mothership defense","spaceBase",[["forcefield","Forcefield — it IS hit 1 of 3 (default)"],["wall","Wall with a door gap — thread the door or no hit"],["extra","Extra shield — forcefield takes 2 hits (base = 4)"],["none","No shield — plain 3 hits"]]));
-    }
-    g.appendChild(c1); g.appendChild(c2); stepCard.appendChild(g);
-    var note=document.createElement("p"); note.className="small";
-    note.textContent="Every switch applies on top of the preset. Bases always use the same modest, capped footprint for both players, centered in their base zone — nobody can build a bigger mothership.";
-    stepCard.appendChild(note);
-  }
-  if(id==="tools"){
-    h.textContent="Pick your flicker, your drawing medium, your color";
-    var p=document.createElement("p"); p.innerHTML="The <b>flicker</b> is what you flick (pencil or pen). The <b>drawing medium</b> is what your trace is made of — and it really matters: <b>pencil</b> is thin and precise (threads gaps, must truly touch), <b>crayon</b> is fat and wobbly (clips targets easily, clumsy in gaps), <b>pen</b> is in between."; stepCard.appendChild(p);
-    function toolBlock(who, label){
-      var box=document.createElement("div"); box.className="card"; box.style.boxShadow="none"; box.style.marginTop="10px";
-      var t=document.createElement("h3"); t.style.marginTop="0"; t.textContent=label; box.appendChild(t);
-      var l1=document.createElement("label"); l1.className="lbl"; l1.textContent="Flicker"; box.appendChild(l1);
-      box.appendChild(chipRow([{v:"pencil",t:"✏️ Pencil"},{v:"pen",t:"🖊 Pen"}], who.flicker, function(v){ who.flicker=v; }));
-      var l2=document.createElement("label"); l2.className="lbl"; l2.textContent="Drawing medium"; box.appendChild(l2);
-      box.appendChild(chipRow([{v:"pencil",t:"✏️ Pencil (thin)"},{v:"pen",t:"🖊 Pen (medium)"},{v:"crayon",t:"🖍 Crayon (fat, wobbly)"}], who.medium, function(v){ who.medium=v; }));
-      var l3=document.createElement("label"); l3.className="lbl"; l3.textContent="Color"; box.appendChild(l3);
-      var sw=document.createElement("div"); sw.className="row";
-      PLAYER_COLORS.forEach(function(c,i){
-        var s=document.createElement("span"); s.className="swatch"+(who.color===i?" sel":""); s.style.background=c.hex; s.title=c.name;
-        s.addEventListener("click", function(){ who.color=i; renderStep(); });
-        sw.appendChild(s);
-      });
-      box.appendChild(sw);
-      return box;
-    }
-    stepCard.appendChild(toolBlock(CFG.p1, CFG.mode==="2p" ? "Player 1 (bottom / left)" : "You"));
-    if(CFG.mode==="2p") stepCard.appendChild(toolBlock(CFG.p2, "Player 2 (top / right)"));
-    else {
-      var cpuBox=toolBlock(CFG.cpu, "CPU");
-      var cp=document.createElement("p"); cp.className="small"; cp.textContent="The CPU's tools are part of its personality — a crayon CPU clips everything and threads nothing."; cpuBox.appendChild(cp);
-      stepCard.appendChild(cpuBox);
-    }
-    if(CFG.sameTools){ var n=document.createElement("p"); n.className="kbdNote"; n.textContent="Competitive preset: at match start, Player 2 / CPU is set to the same flicker + medium as Player 1."; stepCard.appendChild(n); }
-  }
-  if(id==="paper"){
-    h.textContent="What did you grab from the notebook pile?";
-    var g2=document.createElement("div"); g2.className="grid";
-    PAPERS.forEach(function(pp){
-      var b=document.createElement("button"); b.className="themeCard"+(CFG.paper===pp.id?" sel":"");
-      var prev="";
-      if(pp.id==="looseleaf") prev="background:repeating-linear-gradient(#fff 0 14px,#bcd2ee 14px 15px);";
-      if(pp.id==="graph") prev="background:repeating-linear-gradient(#eef4fb 0 9px,#b9cfea 9px 10px),repeating-linear-gradient(90deg,#eef4fb 0 9px,#b9cfea 9px 10px);";
-      if(pp.id==="plain") prev="background:#fff;";
-      if(pp.id==="construction") prev="background:"+CFG.constructionColor+";";
-      if(pp.id==="ripped") prev="background:#fdfdf6;clip-path:polygon(2% 8%,12% 2%,30% 6%,55% 1%,80% 5%,97% 3%,99% 40%,96% 75%,99% 96%,70% 93%,40% 99%,15% 94%,3% 98%,1% 55%);border:0;";
-      if(pp.id==="newspaper") prev="background:repeating-linear-gradient(#efe9d8 0 5px,#d9d0ba 5px 6px);";
-      if(pp.id==="comic") prev="background:linear-gradient(90deg,#f3ecd9 49%,#cbbf9f 49%,#cbbf9f 51%,#f3ecd9 51%);";
-      b.innerHTML='<div class="paperPrev" style="'+prev+'"></div><b>'+pp.label+'</b><p class="small" style="color:var(--ink);">'+pp.desc+'</p>';
-      b.addEventListener("click", function(){ CFG.paper=pp.id; renderStep(); });
-      g2.appendChild(b);
-    });
-    stepCard.appendChild(g2);
-    if(CFG.paper==="construction"){
-      var l=document.createElement("label"); l.className="lbl"; l.textContent="Construction paper color"; stepCard.appendChild(l);
-      var row=document.createElement("div"); row.className="row";
-      CONSTRUCTION_COLORS.forEach(function(c){
-        var s=document.createElement("span"); s.className="swatch"+(CFG.constructionColor===c?" sel":""); s.style.background=c;
-        s.addEventListener("click", function(){ CFG.constructionColor=c; renderStep(); });
-        row.appendChild(s);
-      });
-      stepCard.appendChild(row);
-    }
-    var n2=document.createElement("p"); n2.className="small"; n2.textContent="Readability rule: busy papers (newspaper especially) are faded and scaled down under the game, so the print never competes — your traces stay the darkest thing on the page. Paper is cosmetic only."; stepCard.appendChild(n2);
-  }
-  if(id==="field"){
-    h.textContent="The battlefield";
-    stepCard.appendChild(chipRow([
-      {v:"preset",t:"🗺 Ready-made field"},{v:"random",t:"🎲 Random field"},{v:"stamps",t:"🔷 Stamps — place them"},{v:"freehand",t:"✍️ Freehand — draw them"},{v:"empty",t:"⬜ Empty sheet"}
-    ], CFG.battlefield, function(v){ CFG.battlefield=v; }));
-    var info=document.createElement("div"); info.style.marginTop="10px";
-    if(CFG.battlefield==="preset") info.innerHTML="<p>A hand-placed field for this theme, ready instantly. Fair and mirrored.</p>";
-    if(CFG.battlefield==="random") info.innerHTML="<p>A fresh mirrored field is generated when the match starts.</p>";
-    if(CFG.battlefield==="empty") info.innerHTML="<p>No obstacles. A pure race to the base.</p>";
-    if(CFG.battlefield==="stamps") info.innerHTML="<p>On the next screen you'll get the paper in <b>setup mode</b>: pick a stamp, tap the middle zone to drop it, tap a placed stamp to rotate it, long list of fairness rules enforced: middle zone only, no overlaps, size/count budget.</p>";
-    if(CFG.battlefield==="freehand") info.innerHTML="<p>On the next screen you'll get the paper in <b>setup mode</b>: draw closed shapes with your finger in your medium and they fill in as this theme's obstacles. Same fairness rules: middle zone only, no overlaps, budget applies.</p>";
-    stepCard.appendChild(info);
-    var th=document.createElement("p"); th.className="kbdNote";
-    th.textContent = CFG.theme==="space" ? "Space obstacles: asteroids. Shots tunnel through them (default); flying into one destroys your ship." :
-      CFG.theme==="knights" ? "Knights obstacles: rocks (block charges & arrows, unhorse on impact) and forests (shelter: only 1-in-4 arrows get through; mounted movement inside is half distance)." :
-      "Tanks obstacles: hills (drivable high ground — crossing halves your distance; from the top, cannon fire clears low cover) and ruined buildings (block straight shells; mortars fly over).";
-    stepCard.appendChild(th);
-  }
-  if(id==="go"){
-    h.textContent="Ready to scribble!";
-    var tbl=document.createElement("table"); tbl.className="spec";
-    var who2 = CFG.mode==="1p" ? "You vs CPU ("+({recess:"Recess",lunch:"Lunchroom",study:"Study Hall"})[CFG.cpuDiff]+")" : "2P pass-and-play";
-    var rows=[
-      ["Match", who2],["Theme", CFG.theme.toUpperCase()+" — "+({space:"mothership & forcefield",knights:"castle & towers",tanks:"bunker & sandbags"})[CFG.theme]],
-      ["Preset", PRESETS[CFG.preset].label],["Turn structure", CFG.turnStructure],["Flick control", CFG.control],
-      ["Fighters", CFG.fighterCount+(CFG.theme==="tanks"?" (mix: "+CFG.tankMix+")":"")],
-      ["Friendly fire", CFG.friendly],["Edge rule", CFG.edge],["Obstacles", CFG.obstacle],["Deployment", CFG.deployment],
-      ["Paper", PAPERS.filter(function(x){return x.id===CFG.paper;})[0].label],["Battlefield", CFG.battlefield],["Layout", CFG.layout==="face"?"Face-to-face (portrait)":"Side-by-side (landscape)"]
-    ];
-    if(CFG.theme==="space") rows.push(["Ship toughness", CFG.shipHp+" hit(s)"],["Mothership defense", CFG.spaceBase]);
-    rows.forEach(function(r){ var tr=document.createElement("tr"); tr.innerHTML="<td><b>"+r[0]+"</b></td><td>"+r[1]+"</td>"; tbl.appendChild(tr); });
-    stepCard.appendChild(tbl);
-    var tip=document.createElement("p"); tip.className="small"; tip.style.marginTop="10px";
-    tip.textContent = SETTINGS.tutorialSeen ? "Coach is off (you've done the guided match). Find him again any time via How to Play." : "First match? The margin coach will walk you through your first flick, first shot, and this theme's signature rule. Skippable any time.";
-    stepCard.appendChild(tip);
-  }
+  var n2=document.createElement("p"); n2.className="small";
+  n2.textContent="Readability rule: busy papers (newspaper especially) are faded and scaled down under the game, so the print never competes — your traces stay the darkest thing on the page. Paper is cosmetic only.";
+  ex.appendChild(n2);
 }
-document.getElementById("btnBack").addEventListener("click", function(){ if(stepIdx>0){ stepIdx--; renderStep(); } });
-document.getElementById("btnNext").addEventListener("click", function(){
-  audioInit();
-  if(stepIdx<STEPS.length-1){ stepIdx++; renderStep(); }
-  else startMatch();
+
+function toolBlock(who, label){
+  var box=document.createElement("div"); box.className="card"; box.style.boxShadow="none"; box.style.marginTop="10px";
+  var t=document.createElement("h3"); t.style.marginTop="0"; t.textContent=label; box.appendChild(t);
+  var l1=document.createElement("label"); l1.className="lbl"; l1.textContent="Flicker"; box.appendChild(l1);
+  box.appendChild(chipRow([{v:"pencil",t:"✏️ Pencil"},{v:"pen",t:"🖊 Pen"}], who.flicker, function(v){ who.flicker=v; }));
+  var l2=document.createElement("label"); l2.className="lbl"; l2.textContent="Drawing medium"; box.appendChild(l2);
+  box.appendChild(chipRow([{v:"pencil",t:"✏️ Pencil (thin)"},{v:"pen",t:"🖊 Pen (medium)"},{v:"crayon",t:"🖍 Crayon (fat, wobbly)"}], who.medium, function(v){ who.medium=v; }));
+  var l3=document.createElement("label"); l3.className="lbl"; l3.textContent="Color"; box.appendChild(l3);
+  var sw=document.createElement("div"); sw.className="row";
+  PLAYER_COLORS.forEach(function(c,i){
+    var s=document.createElement("span"); s.className="swatch"+(who.color===i?" sel":""); s.style.background=c.hex; s.title=c.name;
+    s.addEventListener("click", function(){ who.color=i; refreshUI(); });
+    sw.appendChild(s);
+  });
+  box.appendChild(sw);
+  return box;
+}
+
+function renderVariants(){
+  var body=document.getElementById("variantsBody"); body.innerHTML="";
+  var h=document.createElement("h3"); h.style.marginTop="0"; h.textContent="Preset first — then tinker with the switches"; body.appendChild(h);
+  var pr=document.createElement("div"); pr.className="grid";
+  Object.keys(PRESETS).forEach(function(key){
+    var b=document.createElement("button"); b.className="themeCard"+(CFG.preset===key?" sel":"");
+    b.innerHTML="<b>"+PRESETS[key].label+"</b><p class='small' style='color:var(--ink);'>"+PRESETS[key].desc+"</p>";
+    b.addEventListener("click", function(){ audioInit(); applyPreset(key); refreshUI(); });
+    pr.appendChild(b);
+  });
+  body.appendChild(pr);
+  var lay=document.createElement("div");
+  lay.appendChild(selRow("Table layout (bases top & bottom, or left & right)","layout",[["face","Face-to-face — portrait sheet, bases top & bottom"],["side","Side-by-side — landscape sheet, bases left & right"]]));
+  body.appendChild(lay);
+  if(CFG.mode==="1p"){
+    var d=document.createElement("div");
+    d.appendChild(selRow("CPU difficulty","cpuDiff",[["recess","Recess — big aim wobble, casual choices"],["lunch","Lunchroom — a fair fight (default)"],["study","Study Hall — sharp aim, smart picks"]]));
+    var per=document.createElement("p"); per.className="small";
+    per.textContent="CPU personality: Space plays calculating and wrap-happy · Knights charges aggressively and walks unhorsed knights home · Tanks races for the hills and lobs mortars over cover.";
+    d.appendChild(per); body.appendChild(d);
+  }
+  var g=document.createElement("div"); g.className="grid"; g.style.marginTop="8px";
+  var c1=document.createElement("div"), c2=document.createElement("div");
+  c1.appendChild(selRow("Turn structure","turnStructure",[["classic","Classic — move OR shoot, one flick"],["fast","Fast Battle — move, then shoot"],["ramming","Ramming — one flick moves and attacks"]]));
+  c1.appendChild(selRow("Flick control scheme","control",[["true","True Flick — swipe speed is power, no preview"],["hybrid","Hybrid — direction shows, distance is skill"],["aimed","Aimed — dotted preview with a max-length cap"]]));
+  c1.appendChild(selRow("Fighters per side (also the production cap)","fighterCount",[["2","2"],["3","3 (default)"],["4","4"],["5","5"]]));
+  CFG.fighterCount=parseInt(CFG.fighterCount,10);
+  if(CFG.theme==="tanks") c1.appendChild(selRow("Tank mix (Lights + Heavies)","tankMix",[["allL","All Light Cannon"],["2L1H","2 Light + 1 Heavy (default)"],["1L2H","1 Light + 2 Heavy"],["allH","All Heavy Mortar"]]));
+  c1.appendChild(selRow("Friendly fire","friendly",[["partial","Partial — fighters yes, your base is safe from you (default)"],["full","Full — even your own base can fall to you"],["none","None — your traces pass over your own side"]]));
+  c2.appendChild(selRow("Production & reinforcements","deployment",[["produce","Production — your base builds replacements, up to the fighter cap (default)"],["launchbay","Launch Bay — start with about half, launch the rest as turn actions"],["none","No reinforcements — HARDCORE: losses are forever"]]));
+  c2.appendChild(selRow("Defense turrets / towers / cannons","defense",[["player","Player-fired — firing one is your turn action (default)"],["auto","Auto-firing — they shoot the nearest enemy at end of your turn"],["none","No turrets"]]));
+  c2.appendChild(selRow("Obstacle behavior (projectiles)","obstacle",[["tunnel","Tunnel through, carving holes (default)"],["block","Block shots completely"],["destroy","A hit destroys the obstacle"]]));
+  c2.appendChild(selRow("Edge rule","edge",[["wrap","Wrap around to the other side"],["off","Off the page destroys the fighter"],["stop","Stop at the edge"]]));
+  if(CFG.theme==="space"){
+    c2.appendChild(selRow("Ship toughness","shipHp",[["1","1 hit (default)"],["2","2 hits — damaged after hit 1"]]));
+    CFG.shipHp=parseInt(CFG.shipHp,10);
+    c2.appendChild(selRow("Mothership defense","spaceBase",[["forcefield","Forcefield — it IS hit 1 of 3 (default)"],["wall","Wall with a door gap — thread the door or no hit"],["extra","Extra shield — forcefield takes 2 hits (base = 4)"],["none","No shield — plain 3 hits"]]));
+  }
+  g.appendChild(c1); g.appendChild(c2); body.appendChild(g);
+  var note=document.createElement("p"); note.className="small";
+  note.textContent="Every switch applies on top of the preset. Bases always use the same modest, capped footprint for both players, centered in their base zone — nobody can build a bigger mothership. Defense structures stand apart in front of the base and block movement like obstacles.";
+  body.appendChild(note);
+  // tools
+  var th=document.createElement("h3"); th.textContent="Flickers, tools & colors"; body.appendChild(th);
+  var p=document.createElement("p"); p.innerHTML="The <b>flicker</b> is what you flick (pencil or pen). The <b>drawing medium</b> is what your trace is made of — and it really matters: <b>pencil</b> is thin and precise (threads gaps, must truly touch), <b>crayon</b> is fat and wobbly (clips targets easily, clumsy in gaps), <b>pen</b> is in between."; body.appendChild(p);
+  body.appendChild(toolBlock(CFG.p1, CFG.mode==="2p" ? "Player 1 (bottom / left)" : "You"));
+  if(CFG.mode==="2p") body.appendChild(toolBlock(CFG.p2, "Player 2 (top / right)"));
+  else {
+    var cpuBox=toolBlock(CFG.cpu, "CPU");
+    var cp=document.createElement("p"); cp.className="small"; cp.textContent="The CPU's tools are part of its personality — a crayon CPU clips everything and threads nothing."; cpuBox.appendChild(cp);
+    body.appendChild(cpuBox);
+  }
+  if(CFG.sameTools){ var n=document.createElement("p"); n.className="kbdNote"; n.textContent="Competitive preset: at match start, Player 2 / CPU is set to the same flicker + medium as Player 1."; body.appendChild(n); }
+  // battlefield
+  var bh=document.createElement("h3"); bh.textContent="Battlefield"; body.appendChild(bh);
+  body.appendChild(chipRow([
+    {v:"preset",t:"🗺 Ready-made field"},{v:"random",t:"🎲 Random field"},{v:"stamps",t:"🔷 Stamps — place them"},{v:"freehand",t:"✍️ Freehand — draw them"},{v:"empty",t:"⬜ Empty sheet"}
+  ], CFG.battlefield, function(v){ CFG.battlefield=v; }));
+  var info=document.createElement("div"); info.style.marginTop="10px";
+  if(CFG.battlefield==="preset") info.innerHTML="<p>A hand-placed field for this theme, ready instantly. Fair and mirrored.</p>";
+  if(CFG.battlefield==="random") info.innerHTML="<p>A fresh mirrored field is generated when the match starts.</p>";
+  if(CFG.battlefield==="empty") info.innerHTML="<p>No obstacles. A pure race to the base.</p>";
+  if(CFG.battlefield==="stamps") info.innerHTML="<p>When the match starts you'll get the paper in <b>setup mode</b>: pick a stamp, tap the middle zone to drop it, tap a placed stamp to rotate it. Fairness rules enforced: middle zone only, no overlaps, size/count budget.</p>";
+  if(CFG.battlefield==="freehand") info.innerHTML="<p>When the match starts you'll get the paper in <b>setup mode</b>: draw closed shapes with your finger in your medium and they fill in as this theme's obstacles. Same fairness rules: middle zone only, no overlaps, budget applies.</p>";
+  body.appendChild(info);
+  var thn=document.createElement("p"); thn.className="kbdNote";
+  thn.textContent = CFG.theme==="space" ? "Space obstacles: asteroids. Shots tunnel through them (default); flying into one destroys your ship." :
+    CFG.theme==="knights" ? "Knights obstacles: rocks (block charges & arrows, unhorse on impact) and forests (shelter: only 1-in-4 arrows get through; mounted movement inside is half distance)." :
+    "Tanks obstacles: hills (drivable high ground — crossing halves your distance; from the top, cannon fire clears low cover) and ruined buildings (block straight shells; mortars fly over).";
+  body.appendChild(thn);
+}
+document.getElementById("btnStart").addEventListener("click", function(){ audioInit(); startMatch(); });
+document.getElementById("btnVariants").addEventListener("click", function(){ audioInit(); renderVariants(); document.getElementById("varModal").classList.add("open"); });
+document.getElementById("btnResetDefaults").addEventListener("click", function(){
+  var keepTheme=CFG.theme, keepMode=CFG.mode, keepPaper=CFG.paper;
+  CFG=defaultCfg(); CFG.theme=keepTheme; CFG.mode=keepMode; CFG.paper=keepPaper;
+  refreshUI();
 });
-renderStep();
+renderHome();
 
 /* ============================================================
    GAME STATE
@@ -776,9 +790,13 @@ function spawnUnits(p){
 function makeTurrets(p){
   if(CFG.defense==="none") return [];
   var bc=baseCenter(p), d=dirToEnemy(p), side={x:-d.y,y:d.x}, out=[];
+  // Defense structures STAND APART from the base: freestanding, in front of it
+  // at the battlefield-facing edge of the base zone, guarding the approach —
+  // never attached to or overlapping the base drawing. Mirrored for both players.
+  var fwd=BASE_H+112, lat=40;
   [-1,1].forEach(function(s,i){
     out.push({ id:"t"+p+"-"+i, owner:p, turret:true, alive:true, hp:1,
-      x: bc.x + side.x*s*(BASE_W/2+36), y: bc.y + side.y*s*(BASE_W/2+36),
+      x: bc.x + d.x*fwd + side.x*s*lat, y: bc.y + d.y*fwd + side.y*s*lat,
       angle:Math.atan2(d.y,d.x),
       kind: CFG.theme==="space"?"turret":CFG.theme==="knights"?"tower":"cannon" });
   });
@@ -796,8 +814,8 @@ function newGame(obstacles){
     turrets:[makeTurrets(0), makeTurrets(1)],
     bases:[{hp:baseMaxHp(), armor: CFG.theme==="tanks"},{hp:baseMaxHp(), armor: CFG.theme==="tanks"}],
     obstacles: obstacles||makeObstacles(CFG.battlefield==="random"?"random":CFG.battlefield),
-    traces:[], particles:[], stickmen:[], selected:null, over:false, winner:null,
-    reserve:[CFG.deployment==="all"?0:CFG.fighterCount-Math.ceil(CFG.fighterCount/2), CFG.deployment==="all"?0:CFG.fighterCount-Math.ceil(CFG.fighterCount/2)],
+    traces:[], particles:[], stickmen:[], pods:[], selected:null, over:false, winner:null,
+    reserve:[CFG.fighterCount-Math.ceil(CFG.fighterCount/2), CFG.fighterCount-Math.ceil(CFG.fighterCount/2)], // only Launch Bay spends these
     editor:null, anim:null, shake:0, flashShield:-1, lastRoll:null, clock:null, draw:false
   };
   if(CFG.deployment!=="launchbay") G.reserve=[0,0];
@@ -830,9 +848,15 @@ function updateHUD(){
   var cp=document.getElementById("clockPips");
   if(cp){
     if(G.clock && !G.over){
-      var pips=""; for(var ci2=0;ci2<5;ci2++) pips+= ci2<G.clock.left ? "●" : "○";
-      cp.textContent="⏱ "+playerName(G.clock.side)+" must hit the base: "+pips;
-    } else cp.textContent="";
+      // Explicit countdown in the turn bar. Vs CPU it is visible throughout;
+      // in 2P it shows on the fighter-side's own turns (the side it pressures).
+      var showClock = CFG.mode==="1p" || G.turn===G.clock.side;
+      if(showClock){
+        var pips=""; for(var ci2=0;ci2<5;ci2++) pips+= ci2<G.clock.left ? "●" : "○";
+        cp.textContent="⏱ DRAW IN "+G.clock.left+" — "+playerName(G.clock.side)+" must land a base hit! "+pips;
+        cp.classList.toggle("hot", G.clock.left<=2);
+      } else { cp.textContent=""; cp.classList.remove("hot"); }
+    } else { cp.textContent=""; cp.classList.remove("hot"); }
   }
   tb.style.borderColor=col; tb.style.color=col;
   document.getElementById("hpPips").innerHTML =
@@ -840,7 +864,9 @@ function updateHUD(){
     (CFG.theme==="tanks" ? "<br><span class='small'>Sandbags: P1 "+(G.bases[0].armor?"🟨 up":"gone")+" · P2 "+(G.bases[1].armor?"🟨 up":"gone")+"</span>":"");
   document.getElementById("chargeNote").style.display = (CFG.theme==="knights") ? "block":"none";
   document.getElementById("actionSegWrap").style.display = (CFG.theme==="knights") ? "none":"block";
-  document.getElementById("btnLaunch").style.display = (CFG.deployment!=="all" && !G.over && (CFG.mode==="2p"||G.turn===0)) ? "inline-flex":"none";
+  var bl=document.getElementById("btnLaunch");
+  bl.style.display = (CFG.deployment!=="none" && !G.over && (CFG.mode==="2p"||G.turn===0)) ? "inline-flex":"none";
+  bl.textContent = CFG.theme==="knights" ? "🏰 Train a knight (uses turn)" : CFG.theme==="tanks" ? "🔧 Build a tank (uses turn)" : "🚀 Launch fighter (uses turn)";
   var mc=document.getElementById("matchCard");
   mc.innerHTML = "<b>"+CFG.theme.toUpperCase()+"</b> · "+PRESETS[CFG.preset].label+" · "+CFG.control+" flicks<br>"+
     "Turn: "+CFG.turnStructure+" · FF: "+CFG.friendly+" · Edge: "+CFG.edge+"<br>"+
@@ -848,7 +874,7 @@ function updateHUD(){
   var sel=G.selected?findThing(G.selected):null;
   document.getElementById("selInfo").textContent = sel ? ("Selected: "+thingLabel(sel)+(sel.turret?" (fires as your turn action)":"")+" — now flick from it!") : "Nothing selected. Tap one of your "+(CFG.theme==="knights"?"knights or towers":CFG.theme==="tanks"?"tanks or cannons":"ships or turrets")+".";
   document.getElementById("hintLine").textContent = coachActive ? "Coach is guiding you — follow the margin notes!" :
-    (G.clock && !G.over) ? "⏱ Stalemate clock: "+playerName(G.clock.side)+" has "+G.clock.left+" of their own turns left to land a hit on the enemy base — no hit means a draw. (A side with no fighters and no working defenses loses at once.)" :
+    (G.clock && !G.over) ? "⏱ Stalemate clock: DRAW IN "+G.clock.left+" — "+playerName(G.clock.side)+" has "+G.clock.left+" of their own turns left to land a hit on the enemy base, or the fighter-less side can clear it by building a replacement. (A side that can take no action at all loses at once.)" :
     (CFG.mode==="1p"&&G.turn===1 ? "CPU is lining up a flick…" : "Tap your fighter to select it, then "+(CFG.control==="aimed"?"drag from it and release":"flick from it")+".");
 }
 
@@ -859,9 +885,12 @@ function updateHUD(){
 /* ---- Generated sample-style art, composited with multiply so the
    white of the drawing vanishes into the sheet like real ink. ---- */
 var ART={};
-["mothership-blue","mothership-purple","turret","asteroid1","asteroid2","asteroid3","ship-orange","ship-yellow",
- "castle-gray","castle-purple","tower","knight-mounted","knight-foot","rock1","rock2","forest",
- "bunker-blue","bunker-purple","cannon","tank-light","tank-heavy","hill","ruin","rock3"].forEach(function(n){
+/* ART, REBUILT (Oct 26, 2026): the old sprite-sheet cutouts are gone entirely.
+   Space is the judged prototype: each piece was generated individually as its
+   own drawing (never cut from a composed scene) and is checked as an asset.
+   Knights & Tanks intentionally use plain pencil-outline placeholder pieces
+   until the Space art is approved — same method rolls to them after. */
+["mothership","turret","ship","asteroid1","asteroid2","asteroid3"].forEach(function(n){
   var im=new Image();
   im.onload=function(){ if(window.G) draw(); if(window.PC) practiceDraw(); };
   im.src="assets/pieces/"+n+".png"; ART[n]=im;
@@ -1016,26 +1045,8 @@ function drawObstacle(c,o){
       return;
     }
   }
-  if(o.type==="forest" && artReady("forest")){
-    c.save(); c.globalAlpha=0.20; c.fillStyle="#3f7d43"; c.beginPath(); c.arc(o.x,o.y,o.r,0,6.29); c.fill(); c.restore();
-    var fim=ART["forest"], fs=2.4*o.r;
-    drawArt(c, fim, o.x, o.y, fs, fs*(fim.naturalHeight/fim.naturalWidth), 0);
-    return;
-  }
-  if(o.type==="rock"){
-    var rn = CFG.theme==="tanks" ? "rock3" : (vi===0?"rock1":"rock2");
-    if(artReady(rn)){ var rim=ART[rn], rs=2.25*o.r; drawArt(c, rim, o.x, o.y, rs, rs*(rim.naturalHeight/rim.naturalWidth), o.rot||0); return; }
-  }
-  if(o.type==="hill" && artReady("hill")){
-    var him=ART["hill"], hs=2.45*o.r;
-    drawArt(c, him, o.x, o.y, hs, hs*(him.naturalHeight/him.naturalWidth), o.rot||0);
-    return;
-  }
-  if(o.type==="ruin" && artReady("ruin")){
-    var uim=ART["ruin"], us=2.3*o.r;
-    drawArt(c, uim, o.x, o.y, us, us*(uim.naturalHeight/uim.naturalWidth), 0);
-    return;
-  }
+  // Knights/Tanks obstacles use the plain pencil-outline drawings below
+  // (placeholder pieces until the Space art is approved and the method rolls over).
   c.save(); c.translate(o.x,o.y);
   if(o.type==="asteroid"){
     pencilStroke(c,function(){ c.beginPath();
@@ -1072,44 +1083,36 @@ function drawThing(c,t){
   if(isSel){ c.save(); c.strokeStyle="#e9a13b"; c.lineWidth=3; c.setLineDash([6,4]); c.beginPath(); c.arc(t.x,t.y,32,0,6.29); c.stroke(); c.restore(); }
   var drawn=false;
   if(t.kind==="ship"){
-    var sim=pieceFor("ship-orange", ci, 18);
+    var sim=pieceFor("ship", ci, 30);
     if(sim) drawn=drawArt(c, sim, t.x, t.y, 50, 50*(sim.naturalHeight||sim.height)/(sim.naturalWidth||sim.width), t.angle);
     if(drawn && t.hp<CFG.shipHp){ c.save(); c.translate(t.x,t.y); c.rotate(t.angle); c.strokeStyle="rgba(40,40,45,.75)"; c.lineWidth=1.8;
       c.beginPath(); c.moveTo(-6,-7); c.lineTo(1,1); c.lineTo(-3,9); c.stroke(); c.restore(); }
-  } else if(t.kind==="knight"){
-    var kim = t.mounted ? pieceFor("knight-mounted", ci, 352) : pieceFor("knight-foot", ci, 45);
-    if(kim){ var kw = t.mounted?58:42; drawn=drawArt(c, kim, t.x, t.y, kw, kw*(kim.naturalHeight||kim.height)/(kim.naturalWidth||kim.width), t.angle); }
-    if(drawn && !t.mounted){ // dazed spiral over the unhorsed knight — a drawn cue, no words
-      c.save(); c.translate(t.x+10,t.y-24); c.strokeStyle="rgba(43,43,51,.8)"; c.lineWidth=1.6; c.beginPath();
-      for(var sa=0;sa<10;sa+=0.5){ var srr=sa*0.62, sxx=Math.cos(sa)*srr, syy=Math.sin(sa)*srr; sa===0?c.moveTo(sxx,syy):c.lineTo(sxx,syy); } c.stroke(); c.restore();
-    }
-  } else if(t.kind==="tank"){
-    var big=t.cls==="heavy";
-    var tim = big ? pieceFor("tank-heavy", ci, 135) : pieceFor("tank-light", ci, 28);
-    if(tim){ var th = big?58:46, tw = th*(tim.naturalWidth||tim.width)/(tim.naturalHeight||tim.height);
-      drawn=drawArt(c, tim, t.x, t.y, tw, th, t.angle+Math.PI/2); }
-    if(drawn && big && t.hp===1){ c.save(); c.translate(t.x,t.y); c.strokeStyle="rgba(50,45,40,.55)"; c.lineWidth=3;
-      for(var sm=0;sm<4;sm++){ c.beginPath(); c.arc(-8+sm*5,-14-sm*2,4+sm*1.6,0,6.29); c.stroke(); } c.restore(); }
-  } else { // turret / tower / cannon — fixed defense
-    if(t.kind==="tower"){ if(artReady("tower")) drawn=drawArt(c, ART["tower"], t.x, t.y, 34, 42, 0); }
-    else if(t.kind==="cannon"){ var cim=pieceFor("cannon", ci, 215); if(cim) drawn=drawArt(c, cim, t.x, t.y, 48, 48*(cim.naturalHeight||cim.height)/(cim.naturalWidth||cim.width), t.angle+0.7); }
-    else { var uim=pieceFor("turret", ci, 215); if(uim) drawn=drawArt(c, uim, t.x, t.y, 46, 46*(uim.naturalHeight||uim.height)/(uim.naturalWidth||uim.width), t.angle+0.6); }
+  } else if(t.kind==="turret"){
+    var uim=pieceFor("turret", ci, 215);
+    if(uim) drawn=drawArt(c, uim, t.x, t.y, 54, 54*(uim.naturalHeight||uim.height)/(uim.naturalWidth||uim.width), t.angle);
   }
-  if(drawn){
-    // forest shelter: a tiny drawn pine over the sheltered knight
-    if(G && !t.turret && CFG.theme==="knights" && inForest(t)){
-      c.save(); c.translate(t.x, t.y-32); c.fillStyle="#2e7d3a"; c.strokeStyle="#20512a"; c.lineWidth=1;
-      c.beginPath(); c.moveTo(0,-8); c.lineTo(6,2); c.lineTo(2,2); c.lineTo(7,9); c.lineTo(-7,9); c.lineTo(-2,2); c.lineTo(-6,2); c.closePath(); c.fill(); c.stroke();
-      c.fillStyle="#6b4a2a"; c.fillRect(-1.2,9,2.4,4); c.restore();
-    }
-    // high ground: a tiny drawn pennant flag
-    if(G && !t.turret && CFG.theme==="tanks" && onHill(t)){
-      c.save(); c.translate(t.x+14, t.y-26); c.strokeStyle="#5a4a22"; c.lineWidth=1.6;
-      c.beginPath(); c.moveTo(0,10); c.lineTo(0,-8); c.stroke();
-      c.fillStyle=col; c.beginPath(); c.moveTo(0,-8); c.lineTo(10,-5); c.lineTo(0,-2); c.closePath(); c.fill(); c.restore();
-    }
-    return;
+  /* Knights & Tanks pieces: plain pencil-outline placeholders (below) until
+     the Space art is approved. Status badges are drawn cues, no words, and
+     apply to art and placeholders alike. */
+  if(G && !t.turret && t.kind==="knight" && !t.mounted){ // dazed spiral over the unhorsed knight
+    c.save(); c.translate(t.x+10,t.y-24); c.strokeStyle="rgba(43,43,51,.8)"; c.lineWidth=1.6; c.beginPath();
+    for(var sa=0;sa<10;sa+=0.5){ var srr=sa*0.62, sxx=Math.cos(sa)*srr, syy=Math.sin(sa)*srr; sa===0?c.moveTo(sxx,syy):c.lineTo(sxx,syy); } c.stroke(); c.restore();
   }
+  if(G && !t.turret && t.kind==="tank" && t.cls==="heavy" && t.hp===1){ // smoking heavy
+    c.save(); c.translate(t.x,t.y); c.strokeStyle="rgba(50,45,40,.55)"; c.lineWidth=3;
+    for(var sm=0;sm<4;sm++){ c.beginPath(); c.arc(-8+sm*5,-14-sm*2,4+sm*1.6,0,6.29); c.stroke(); } c.restore();
+  }
+  if(G && !t.turret && CFG.theme==="knights" && inForest(t)){ // forest shelter: a tiny drawn pine
+    c.save(); c.translate(t.x, t.y-32); c.fillStyle="#2e7d3a"; c.strokeStyle="#20512a"; c.lineWidth=1;
+    c.beginPath(); c.moveTo(0,-8); c.lineTo(6,2); c.lineTo(2,2); c.lineTo(7,9); c.lineTo(-7,9); c.lineTo(-2,2); c.lineTo(-6,2); c.closePath(); c.fill(); c.stroke();
+    c.fillStyle="#6b4a2a"; c.fillRect(-1.2,9,2.4,4); c.restore();
+  }
+  if(G && !t.turret && CFG.theme==="tanks" && onHill(t)){ // high ground: a tiny drawn pennant flag
+    c.save(); c.translate(t.x+14, t.y-26); c.strokeStyle="#5a4a22"; c.lineWidth=1.6;
+    c.beginPath(); c.moveTo(0,10); c.lineTo(0,-8); c.stroke();
+    c.fillStyle=col; c.beginPath(); c.moveTo(0,-8); c.lineTo(10,-5); c.lineTo(0,-2); c.closePath(); c.fill(); c.restore();
+  }
+  if(drawn) return;
   /* ---- vector fallback while art loads ---- */
   c.save(); c.translate(t.x,t.y); c.rotate(t.angle); c.lineJoin="round";
   if(t.kind==="ship"){
@@ -1119,11 +1122,22 @@ function drawThing(c,t){
     if(t.hp<CFG.shipHp){ c.strokeStyle="#444"; c.beginPath(); c.moveTo(-4,-6); c.lineTo(2,2); c.lineTo(-2,8); c.stroke(); }
   } else if(t.kind==="knight"){
     if(t.mounted){
-      c.strokeStyle=col; c.lineWidth=3.4;
-      c.beginPath(); c.moveTo(-14,8); c.lineTo(10,8); c.moveTo(10,8); c.lineTo(17,-3); c.moveTo(-14,8); c.lineTo(-19,-4); c.stroke();
-      c.beginPath(); c.moveTo(-16,14); c.lineTo(-11,20); c.moveTo(8,14); c.lineTo(13,20); c.stroke();
-      c.beginPath(); c.moveTo(19,0); c.lineTo(2,-10); c.stroke();
-      c.fillStyle=col; c.beginPath(); c.arc(0,-9,6,0,6.29); c.fill(); c.strokeStyle="#2b2b33"; c.lineWidth=1.6; c.stroke();
+      // PLACEHOLDER (plain pencil outline, top-down): horse body, head with
+      // ears, four legs, tail — and a rider with lance & shield on top.
+      c.strokeStyle="#3d382e"; c.lineWidth=2; c.lineJoin="round";
+      c.fillStyle=col; c.globalAlpha=0.16;
+      c.beginPath(); c.ellipse(0,0,21,8.5,0,0,6.29); c.fill(); c.globalAlpha=1; c.stroke();
+      c.beginPath(); // four legs
+      c.moveTo(12,-7); c.lineTo(19,-12); c.moveTo(12,7); c.lineTo(19,12);
+      c.moveTo(-12,-7); c.lineTo(-18,-12); c.moveTo(-12,7); c.lineTo(-18,12); c.stroke();
+      c.beginPath(); c.ellipse(25,0,7,4.6,0,0,6.29); c.stroke(); // head
+      c.beginPath(); c.moveTo(20,-3); c.lineTo(17,-8); c.moveTo(23,-3); c.lineTo(21,-8); c.stroke(); // ears
+      c.beginPath(); c.moveTo(-21,0); c.quadraticCurveTo(-28,-3,-31,3); c.stroke(); // tail
+      c.fillStyle=col; c.globalAlpha=0.9;
+      c.beginPath(); c.arc(-1,0,5.6,0,6.29); c.fill(); c.globalAlpha=1; // rider
+      c.strokeStyle="#3d382e"; c.lineWidth=1.6; c.beginPath(); c.arc(-1,0,5.6,0,6.29); c.stroke();
+      c.lineWidth=2.4; c.beginPath(); c.moveTo(3,-3); c.lineTo(31,-9); c.stroke(); // lance
+      c.lineWidth=1.6; c.beginPath(); c.arc(-5,7,3.6,0,6.29); c.stroke(); // shield
     } else {
       c.strokeStyle=col; c.lineWidth=3;
       c.beginPath(); c.moveTo(0,-4); c.lineTo(0,8); c.moveTo(0,8); c.lineTo(-7,19); c.moveTo(0,8); c.lineTo(7,19); c.moveTo(0,0); c.lineTo(11,-6); c.stroke();
@@ -1192,19 +1206,9 @@ function scorch(c, x, y, r, seed){
   c.restore();
 }
 function baseArtFor(p){
+  if(CFG.theme!=="space") return null; // Knights/Tanks: pencil-outline placeholders for now
   var ci=playerCfg(p).color;
-  if(CFG.theme==="space"){
-    if(ci===3) return ART["mothership-purple"];
-    if(ci===1) return ART["mothership-blue"];
-    return artTinted("mothership-blue", ci, 220);
-  }
-  if(CFG.theme==="knights"){
-    if(ci===3) return ART["castle-purple"];
-    return artTinted("castle-purple", ci, 265);
-  }
-  if(ci===3) return ART["bunker-purple"];
-  if(ci===1) return ART["bunker-blue"];
-  return artTinted("bunker-blue", ci, 215);
+  return artTinted("mothership", ci, 220); // one drawing, hue-shifted per player color (purple included)
 }
 function drawBase(c,p){
   var bc=baseCenter(p), hp=G.bases[p].hp;
@@ -1221,10 +1225,10 @@ function drawBase(c,p){
     c.stroke(); c.restore();
   }
   // body: the generated piece, fitted INSIDE the locked 132x56 footprint
-  var img = artReady(CFG.theme==="space"?"mothership-blue":CFG.theme==="knights"?"castle-purple":"bunker-blue") ? baseArtFor(p) : null;
+  var img = (CFG.theme==="space" && artReady("mothership")) ? baseArtFor(p) : null;
   var drewArt=false;
   if(img){
-    var fb=fitArt(img, BASE_W, BASE_H);
+    var fb=fitArt(img, BASE_W, BASE_H*1.3);
     drewArt=drawArt(c, img, bc.x, bc.y, fb.w, fb.h, rot, hp<=0?0.38:1);
   }
   if(!drewArt){
@@ -1300,6 +1304,18 @@ function spawnStickmen(x,y,n){
   }
   SFX.scurry();
 }
+/* EVERY destroyed structure empties its crew, comically unharmed: stick
+   figures run off the paper on land — in Space the crew ejects in tiny
+   escape pods that pop out and drift away. Cosmetic only, never targets. */
+function spawnEscape(x,y,n){
+  if(CFG.theme==="space"){
+    for(var i=0;i<(n||4);i++){
+      var a=Math.random()*6.29;
+      G.pods.push({x:x,y:y,vx:Math.cos(a)*(1.1+Math.random()*1.7),vy:Math.sin(a)*(1.1+Math.random()*1.7),t:0,rot:Math.random()*6.28,ph:Math.random()*6});
+    }
+    SFX.pop(); setTimeout(function(){ SFX.pop(); },130);
+  } else spawnStickmen(x,y,n);
+}
 function spawnBoom(x,y,big){
   // the big crayon & gel-pen starburst, plus splatter
   var spikes=[]; var ns=big?14:10;
@@ -1343,6 +1359,20 @@ function draw(){
     ctx.beginPath(); ctx.moveTo(0,-5); ctx.lineTo(0,3); ctx.moveTo(0,3); ctx.lineTo(-4+run,10); ctx.moveTo(0,3); ctx.lineTo(4-run,10);
     ctx.moveTo(0,-2); ctx.lineTo(-6,-8-run*0.4); ctx.moveTo(0,-2); ctx.lineTo(6,-8+run*0.4); ctx.stroke();
     ctx.restore(); });
+  // escape pods (Space crews bail out in these — tiny, round, unbothered)
+  G.pods=G.pods.filter(function(s){ return s.t<170 && s.x>-30&&s.x<FW+30&&s.y>-30&&s.y<FH+30; });
+  G.pods.forEach(function(pd){ pd.x+=pd.vx; pd.y+=pd.vy; pd.vx*=0.992; pd.vy*=0.992; pd.t++;
+    ctx.save(); ctx.translate(pd.x,pd.y); ctx.rotate(pd.rot+Math.sin(pd.t*0.04+pd.ph)*0.25);
+    if(pd.t>130) ctx.globalAlpha=Math.max(0,(170-pd.t)/40);
+    ctx.fillStyle="#efe9dc"; ctx.strokeStyle="#2b2b33"; ctx.lineWidth=1.6;
+    ctx.beginPath();
+    ctx.moveTo(-7,-5); ctx.lineTo(3,-5); ctx.arc(3,0,5,-1.57,1.57); ctx.lineTo(-7,5); ctx.arc(-7,0,5,1.57,4.71);
+    ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.fillStyle="#e07b12"; ctx.beginPath(); ctx.arc(0.5,0,2.9,0,6.29); ctx.fill();
+    ctx.fillStyle="#2b2b33"; ctx.beginPath(); ctx.arc(0.5,-0.4,1.1,0,6.29); ctx.fill(); // the pilot, waving (probably)
+    ctx.strokeStyle="rgba(90,160,220,.75)"; ctx.lineWidth=1.3; // little drift puffs at the back
+    ctx.beginPath(); ctx.arc(-11-Math.sin(pd.t*0.3+pd.ph)*1.6, 0, 1.6, 0, 6.29); ctx.stroke();
+    ctx.restore(); });
   // aim preview / editor hints
   if(input.preview){ drawTrace(ctx,{points:input.preview,color:playerCfg(G.turn).color,width:MEDIUMS[playerCfg(G.turn).medium].w,age:0,dash:true}); }
   if(G.editor){ drawEditor(ctx); }
@@ -1355,7 +1385,7 @@ function draw(){
     pips.forEach(function(pp){ ctx.beginPath(); ctx.arc(pp[0],pp[1],3.4,0,6.29); ctx.fill(); });
     ctx.restore(); }
   ctx.restore();
-  if(G.anim || G.particles.length || G.stickmen.length || G.shake>0 || (G.bases[0].hp===1||G.bases[1].hp===1)){
+  if(G.anim || G.particles.length || G.stickmen.length || G.pods.length || G.shake>0 || (G.bases[0].hp===1||G.bases[1].hp===1)){
     cancelAnimationFrame(rafId); rafId=requestAnimationFrame(draw);
   }
 }
@@ -1444,8 +1474,8 @@ function damageBase(owner, byPlayer, opts){
   var bc=baseCenter(owner);
   spawnBoom(bc.x, bc.y, G.bases[owner].hp<=0);
   if(G.bases[owner].hp<=0){
-    SFX.boom(true); spawnStickmen(bc.x, bc.y, 6);
-    log("🎉 "+playerName(owner)+"'s base BLOWS UP! The crew escapes, waving their arms. Nobody is hurt — it's paper.");
+    SFX.boom(true); spawnEscape(bc.x, bc.y, 6);
+    log("🎉 "+playerName(owner)+"'s base BLOWS UP! "+(CFG.theme==="space"?"The whole crew ejects in tiny escape pods and bobs away, unharmed.":"The crew escapes, waving their arms. Nobody is hurt — it's paper."));
     endMatch(1-owner);
   }
   return true;
@@ -1453,7 +1483,7 @@ function damageBase(owner, byPlayer, opts){
 function killThing(t, why){
   if(!t.alive) return;
   t.alive=false; spawnBoom(t.x,t.y,false); SFX.boom(false);
-  if(t.turret){ spawnStickmen(t.x,t.y,3); log("💥 "+thingLabel(t)+" destroyed! Its little crew legs it off the paper."); }
+  if(t.turret){ spawnEscape(t.x,t.y,3); log("💥 "+thingLabel(t)+" destroyed! "+(CFG.theme==="space"?"Its crew pops out in tiny escape pods and drifts away, unharmed.":"Its little crew legs it off the paper, unharmed.")); }
   else log("💥 "+thingLabel(t)+" ("+playerName(t.owner)+") is crossed out! "+(why||""));
   checkStalemate();
 }
@@ -1462,14 +1492,26 @@ function unhorse(k, why){
   k.mounted=false; SFX.thunk();
   log("🐴 Unhorsed! "+playerName(k.owner)+"'s knight is on foot — walk him home to his castle to remount. "+(why||""));
 }
-function sideCanAct(p){ return allUnits(p).length>0 || allTurrets(p).length>0 || G.reserve[p]>0; }
+/* PRODUCTION (default game): a base builds/launches/trains a replacement
+   fighter as a turn action, up to the Fighter Count cap, with no pool limit.
+   Launch Bay keeps its finite reserve; Hardcore ("none") has no production. */
+function canProduce(p){
+  if(!G) return false;
+  if(CFG.deployment==="none") return false;
+  if(CFG.deployment==="launchbay") return G.reserve[p]>0;
+  return allUnits(p).length < CFG.fighterCount;
+}
+function sideCanAct(p){ return allUnits(p).length>0 || allTurrets(p).length>0 || canProduce(p); }
 function checkStalemate(){ evaluateClock(); }
 /* STALEMATE CLOCK (locked rule, Oct 26 2026): when a side loses its last fighter,
    the side that still has fighters gets 5 of its OWN turns to land a hit on the
    enemy base. A landed base hit clears the clock (it re-arms if the situation
-   recurs). Clock out with no hit = DRAW. But a side with no fighters AND no
-   working turrets/towers/cannons (and no reserves to launch) cannot act at all
-   and LOSES immediately — that supersedes the clock. */
+   recurs). Clock out with no hit = DRAW. Producing a replacement fighter also
+   clears it — a fighter-less side that can still build is never cornered by
+   the clock alone. But a side that can take NO action at all (no fighters, no
+   working turrets/towers/cannons, and no production or reserve launch
+   available — Hardcore, or an empty Launch Bay) LOSES immediately — that
+   supersedes the clock. The countdown lives in the turn bar (UI chrome). */
 function evaluateClock(){
   if(!G || G.over) return;
   var can0=sideCanAct(0), can1=sideCanAct(1);
@@ -1554,7 +1596,7 @@ function resolveMove(u, end, vec){
     if(hitU){ stopAt=s; hitSomething={type:"unit", unit:hitU, pt:pt}; break; }
     var hitT=null;
     for(var p2=0;p2<2;p2++) for(var q2=0;q2<G.turrets[p2].length;q2++){ var t2=G.turrets[p2][q2];
-      if(t2.alive&&Math.hypot(pt.x-t2.x,pt.y-t2.y)<20){ hitT=t2; break; } if(hitT)break; }
+      if(t2.alive&&Math.hypot(pt.x-t2.x,pt.y-t2.y)<22){ hitT=t2; break; } if(hitT)break; }
     if(hitT){ stopAt=s; hitSomething={type:"turret", unit:hitT, pt:pt}; break; }
   }
   var finalPt=travel[stopAt]||{x:u.x,y:u.y};
@@ -1587,8 +1629,9 @@ function resolveMove(u, end, vec){
           if(CFG.friendly!=="none"||foe.owner!==u.owner){ if(foe.mounted) unhorse(foe,"Charged by an enemy knight!"); else killThing(foe,"Charged while on foot."); }
         } else { u.x=finalPt.x; u.y=finalPt.y; }
       } else if(hitSomething.type==="turret"){
-        if(hitSomething.unit.owner!==u.owner){ killThing(hitSomething.unit,"Charged down!"); u.x=finalPt.x; u.y=finalPt.y; }
-        else { u.x=travel[Math.max(0,stopAt-3)].x; u.y=travel[Math.max(0,stopAt-3)].y; }
+        // Defense structures are OBSTACLES, friend or foe: the charge stops and
+        // unhorses, exactly as with a rock. Only shots/arrows knock them down.
+        u.x=finalPt.x; u.y=finalPt.y; unhorse(u,"Clanged into a "+thingLabel(hitSomething.unit).toLowerCase()+" standing guard — structures block a charge like any obstacle.");
       } else if(hitSomething.type==="wall"){ u.x=finalPt.x; u.y=finalPt.y; log("The wall stops the charge cold."); }
     } else { u.x=finalPt.x; u.y=finalPt.y; }
     // remount check if ended touching own castle
@@ -1617,8 +1660,10 @@ function resolveMove(u, end, vec){
       } else if(u.kind==="ship"||foe2.kind==="ship"){ killThing(foe2,"Collision!"); killThing(u,"Collision! Both ships are crossed out."); }
       else { u.x=finalPt.x; u.y=finalPt.y; }
     } else if(hitSomething.type==="turret"){
-      if(hitSomething.unit.owner!==u.owner && u.kind==="ship"){ killThing(hitSomething.unit,"Ship crashed through it!"); killThing(u,"Crashed into a turret."); }
-      else { u.x=travel[Math.max(0,stopAt-3)].x; u.y=travel[Math.max(0,stopAt-3)].y; log("Blocked by a turret."); }
+      // Defense structures are OBSTACLES, friend or foe: flying/driving into one
+      // wrecks the fighter (the heavier-tank-wins rule does NOT apply to
+      // structures). The structure itself stands — only shots destroy it.
+      killThing(u,"Smashed into a "+thingLabel(hitSomething.unit).toLowerCase()+" standing guard in front of the base. Structures are obstacles — shoot them down, don't ram them.");
     } else if(hitSomething.type==="wall"){ killThing(u,"Splat. The wall has no door there."); }
   } else {
     // edge handling at final point
@@ -1820,16 +1865,22 @@ document.getElementById("passOk").addEventListener("click", function(){ audioIni
 document.getElementById("btnEndTurn").addEventListener("click", function(){ if(G&&!G.over&&(CFG.mode==="2p"||G.turn===0)) endTurn(); });
 document.getElementById("btnLaunch").addEventListener("click", function(){
   if(!G||G.over) return; var p=G.turn;
-  if(G.reserve[p]<=0){ log("No fighters left in reserve."); return; }
-  // also allow reinforcements after losses
-  var canLaunch = CFG.deployment==="launchbay" ? G.reserve[p]>0 : (CFG.deployment==="reinforce" && allUnits(p).length<CFG.fighterCount);
-  if(!canLaunch){ log("Reinforcements: you can only launch when you're below your starting count."); return; }
-  G.reserve[p]--;
-  var bc=baseCenter(p), d=dirToEnemy(p);
-  var nu={ id:p+"-r"+Date.now(), owner:p, x:bc.x+d.x*(BASE_H+58), y:bc.y+d.y*(BASE_H+58), angle:Math.atan2(d.y,d.x), alive:true,
-    kind:CFG.theme==="space"?"ship":CFG.theme==="knights"?"knight":"tank", cls:CFG.theme==="tanks"?"light":null, hp:CFG.theme==="space"?CFG.shipHp:1, mounted:true };
+  if(!canProduce(p)){
+    log(CFG.deployment==="none" ? "Hardcore rules: no reinforcements — what's lost is lost." :
+        CFG.deployment==="launchbay" ? "No fighters left in the launch bay." :
+        "You're already at your fighter cap ("+CFG.fighterCount+") — production refills losses, it doesn't exceed the cap.");
+    return;
+  }
+  if(CFG.deployment==="launchbay") G.reserve[p]--;
+  var bc=baseCenter(p), d=dirToEnemy(p), sd={x:-d.y,y:d.x}, latOff=((G.units[p].length%3)-1)*36;
+  var nuCls = CFG.theme==="tanks" ? (CFG.tankMix==="allH"?"heavy":"light") : null;
+  var nu={ id:p+"-r"+Date.now(), owner:p, x:bc.x+d.x*(BASE_H+58)+sd.x*latOff, y:bc.y+d.y*(BASE_H+58)+sd.y*latOff, angle:Math.atan2(d.y,d.x), alive:true,
+    kind:CFG.theme==="space"?"ship":CFG.theme==="knights"?"knight":"tank", cls:nuCls,
+    hp:CFG.theme==="space"?CFG.shipHp:(nuCls==="heavy"?2:1), mounted:true };
   G.units[p].push(nu);
-  log("🚀 "+playerName(p)+" launches a fresh "+thingLabel(nu)+" from the base!");
+  log(CFG.theme==="knights" ? "🏰 "+playerName(p)+" trains a fresh knight at the castle! He rides out next turn." :
+      CFG.theme==="tanks" ? "🔧 "+playerName(p)+" rolls a fresh "+thingLabel(nu)+" out of the bunker!" :
+      "🚀 "+playerName(p)+" launches a fresh ship from the mothership!");
   SFX.pop(); evaluateClock(); if(!G.over) endTurn();
 });
 
@@ -1870,12 +1921,11 @@ function simMoveOutcome(u, end){
     }
     var hitT=null;
     for(var p2=0;p2<2;p2++) for(var q2=0;q2<G.turrets[p2].length;q2++){ var t2=G.turrets[p2][q2];
-      if(t2.alive&&Math.hypot(pt.x-t2.x,pt.y-t2.y)<20){ hitT=t2; break; } if(hitT)break; }
+      if(t2.alive&&Math.hypot(pt.x-t2.x,pt.y-t2.y)<22){ hitT=t2; break; } if(hitT)break; }
     if(hitT){
-      if(hitT.owner===u.owner) return {kind:"blocked", t:pt.t};
-      if(u.kind==="knight") return {kind:"goodhit", t:pt.t};
-      if(u.kind==="ship") return {kind:"death", t:pt.t};
-      return {kind:"blocked", t:pt.t};
+      // structures are obstacles now, friend or foe: knights unhorse, others wreck
+      if(u.kind==="knight") return {kind:"unhorse", t:pt.t};
+      return {kind:"death", t:pt.t};
     }
   }
   if((end.x<=2||end.x>=FW-2||end.y<=2||end.y>=FH-2) && CFG.edge==="off") return {kind:"death", t:1};
@@ -1946,12 +1996,13 @@ function cpuTurn(){
     }, 550);
     draw();
   }
-  // Launch Bay / Reinforcements: sometimes launch
-  if(G.reserve[p]>0 && CFG.deployment!=="all" && Math.random()<0.4){ document.getElementById("btnLaunch").click(); return; }
   var cands=[];
   function addCand(thing, action, ang, len, intent){ cands.push({thing:thing, action:action, ang:ang, len:len, intent:intent}); }
   var myUnits=allUnits(p), myTurrets=allTurrets(p);
   var foes=allUnits(0), foeTurrets=allTurrets(0);
+  /* Production: a fighter-less CPU always builds; below cap it often refills;
+     at cap it never wastes the turn. */
+  if(canProduce(p) && (myUnits.length===0 || Math.random()<0.4)){ document.getElementById("btnLaunch").click(); return; }
   /* Shot candidates: honest lines at the base, fighters, turrets */
   myUnits.concat(myTurrets).forEach(function(t){
     if(CFG.theme==="knights" && !t.turret) return; // knights have no ranged shot
@@ -2275,22 +2326,22 @@ document.getElementById("overSetup").addEventListener("click", function(){ docum
 /* ---------- How to Play ---------- */
 function howHTML(){
   var themeRules = CFG.theme==="space" ?
-    "<h3>🚀 Space</h3><p>Ships die in "+CFG.shipHp+" hit(s). Shots <b>tunnel through asteroids</b>, carving holes (variation: block / destroy). Flying into an asteroid, a ship, or a wall destroys your ship; ship-vs-ship collisions destroy both. The <b>mothership forcefield is hit 1 of 3</b> — it flashes, ripples, and drops; hit 2 cracks and burns; hit 3 blows it. Two player-fired gun turrets flank it (optional targets). Default edge: ships and shots <b>wrap</b> around the sides of space.</p>" :
+    "<h3>🚀 Space</h3><p>Ships die in "+CFG.shipHp+" hit(s). Shots <b>tunnel through asteroids</b>, carving holes (variation: block / destroy). Flying into an asteroid, a ship, or a wall destroys your ship; ship-vs-ship collisions destroy both. The <b>mothership forcefield is hit 1 of 3</b> — it flashes, ripples, and drops; hit 2 cracks and burns; hit 3 blows it. Two player-fired gun turrets stand guard in front of it. Default edge: ships and shots <b>wrap</b> around the sides of space.</p>" :
     CFG.theme==="knights" ?
     "<h3>🏰 Knights</h3><p>Knights have <b>no ranged shot</b> — the flick is a <b>charge</b>. Crossing an enemy knight unhorses him; reaching the castle scores a hit <b>and unhorses the charger</b>. On foot: short walk flicks, can't hurt the castle, one more hit and he's out. Touch your own castle to <b>remount</b>. Archer towers fire arrows as your turn action. <b>Rocks</b> block charges and arrows and unhorse on impact. <b>Forests</b> end a charge inside them, halve mounted movement, and shelter anyone inside: only <b>1-in-4</b> arrows get through.</p>" :
     "<h3>🛡️ Tanks</h3><p><b>Light Cannon:</b> fast long flicks, straight shells blocked by hills and ruins, dies in 1 hit. <b>Heavy Mortar:</b> slow short flicks, lobs a shell that arcs <b>over</b> everything and bursts at its landing point; takes 2 hits (first leaves it smoking and slower). <b>Heavier tank wins a ram.</b> Hills are drivable high ground: crossing halves your distance, but from the top a cannon fires over low cover. The bunker's <b>sandbags absorb the first straight cannon hit</b> — mortars skip them entirely.</p>";
   return "<p><b>The heart of it:</b> flick your fighters across the paper. Blow up the <b>enemy base in 3 hits</b> to win — you never have to mop up their fighters.</p>"+
-  "<p><b>⏱ The stalemate clock:</b> when a side loses its last fighter, the clock starts for the side that still has fighters: it has <b>5 of its own turns</b> to land a hit on the enemy base (watch the pips burn down beside the turn badge). Land a hit and the clock clears — play continues, and it can re-arm later. Run out of turns with no base hit and the match is a <b>draw</b>, not a win for the camper. One hard edge: a side with no fighters <i>and</i> no functioning turrets/towers/cannons left (and nothing in reserve to launch) can't take any action at all, so it <b>loses immediately</b> — that beats the clock.</p>"+
-  "<p><b>A turn (Classic):</b> tap one of your fighters or defense turrets, choose Move or Shoot, and flick once. Traces stay on the paper and fade; the newest is always darkest; traces never collide.</p>"+
+  "<p><b>🏭 Production (the default game):</b> losing fighters never ends your game by itself. Instead of moving or shooting, spend your turn action to <b>build a new fighter at your base</b> — a ship launches, a knight trains, a tank rolls out — as long as you're below your <b>Fighter Count cap</b>. There's no total pool limit; production is how you refill. (Variants can change this: Launch Bay starts you with half your force, and <b>Hardcore</b> turns production off entirely.)</p>"+
+  "<p><b>⏱ The stalemate clock:</b> when a side loses its last fighter, the clock starts for the side that still has fighters: it has <b>5 of its own turns</b> to land a hit on the enemy base — the turn bar counts it down in big numbers (DRAW IN 5… 4… 3…), turning red and pulsing at 2. Land a hit and the clock clears — play continues, and it can re-arm later. If the fighter-less side simply <b>builds a replacement fighter</b>, it's not fighter-less any more and the clock clears on the spot. Run out of turns with no base hit and the match is a <b>draw</b>, not a win for the camper. One hard edge: a side that can take <i>no action at all</i> — no fighters, no functioning turrets/towers/cannons, and no way to build or launch one (Hardcore, or an empty Launch Bay) — <b>loses immediately</b>; that beats the clock.</p>"+
+  "<p><b>A turn (Classic):</b> tap one of your fighters or defense structures, choose Move or Shoot, and flick once — or spend the turn on production instead. Traces stay on the paper and fade; the newest is always darkest; traces never collide.</p>"+
   themeRules+
-  "<h3>The fair-base rule</h3><p>Every base — mothership, castle, bunker — uses the <b>same modest, capped footprint</b> for both players, centered inside its own base zone (the end 12% of the sheet). Bases never stick out into the battlefield, can't be resized or moved, and turrets sit inside the same zone. Battles are won in the middle of the page.</p>"+
+  "<h3>The fair-base rule</h3><p>Every base — mothership, castle, bunker — uses the <b>same modest, capped footprint</b> for both players, centered inside its own base zone (the end 12% of the sheet). Bases never stick out into the battlefield, can't be resized or moved. Battles are won in the middle of the page.</p>"+
+  "<h3>Defense structures stand apart — and block</h3><p>Gun turrets, archer towers, and bunker cannons are <b>freestanding structures in front of the base</b>, guarding the approach — not attached to it. They are <b>obstacles</b>: a fighter whose move trace reaches one resolves exactly like hitting an obstacle (a ship or tank is wrecked — the heavier-tank-wins rule does <i>not</i> apply to structures; a knight's charge stops and unhorses him), whether the structure is the enemy's or your own. Shots still destroy them in 1 hit, as before. Thread the gap between them, or shoot them down first.</p>"+
   "<h3>Tools are real</h3><p><b>Pencil</b> traces are thin and precise (thread gaps, must truly touch). <b>Crayon</b> is fat and wobbly (clips easily, clumsy in gaps). <b>Pen</b> is in between. Your flicker (pencil/pen) changes the feel: a pen flick is steadier than a pencil flick.</p>"+
   "<h3>Active switches this match</h3><p>Turn structure: <b>"+CFG.turnStructure+"</b> · Control: <b>"+CFG.control+"</b> · Friendly fire: <b>"+CFG.friendly+"</b> (default Partial: your shots can hit your own fighters, never your own base) · Edge: <b>"+CFG.edge+"</b> · Obstacles: <b>"+CFG.obstacle+"</b> · Deployment: <b>"+CFG.deployment+"</b> · Defense: <b>"+CFG.defense+"</b>.</p>"+
-  "<p>When a base, turret, tower, or cannon is destroyed, its little stick-figure crew runs off the paper, arms waving, completely unharmed. It's paper. Everyone's fine.</p>";
+  "<p>When <i>any</i> structure is destroyed — mothership, castle, bunker, turret, tower, or cannon — its crew escapes on screen, completely unharmed: on land, little stick figures run out and flee off the paper; in Space, the crew ejects in tiny escape pods that bob away into the margin. It's paper. Everyone's fine.</p>";
 }
 function openHow(){ document.getElementById("howBody").innerHTML=howHTML(); document.getElementById("howModal").classList.add("open"); }
-document.getElementById("btnHowTop").addEventListener("click", openHow);
-document.getElementById("btnHow2").addEventListener("click", openHow);
 
 /* ---------- Settings modal wiring ---------- */
 function syncSettingsUI(){
@@ -2322,14 +2373,22 @@ document.getElementById("ambOff").addEventListener("click", function(){ SETTINGS
 document.getElementById("musOn").addEventListener("click", function(){ SETTINGS.musicOn=true; audioInit(); syncSettingsUI(); applyVolumes(); });
 document.getElementById("musOff").addEventListener("click", function(){ SETTINGS.musicOn=false; syncSettingsUI(); applyVolumes(); });
 function openSettings(){ syncSettingsUI(); document.getElementById("setModal").classList.add("open"); }
-document.getElementById("btnSettingsTop").addEventListener("click", function(){ audioInit(); openSettings(); });
-document.getElementById("btnSettings2").addEventListener("click", function(){ audioInit(); openSettings(); });
 document.querySelectorAll("[data-close]").forEach(function(b){
   b.addEventListener("click", function(){ document.getElementById(b.dataset.close).classList.remove("open"); });
 });
 
 /* ---------- Dev Log ---------- */
 document.getElementById("devBody").textContent =
+"Oct 26, 2026 (late evening) — Start-screen repair.\n\n"+
+"REPAIR: the one-screen start screen rendered its War (theme) cards but came up empty under the Players and Paper headings — renderHome() called chipRow(), a helper that had lived in the deleted 6-step wizard, and stopped mid-render; the Variants drawer's selRow() helper had gone with the wizard too. Both helpers are restored, the whole home screen was audited for any other calls into removed wizard code (none found — every other helper call and element id checks out), and the start screen now renders completely: theme cards, the 1P vs CPU / 2P chips, all seven paper surfaces, the Variants button, Start Play, and the ☰ Menu. Nothing else changed.\n\n"+
+"————————————————\n\n"+
+"Oct 26, 2026 (evening) — One-screen setup, production, defenses that block, crew escapes everywhere, art scrapped & rebuilt (Space prototype).\n\n"+
+"SETUP IS ONE SCREEN NOW: the 6-step wizard is gone. The start screen is exactly three choices — War (theme), Players, Paper — plus one big START PLAY button and a VARIANTS button. Variants opens the full rulebook drawer (all presets and switches, tools & colors, CPU difficulty, layout, battlefield) with a Reset to Defaults control; defaults are the fun-first settings. How to Play, Practice Sheet, Sound & Settings, and Dev Log moved into a single ☰ Menu, on the start screen and in-game, so the top of the screen stays clean and the paper gets the room.\n\n"+
+"PRODUCTION IS THE DEFAULT: losing all your fighters no longer ends your game. Any base can build a replacement fighter as your turn action (ship launches / knight trains / tank rolls out), up to your Fighter Count cap, with no total pool limit — it's how you refill. The old harsh behavior moved to the Variants drawer as the No Reinforcements deployment switch and the Hardcore preset; Launch Bay still starts you at half strength. Stalemate clock: building a replacement clears the clock on the spot (you're not fighter-less any more; it can re-arm later), and the can't-act-at-all loss now only bites when there's truly nothing to flick, fire, build, or launch. The CPU produces sensibly: always when fighter-less, often when below cap, never at cap. The clock display itself got clearer: the turn bar now counts down in words and numbers — 'DRAW IN 5 — You must land a base hit!' — ticking 5,4,3,2,1 as the fighter-side's turns pass, turning red and pulsing on the last two counts (still UI chrome; nothing is lettered onto the paper).\n\n"+
+"DEFENSES STAND APART AND BLOCK: turrets, archer towers, and bunker cannons are now freestanding structures positioned in FRONT of the base at the battlefield edge of its zone, guarding the approach — not attached to or overlapping the base drawing, mirrored for both players. They are physical obstacles: a move trace that reaches one resolves like an obstacle collision (Space ship wrecked; Tanks tank wrecked — the heavier-wins ram rule does NOT apply to structures; Knights charge stops and unhorses, as with a rock), for enemy AND friendly structures alike. Shots still destroy them in 1 hit. The CPU's flick simulator was taught the same rules, so it no longer charges towers expecting a kill.\n\n"+
+"EVERY DESTROYED STRUCTURE EMPTIES ITS CREW: mothership, castle, bunker HQ, turrets, towers, cannons — when any of them falls, its crew escapes on screen, comically unharmed. On land, stick figures run out and flee off the paper; in Space, the crew ejects in tiny escape pods that pop out, bob, and drift off the sheet. Cosmetic only — never units, never targets — for player and CPU structures alike.\n\n"+
+"ART: SCRAPPED AND REBUILT, PROTOTYPE-GATED. Every sprite from the previous pass was deleted — no more pieces cut out of composed scenes, which is what broke the look (stray fragments of neighbouring drawings were riding along in the cutouts). New method: each Space piece was generated on its own as a complete individual drawing on plain white, then visually checked as an asset before use. The four new pieces: (1) the mothership — blue ballpoint-pen domed saucer, wide ellipse disc, square windows around the rim, dense diagonal hatching on dome and underside; other player colors, purple included, are hue-shifts of this same drawing; (2) the gun turret — paneled dome with a chunky barrel, hatched blue ink; (3) the fighter — a bold orange crayon triangle with dark outline and a square cockpit, tinted per player; (4) the asteroid — a graphite scribble-ball with dark oval craters (variants 2 and 3 are mirrored passes of the same drawing, plus the per-rock rotation the game already applies). Pieces composite with multiply so the paper and its ruled lines show through; the shield bubble and crayon starburst language is unchanged. TRAIT CHECK against the approved Space rendering — matched: paper grain/fibers with ruled lines showing through the art; hatched domed saucer inside a swirly translucent bubble with sparkles; scribble asteroids; small colored triangles with dark outlines; crayon starburst explosions; zero text on the paper. GAPS, honestly: only ONE asteroid drawing exists (mirrored for variety) rather than three distinct rocks; the purple mothership is a hue-shift, not its own drawing; the turret drawing is a 3/4 view like the rendering rather than a strict top-down; and whether the board finally LOOKS like the rendering is Matthew's eye to judge — not claimed from this side. KNIGHTS & TANKS: all their sprite art is removed too; they run on plainly simple, clean pencil-outline placeholder pieces (the mounted knight is a top-down outline — horse body, head, ears, four legs, tail, rider with lance and shield — drawn to read clearly as a horse and rider, no blobs) until Matthew approves the Space art, at which point the identical per-piece method rolls to them.\n\n"+
+"————————————————\n\n"+
 "Oct 26, 2026 (later) — Art & words pass, smarter CPU, lunchroom sound, stalemate clock.\n\n"+
 "ART, REBUILT FROM THE SAMPLES: the major pieces are no longer code-drawn clip shapes. Motherships (blue + purple), gun turret, three scribble asteroids, triangle fighters, castles (gray + purple), archer tower, knights mounted and on foot, rocks, forest, bunkers (blue + purple) with sandbags, bunker cannon, Light and Heavy tanks, hill, and ruin were generated as drawings in the exact mixed-media sample style Matthew picked, cut into individual pieces, and are composited onto the sheet with multiply blending — the white of the drawing disappears, the ruled lines show through, and the ink sits ON the paper. Other player colors are careful hue-shifts of the same drawings. Pieces are scaled to fit the SAME locked geometry: bases still render inside the identical capped "+BASE_W+"×"+BASE_H+" footprint, enemy bases face the player, and no collision number changed. Damage is the same drawing getting wrecked: swirly translucent shield bubble with splatter sparkles while the forcefield holds, then cracks and scorch, then drawn crayon flames and smoke, then a scorched wreck. Explosions are now jagged multi-color crayon/gel starbursts with splatter dots. The paper itself got older: cream looseleaf, seeded grain and fiber flecks (stable, no shimmer), ragged edge by the binder holes, and faint pencil doodles (stars, swirls, tiny rocks) in the margins. HOW CLOSE THIS LANDS TO THE SAMPLES IS MATTHEW'S EYE TO JUDGE — it is not declared matched from code inspection.\n\n"+
 "WORDS OFF THE PAPER: the mothership/castle/bunker name labels, the 'Base Zone' lettering, the per-base health text that overlapped it, obstacle captions, the wall's caption, the editor's zone caption, and the forest-roll text popup are all gone. Nothing is lettered onto the sheet in any theme: base health reads purely from the staged damage (bubble, cracks, smoke, flames), the forest roll shows as a little drawn die face (pips), shelter shows as a tiny drawn pine, high ground as a tiny pennant, an unhorsed knight gets a daze spiral. Words live only in the UI chrome off the paper (menus, buttons, How to Play, turn/pass prompts, the battle log).\n\n"+
@@ -2345,7 +2404,27 @@ document.getElementById("devBody").textContent =
 "AUDIO: guarded web audio session declared 'ambient' at startup, on every tap, and before audio starts; AudioContext resume is hardened for suspended/interrupted states. Separate Master / Music / SFX sliders. CAVEAT: real mixing with other apps (Spotify etc.) and true loudness can only be confirmed on Matthew's device.\n\n"+
 "SETTINGS: volumes, ambience/music toggles, and tutorial-seen persist in localStorage (best effort, this browser only).\n\n"+
 "TUNING NOTES: fighter counts, turret count (2), and first-player coin flip use the classic-feeling defaults from the spec; tune from playtesting.";
-document.getElementById("btnDevTop").addEventListener("click", function(){ document.getElementById("devModal").classList.add("open"); });
+/* ---------- ☰ menu wiring (setup + in-game) ---------- */
+function wireMenu(btnId, panelId){
+  var b=document.getElementById(btnId), p=document.getElementById(panelId);
+  if(!b||!p) return;
+  b.addEventListener("click", function(e){ e.stopPropagation(); audioInit(); p.classList.toggle("open"); });
+  p.querySelectorAll("[data-menu]").forEach(function(it){
+    it.addEventListener("click", function(){
+      p.classList.remove("open"); audioInit();
+      var k=it.getAttribute("data-menu");
+      if(k==="how") openHow();
+      else if(k==="settings") openSettings();
+      else if(k==="dev") document.getElementById("devModal").classList.add("open");
+      else if(k==="practice"){ showView("viewPractice"); practiceReset(); }
+    });
+  });
+}
+document.addEventListener("click", function(e){
+  document.querySelectorAll(".menuPanel.open").forEach(function(p){ if(!p.contains(e.target)) p.classList.remove("open"); });
+});
+wireMenu("btnMenuTop","menuPanelTop");
+wireMenu("btnMenuGame","menuPanelGame");
 
 /* ============================================================
    PRACTICE SHEET
@@ -2417,7 +2496,6 @@ setupPointer(cvP,{
     practiceScore(); practiceDraw(); },
   cancel:function(){ inputP.down=false; inputP.preview=null; practiceDraw(); }
 });
-document.getElementById("btnPracticeTop").addEventListener("click", function(){ audioInit(); showView("viewPractice"); practiceReset(); });
 document.getElementById("btnPracticeReset").addEventListener("click", practiceReset);
 document.getElementById("btnPracticeBack").addEventListener("click", function(){ showView(G?"viewGame":"viewSetup"); if(G) draw(); });
 
