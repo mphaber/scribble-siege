@@ -81,6 +81,14 @@ input[type=range]{width:100%;height:36px;accent-color:var(--accent);}
 canvas#cv{display:block;width:100%;height:auto;touch-action:none;}
 .hudbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;margin-bottom:8px;}
 .turnBadge{font-size:18px;font-weight:800;padding:8px 14px;border:2.5px solid var(--ink);border-radius:999px;background:#fff;}
+/* 2P turn indicator at the CURRENT player's end of the stage (screen chrome, never on the paper) */
+.turnEdge{display:none;justify-content:center;padding:2px 0 6px;}
+.turnEdgePill{display:inline-block;padding:7px 22px;border:3px solid var(--ink);border-radius:999px;color:#fff;font-size:19px;font-weight:800;box-shadow:var(--shadow);letter-spacing:.3px;white-space:nowrap;}
+.turnEdgeFlip{transform:rotate(180deg);}
+.turnEdgeSide{flex:0 0 42px;position:relative;display:none;align-items:center;justify-content:center;}
+.turnEdgeSide .turnEdgePill{position:absolute;left:50%;top:50%;}
+.turnEdgeL{transform:translate(-50%,-50%) rotate(90deg);}
+.turnEdgeR{transform:translate(-50%,-50%) rotate(-90deg);}
 .hpPips{font-size:15px;font-weight:700;}
 .seg{display:flex;border:3px solid var(--ink);border-radius:14px;overflow:hidden;background:#fff;box-shadow:var(--shadow);}
 .seg button{flex:1 1 0;border:0;background:#fff;padding:14px 4px;font-size:20px;font-weight:800;min-height:66px;color:var(--muted);letter-spacing:.4px;}
@@ -113,9 +121,271 @@ canvas#cv{display:block;width:100%;height:auto;touch-action:none;}
 #coach .face{font-size:22px;}
 footer{ text-align:center; padding:14px 8px 20px; color:#f3ead2; font-size:14px; }
 .kbdNote{background:#fff3d6;border:2px dashed var(--ink);border-radius:10px;padding:8px 12px;font-size:14px;}
+.vTabs,.howTabs{display:none;gap:6px;}
 .devlog{white-space:pre-wrap;font-size:13.5px;line-height:1.55;background:#fff;border:2px solid var(--ink);border-radius:10px;padding:10px;}
 table.spec{border-collapse:collapse;width:100%;font-size:14px;}
 table.spec td{border:1.5px solid var(--line);padding:5px 8px;vertical-align:top;}
+
+/* ---------- LANDSCAPE PANELS (Oct 26, 2026): in landscape every menu
+   and overlay is designed INTO the wide space — panels go wide, their
+   content flows in columns, and NOTHING scrolls: no page scroll, no
+   panel scroll, no scrollable sub-regions. Content that can grow
+   (the Battle Log, the Dev Log) is laid out sized to the panel —
+   most recent entries, in columns — instead of a scrolling box.
+   Portrait keeps today's layout exactly. ---------- */
+@media (orientation: landscape){
+  .modal{max-height:94vh; overflow:hidden; padding:16px 20px;}
+  #logModal .modal{max-width:1120px;}
+  #logModal .logBox{max-height:50vh; overflow:hidden;}
+  #logModal #logBox>div:nth-child(n+14){display:none;}
+  #howModal .modal{max-width:1180px;}
+  #howBody{columns:3; column-gap:26px; font-size:13.5px;}
+  #howBody p, #howBody h3{break-inside:avoid;}
+  #devModal .modal{max-width:1180px;}
+  #devBody{columns:3; column-gap:20px; font-size:11.5px; line-height:1.45; max-height:60vh; overflow:hidden;}
+  #varModal .modal{max-width:1200px;}
+  #variantsBody{columns:3; column-gap:18px;}
+  #variantsBody>*{break-inside:avoid; margin-bottom:8px;}
+  #setModal .modal{max-width:840px; display:grid; grid-template-columns:1fr 1fr; column-gap:30px;}
+  #setModal .modal>h2, #setModal .modal>.btn{grid-column:1/-1;}
+  /* setup goes wide too: title row, a two-column card, one button row —
+     the whole start screen inside the viewport, nothing to scroll */
+  .wrap{max-width:1260px; height:100dvh; display:flex; flex-direction:column; overflow:hidden; box-sizing:border-box;}
+  #viewSetup{flex:1 1 auto; min-height:0; display:flex; flex-direction:column;}
+  #viewSetup .card{flex:1 1 auto; min-height:0; display:grid; grid-template-columns:1fr 1fr; column-gap:24px; align-content:start; padding:14px 16px;}
+  #viewSetup .card>*{grid-column:2;}
+  #viewSetup .card>h2:first-of-type{grid-column:1; grid-row:1;}
+  #viewSetup .card>#themeGrid{grid-column:1; grid-row:2;}
+  #viewSetup h1{font-size:26px;}
+  #viewSetup h2{font-size:18px; margin-bottom:4px;}
+  #viewSetup .themeCard{padding:9px 12px;}
+  #viewSetup .themeCard .big{font-size:22px;}
+  #viewSetup .chip{min-height:38px; line-height:20px; padding:5px 12px;}
+  #viewSetup select{min-height:40px;}
+  #viewSetup input[type=text].nameInput{min-height:38px;}
+  #viewSetup .btn.big{min-height:50px; font-size:18px; padding:8px 20px;}
+  #viewSetup footer, footer{padding:4px 8px 6px; font-size:12px;}
+  /* practice sheet sized by height so it never outgrows a short screen */
+  #viewPractice #canvasWrap2{max-width:none; width:calc((100dvh - 140px)*0.79); margin:0 auto;}
+}
+/* landscape packing, round 2: denser columns so every panel truly fits */
+@media (orientation: landscape){
+  #variantsBody{columns:5; column-gap:14px; font-size:12.5px;}
+  #variantsBody>*{break-inside:avoid; margin-bottom:6px;}
+  #variantsBody>.grid, #variantsBody>div:has(>div){break-inside:auto;}
+  #variantsBody select{min-height:40px; font-size:14px;}
+  #variantsBody label.lbl{font-size:12px; margin:5px 0 2px;}
+  #variantsBody .themeCard{padding:7px 9px;}
+  #variantsBody h3{font-size:15px; margin:8px 0 4px;}
+  #variantsBody .card{padding:10px;}
+  #variantsBody .chip{min-height:34px; line-height:20px; padding:4px 10px; font-size:13px;}
+  #howBody{columns:4; column-gap:22px; font-size:12.5px; line-height:1.42;}
+  #howBody p{margin:4px 0;}
+  #howBody h3{font-size:15px; margin:8px 0 3px;}
+}
+@media (orientation: landscape) and (max-height: 520px){
+  .modal{padding:10px 14px;}
+  .modal h2{font-size:18px; margin-bottom:4px;}
+  #howBody{columns:4; font-size:10.5px; line-height:1.36; column-gap:16px;}
+  #devBody{max-height:54vh; font-size:10.5px; line-height:1.4;}
+  #variantsBody{columns:5; column-gap:10px; font-size:11.5px;}
+  #variantsBody select{min-height:33px; font-size:12.5px;}
+  #variantsBody label.lbl{font-size:11px; margin:3px 0 1px;}
+  #variantsBody .themeCard{padding:4px 7px; font-size:12.5px;}
+  #variantsBody .chip{min-height:29px; line-height:17px; padding:2px 8px; font-size:12px;}
+  #variantsBody .card{padding:7px;}
+  #variantsBody .swatch{width:32px; height:32px;}
+  #variantsBody h3{font-size:13.5px; margin:5px 0 2px;}
+  #setModal label.lbl{margin:4px 0 2px; font-size:12.5px;}
+  #setModal input[type=range]{height:26px;}
+  #logModal .logBox{max-height:42vh;}
+  /* setup in a short landscape: three card columns */
+  #viewSetup .card{grid-template-columns:1.05fr 1fr 1fr;}
+  #viewSetup .card>h2:nth-of-type(3), #viewSetup .card>#paperSel, #viewSetup .card>#paperExtra, #viewSetup .card>h2:nth-of-type(4), #viewSetup .card>#fighterSel{grid-column:3;}
+  #viewSetup h1{font-size:21px;}
+  #viewSetup h2{font-size:16px;}
+  #viewSetup .themeCard{padding:6px 9px;}
+  #viewSetup .btn.big{min-height:44px; font-size:16px;}
+  #viewSetup .themeCard{padding:5px 8px;}
+  #viewSetup .themeCard .big{font-size:16px;}
+  #viewSetup #themeGrid{gap:6px;}
+  #viewSetup label.lbl{margin:4px 0 2px; font-size:12.5px;}
+}
+/* portrait phones: the start screen compacts so it fits one screen too */
+
+/* short landscape: the two deep panels page by name-tabs instead of
+   ever scrolling — every control stays one tap away, nothing scrolls */
+@media (orientation: landscape) and (max-height: 520px){
+  .vTabs,.howTabs{display:inline-flex;}
+  #variantsBody{columns:4;}
+  #varModal:not(.vPage2):not(.vPage3) #variantsBody .vSwitchStart, #varModal:not(.vPage2):not(.vPage3) #variantsBody .vSwitchStart ~ *{display:none;}
+  #varModal.vPage2 #variantsBody>*{display:none;}
+  #varModal.vPage2 #variantsBody .vSwitchStart, #varModal.vPage2 #variantsBody .vSwitchStart ~ *{display:block;}
+  #varModal.vPage2 #variantsBody .vSwitchStart{display:grid;}
+  #varModal.vPage2 #variantsBody .vToolsStart, #varModal.vPage2 #variantsBody .vToolsStart ~ *{display:none;}
+  #varModal.vPage3 #variantsBody>*{display:none;}
+  #varModal.vPage3 #variantsBody .vToolsStart, #varModal.vPage3 #variantsBody .vToolsStart ~ *{display:block;}
+  #varModal.vPage3 #variantsBody .vToolsStart ~ .row{display:flex;}
+  #howBody{font-size:9.8px; line-height:1.33;}
+  #howBody p{margin:2px 0;}
+  #howBody h3{font-size:12.5px; margin:5px 0 2px;}
+  #howModal:not(.howPage2) #howBody .howPage2, #howModal:not(.howPage2) #howBody .howPage2 ~ *{display:none;}
+  #howModal.howPage2 #howBody>*{display:none;}
+  #howModal.howPage2 #howBody .howPage2, #howModal.howPage2 #howBody .howPage2 ~ *{display:block;}
+  /* setup squeezes: one-row theme cards, one-row mode chips, no heading notes */
+  #viewSetup #themeGrid{grid-template-columns:repeat(3,1fr); gap:5px;}
+  #viewSetup .themeCard{text-align:center; padding:5px 3px;}
+  #viewSetup .themeCard .big{display:block; font-size:15px;}
+  #viewSetup .themeCard b{font-size:12.5px;}
+  #viewSetup #modeChips .row{flex-wrap:nowrap;}
+  #viewSetup #modeChips .chip{font-size:12.5px; padding:4px 8px; min-height:34px; line-height:18px; white-space:nowrap;}
+  #viewSetup h2 .small{display:none;}
+  #viewSetup h2{margin:2px 0;}
+  #viewSetup .card{padding:10px 12px;}
+  #viewSetup input[type=text].nameInput{min-height:32px;}
+  #viewSetup label.lbl{margin:2px 0 1px;}
+}
+
+/* Variants drawer, landscape: a real grid — presets and the tools band
+   span columns, the two switch columns sit side by side in one wide
+   cell, and nothing can overlap or scroll. */
+@media (orientation: landscape){
+  #varModal .modal{max-width:1240px;}
+  #variantsBody{display:grid; grid-template-columns:repeat(3,1fr); gap:9px 12px; align-items:start; columns:auto; font-size:12.5px;}
+  #variantsBody>*{break-inside:auto; margin-bottom:0; min-width:0;}
+  #variantsBody>h3{grid-column:1/-1; margin:0;}
+  #variantsBody>.grid:first-of-type{grid-column:1/-1; grid-template-columns:repeat(6,1fr);}
+  #variantsBody .vSwitchStart{display:contents;}
+  #variantsBody .vSwitchStart>*{display:contents;}
+  #variantsBody>.row{grid-column:span 2;}
+  #variantsBody select{min-height:34px;}
+  #variantsBody label.lbl{margin:3px 0 2px;}
+  #variantsBody .card{padding:7px 9px;}
+  #variantsBody .chip{min-height:28px;}
+}
+@media (orientation: landscape) and (max-height: 520px){
+  #variantsBody{grid-template-columns:repeat(3,1fr); gap:7px 9px;}
+  #variantsBody>.grid:first-of-type{grid-template-columns:repeat(3,1fr);}
+  #variantsBody>.row{grid-column:span 2;}
+  /* Switches page: the two switch columns dissolve into the grid */
+  #varModal.vPage2 #variantsBody .vSwitchStart{display:contents;}
+  #varModal.vPage2 #variantsBody .vSwitchStart>*{display:contents;}
+}
+
+@media (orientation: landscape){
+  #variantsBody .chip{font-size:12px; padding:3px 7px;}
+}
+@media (orientation: landscape) and (max-height: 520px){
+  #varModal .modal{padding:10px 12px;}
+  #variantsBody{font-size:12px;}
+  #variantsBody select{min-height:32px;}
+  #variantsBody label.lbl{margin:2px 0 1px;}
+  #variantsBody .chip{font-size:11.5px; padding:2px 6px; min-height:26px;}
+  #variantsBody .sw{width:30px; height:30px;}
+}
+
+@media (orientation: landscape){
+  #varModal .modal{padding:12px 14px;}
+  #variantsBody{grid-template-columns:repeat(4,1fr);}
+  #variantsBody select{min-height:32px;}
+  #variantsBody .chip{font-size:11px; padding:2px 5px; min-height:26px;}
+  #variantsBody .sw{width:30px; height:30px;}
+}
+@media (orientation: landscape) and (max-height: 520px){
+  #variantsBody{grid-template-columns:repeat(3,1fr);}
+  #variantsBody .sw{width:26px; height:26px;}
+  #varModal.vPage3 #variantsBody>.row{grid-column:1/-1;}
+  #varModal .btn{min-height:36px;}
+}
+
+@media (orientation: landscape){
+  #variantsBody label.lbl{font-size:12px; line-height:1.25;}
+  #variantsBody .card h3{font-size:13px;}
+  #variantsBody .swatch{width:26px; height:26px;}
+  #variantsBody>.row{grid-column:1/-1;}
+}
+
+@media (orientation: landscape){
+  #variantsBody .vToolsStart + .card{grid-column:span 2;}
+  #variantsBody select{box-sizing:border-box; min-height:30px;}
+  #varModal .btn{min-height:40px;}
+}
+@media (orientation: landscape) and (max-height: 520px){
+  #variantsBody{gap:6px 8px;}
+  #variantsBody .swatch{width:22px; height:22px;}
+}
+
+@media (orientation: landscape){
+  #variantsBody .selRow{display:flex; align-items:center; gap:8px;}
+  #variantsBody .selRow label.lbl{flex:0 0 38%; margin:0;}
+  #variantsBody .selRow select{flex:1 1 auto; min-width:0;}
+}
+@media (orientation: landscape) and (max-height: 520px){
+  #variantsBody .vToolsStart + .card{grid-column:span 1;}
+}
+
+@media (orientation: landscape){
+  #variantsBody div:has(> select){display:flex; align-items:center; gap:8px;}
+  #variantsBody div:has(> select) label.lbl{flex:0 0 38%; margin:0;}
+  #variantsBody div:has(> select) select{flex:1 1 auto; min-width:0;}
+}
+
+@media (orientation: landscape){
+  #variantsBody .card h3{margin:0 0 4px;}
+}
+@media (orientation: landscape) and (max-height: 520px){
+  #variantsBody .card h3{font-size:12px;}
+  #variantsBody .card{padding:5px 8px;}
+  #varModal .modal{padding:8px 12px;}
+  #varModal .btn{min-height:33px;}
+}
+
+@media (orientation: landscape) and (max-height: 520px){
+  #variantsBody{gap:5px 8px;}
+  #variantsBody .card{margin-top:4px !important;}
+  #variantsBody>.row{margin:0;}
+  #variantsBody .chipRow{margin:2px 0;}
+}
+
+@media (orientation: landscape) and (max-height: 520px){
+  #variantsBody{row-gap:4px;}
+  #varModal h2{font-size:17px;}
+}
+
+@media (orientation: portrait) and (max-width: 520px){
+  #themeGrid{grid-template-columns:repeat(3,1fr); gap:8px;}
+  .themeCard{padding:9px 6px; text-align:center;}
+  .themeCard .big{font-size:21px; display:block;}
+  .themeCard b{font-size:14px !important;}
+  h1{font-size:27px;}
+  h2{font-size:19px;}
+  .card{padding:12px;}
+  .btn.big{min-height:50px; font-size:17px; padding:9px 14px;}
+  select{min-height:42px;}
+  input[type=text].nameInput{min-height:38px;}
+  footer{padding:8px 8px 12px;}
+}
+
+/* Tools & field page, short landscape — REPACK (Oct 26, 2026, late):
+   at phone-landscape height the page clipped by a hair (content taller
+   than the panel) because the shared-tools card sat in one narrow
+   column, so its heading wrapped to two lines and its medium chips
+   wrapped to two rows. On this page only, the grid goes to four
+   columns and the shared-tools card spans two of them: heading on one
+   line, every chip row on one line, tighter card padding and label
+   margins. The two color cards fill the remaining columns; swatches
+   and chips keep their size, so every control stays easy to tap.
+   Portrait and the other two Variants pages are untouched. */
+@media (orientation: landscape) and (max-height: 520px){
+  #varModal.vPage3 #variantsBody{grid-template-columns:repeat(4,1fr);}
+  #varModal.vPage3 #variantsBody .vToolsStart + .card{grid-column:span 2;}
+  #varModal.vPage3 #variantsBody .card{padding:4px 8px;}
+  #varModal.vPage3 #variantsBody .card h3{margin:0 0 2px;}
+  #varModal.vPage3 #variantsBody label.lbl{margin:1px 0;}
+  #varModal.vPage3 #variantsBody .row{gap:5px;}
+  #varModal.vPage3 #variantsBody .chip{padding:2px 5px;}
+}
+
 </style>
 </head>
 <body>
@@ -126,7 +396,6 @@ table.spec td{border:1.5px solid var(--line);padding:5px 8px;vertical-align:top;
     <div class="row" style="justify-content:space-between;align-items:flex-start;flex-wrap:nowrap;">
       <div>
         <h1>✏️ Scribble Siege</h1>
-        <p>Flick battles on a sheet of paper. Blow up the enemy base in <b>3 hits</b> — never a mop-up. Lose a fighter? Your base builds another.</p>
       </div>
       <span class="menuWrap" style="flex:0 0 auto;margin-top:6px;">
         <button class="btn small" id="btnMenuTop">☰ Menu</button>
@@ -146,9 +415,9 @@ table.spec td{border:1.5px solid var(--line);padding:5px 8px;vertical-align:top;
       <div id="modeChips"></div>
       <div id="nameFields">
         <label class="lbl" id="name1Label" for="name1Input">Your name (optional)</label>
-        <input type="text" class="nameInput" id="name1Input" maxlength="18" placeholder="For 'Matthew wins!' — blank is fine too" autocomplete="off">
+        <input type="text" class="nameInput" id="name1Input" maxlength="18" placeholder="Optional" autocomplete="off">
         <label class="lbl" id="name2Label" for="name2Input" style="display:none;">Player 2 name (optional)</label>
-        <input type="text" class="nameInput" id="name2Input" maxlength="18" placeholder="Player 2's name" autocomplete="off" style="display:none;">
+        <input type="text" class="nameInput" id="name2Input" maxlength="18" placeholder="Optional" autocomplete="off" style="display:none;">
       </div>
       <h2 style="margin-top:16px;">Paper</h2>
       <select id="paperSel" aria-label="Paper surface"></select>
@@ -162,7 +431,6 @@ table.spec td{border:1.5px solid var(--line);padding:5px 8px;vertical-align:top;
       <button class="btn big" id="btnVariants" style="flex:0 1 auto;">🎛 Variants</button>
     </div>
     <p class="small" id="setupRollSummary" style="display:none;color:#ffe9a8;font-weight:600;"></p>
-    <p class="small" style="color:#f3ead2;">Defaults are the fun-first game — production on, Lunchroom CPU, standard tools, and a 60-turn lunch on the school clock. Every preset and switch from the full rulebook lives in <b>Variants</b>.</p>
   </section>
 
   <!-- ================= GAME ================= -->
@@ -186,10 +454,12 @@ table.spec td{border:1.5px solid var(--line);padding:5px 8px;vertical-align:top;
       </span>
     </div>
     <div id="viewBoardBar" style="display:none;margin-bottom:8px;align-items:center;gap:8px;flex-wrap:wrap;">
-      <span class="turnBadge">🏁 Final board — looking only, no moves</span>
+      <span class="turnBadge">🏁 Final board</span>
       <button class="btn small primary" id="btnBackResults">← Back to results</button>
     </div>
+    <div class="turnEdge" id="turnEdgeTop"><span class="turnEdgePill turnEdgeFlip" id="turnEdgeTopPill"></span></div>
     <div id="gameLayout">
+      <div class="turnEdgeSide" id="turnEdgeLeft"><span class="turnEdgePill turnEdgeL" id="turnEdgeLeftPill"></span></div>
       <div id="boardCol">
         <div id="canvasWrap">
           <canvas id="cv" width="760" height="960"></canvas>
@@ -198,7 +468,9 @@ table.spec td{border:1.5px solid var(--line);padding:5px 8px;vertical-align:top;
           </div>
         </div>
       </div>
+      <div class="turnEdgeSide" id="turnEdgeRight"><span class="turnEdgePill turnEdgeR" id="turnEdgeRightPill"></span></div>
     </div>
+    <div class="turnEdge" id="turnEdgeBottom"><span class="turnEdgePill" id="turnEdgeBottomPill"></span></div>
     <div id="editorSlot"></div>
     <div id="turnBar">
       <div id="actionSegWrap">
@@ -206,18 +478,15 @@ table.spec td{border:1.5px solid var(--line);padding:5px 8px;vertical-align:top;
           <button data-act="move" class="on" aria-pressed="true">🏃 MOVE</button>
           <button data-act="shoot" aria-pressed="false">💥 SHOOT</button>
         </div>
-        <p class="small" id="actionModeNote">🏃 MOVE is picked — and stays picked until you flip it.</p>
-        <p class="small" id="actionHelp">Classic: one flick — move <i>or</i> shoot.</p>
       </div>
-      <div id="chargeNote" class="kbdNote" style="display:none;">⚔️ Knights charge! One flick is the charge — it moves you <i>and</i> hits what it crosses. Towers fire arrows instead.</div>
+      <div id="chargeNote" class="kbdNote" style="display:none;">⚔️ Knights charge — towers shoot.</div>
       <div class="row" style="margin-top:8px;">
-        <button class="btn small gold" id="btnTurretFire" style="display:none;">🔫 Fire the mothership's guns — tap a turret!</button>
+        <button class="btn small gold" id="btnTurretFire" style="display:none;">🔫 Fire turret</button>
         <button class="btn small blue" id="btnLaunch" style="display:none;">🚀 Launch fighter (uses turn)</button>
         <button class="btn small" id="btnEndTurn">End turn ⏭</button>
-        <span class="small" id="selInfo" style="flex:1 1 160px;">Nothing selected.</span>
+        <span class="small" id="selInfo" style="flex:1 1 160px;"></span>
       </div>
-      <p class="small" id="hintLine" style="margin:6px 0 0;">Tap one of your fighters to select it, then flick from it!</p>
-    </div>
+      </div>
   </section>
 
   <!-- ================= PRACTICE ================= -->
@@ -229,7 +498,6 @@ table.spec td{border:1.5px solid var(--line);padding:5px 8px;vertical-align:top;
         <button class="btn small" id="btnPracticeBack">← Back</button>
       </span>
     </div>
-    <p>Flick the practice fighter at the targets. No opponent, no turns — just get the distance into your fingers. Control scheme: <b id="practiceScheme"></b>.</p>
     <div id="canvasWrap2" style="position:relative;border:3px solid #3a3428;border-radius:6px;box-shadow:6px 8px 0 rgba(0,0,0,.35);background:#fdfdf8;overflow:hidden;max-width:620px;">
       <canvas id="cvP" width="760" height="960" style="display:block;width:100%;height:auto;touch-action:none;"></canvas>
     </div>
@@ -242,9 +510,9 @@ table.spec td{border:1.5px solid var(--line);padding:5px 8px;vertical-align:top;
 <!-- ================= MODALS ================= -->
 <div class="modalBack" id="flipModal"><div class="modal" style="text-align:center;max-width:420px;">
   <h2>🪙 Coin flip!</h2>
-  <div class="coinWrap"><div class="coin" id="flipCoin"><div class="coinFace" id="flipFaceA"><svg viewBox="0 0 100 100" role="img" aria-label="1985 quarter — heads, George Washington"><defs><radialGradient id="qgA" cx="38%" cy="32%" r="82%"><stop offset="0%" stop-color="#f5f7f8"/><stop offset="55%" stop-color="#ccd1d5"/><stop offset="100%" stop-color="#99a0a6"/></radialGradient><path id="qArcA" d="M 15 53 A 35.5 35.5 0 0 1 85 53" fill="none"/></defs><circle cx="50" cy="50" r="48.5" fill="url(#qgA)"/><circle cx="50" cy="50" r="47.3" fill="none" stroke="#7d848a" stroke-width="2.4" stroke-dasharray="2.3 1.8"/><circle cx="50" cy="50" r="42" fill="none" stroke="#a9afb4" stroke-width="1"/><text font-family="Georgia,'Times New Roman',serif" font-size="10.5" font-weight="700" letter-spacing="3" fill="#646b71"><textPath href="#qArcA" startOffset="50%" text-anchor="middle">LIBERTY</textPath></text><path d="M63 19 C54 15 43 18 39.5 26 C37 31 35.8 34.5 34.6 38.6 L32.8 44.2 C31.4 46.4 31.6 48.4 34 49.2 C33 52.4 33.6 54.8 35.8 56.4 C34.8 59.8 36.8 62.8 40.8 63.8 C44.4 64.8 45.8 68 46 72 L46.4 79 L73 83 C69.5 73 69 65 67.6 56.5 C69.8 48 71 39.5 69.2 30.8 C68.4 24.8 66.4 21 63 19 Z" fill="#878e95" stroke="#646b71" stroke-width="1.1"/><path d="M66 49 C71 50 73 54 71.5 58.5 C68.5 57.5 66 54.5 66 49 Z" fill="#878e95" stroke="#646b71" stroke-width="0.9"/><text x="11" y="45" font-family="Georgia,'Times New Roman',serif" font-size="4.3" font-weight="700" fill="#646b71" transform="rotate(-18 11 45)">IN GOD</text><text x="12" y="50.5" font-family="Georgia,'Times New Roman',serif" font-size="4.3" font-weight="700" fill="#646b71" transform="rotate(-18 12 50.5)">WE TRUST</text><text x="59" y="89.5" font-family="Georgia,'Times New Roman',serif" font-size="9.5" font-weight="700" fill="#646b71">1985</text></svg></div><div class="coinFace coinBack" id="flipFaceB"><svg viewBox="0 0 100 100" role="img" aria-label="1985 quarter — tails, the eagle"><defs><radialGradient id="qgB" cx="38%" cy="32%" r="82%"><stop offset="0%" stop-color="#f5f7f8"/><stop offset="55%" stop-color="#ccd1d5"/><stop offset="100%" stop-color="#99a0a6"/></radialGradient><path id="qArcB" d="M 13 50 A 37 37 0 0 1 87 50" fill="none"/><path id="qArcB2" d="M 20 47 A 30.5 30.5 0 0 0 80 47" fill="none"/></defs><circle cx="50" cy="50" r="48.5" fill="url(#qgB)"/><circle cx="50" cy="50" r="47.3" fill="none" stroke="#7d848a" stroke-width="2.4" stroke-dasharray="2.3 1.8"/><circle cx="50" cy="50" r="42" fill="none" stroke="#a9afb4" stroke-width="1"/><text font-family="Georgia,'Times New Roman',serif" font-size="7.2" font-weight="700" letter-spacing="1.6" fill="#646b71"><textPath href="#qArcB" startOffset="50%" text-anchor="middle">UNITED STATES OF AMERICA</textPath></text><text font-family="Georgia,'Times New Roman',serif" font-size="7.6" font-weight="700" letter-spacing="2" fill="#646b71"><textPath href="#qArcB2" startOffset="50%" text-anchor="middle">QUARTER DOLLAR</textPath></text><text x="50" y="24.5" text-anchor="middle" font-family="Georgia,'Times New Roman',serif" font-size="3.8" letter-spacing="1" fill="#646b71">E PLURIBUS UNUM</text><path d="M50 40 C38 30 24 28 15 36 C24 37 29 40 31 44 C24 43 19 45 17 49 C28 51 40 49 46 44 Z" fill="#878e95" stroke="#646b71" stroke-width="1"/><path d="M50 40 C62 30 76 28 85 36 C76 37 71 40 69 44 C76 43 81 45 83 49 C72 51 60 49 54 44 Z" fill="#878e95" stroke="#646b71" stroke-width="1"/><circle cx="50" cy="33" r="4.6" fill="#878e95" stroke="#646b71" stroke-width="1"/><path d="M54 30.8 L60.5 33.3 L54 36.3 Z" fill="#878e95" stroke="#646b71" stroke-width="0.9"/><path d="M41 40 h18 v11 c0 7 -4 10 -9 13 c-5 -3 -9 -6 -9 -13 Z" fill="#a7adb3" stroke="#646b71" stroke-width="1.1"/><path d="M45.5 42 v14 M50 42 v17 M54.5 42 v14" stroke="#7d848a" stroke-width="1" fill="none"/><path d="M45 66 L43 74 M50 67 L50 76 M55 66 L57 74" stroke="#646b71" stroke-width="1.6" fill="none"/></svg></div></div></div>
+  <div class="coinWrap"><div class="coin" id="flipCoin"><div class="coinFace" id="flipFaceA"><svg viewBox="0 0 100 100" role="img" aria-label="1985 quarter — heads, George Washington"><defs><radialGradient id="qgA" cx="38%" cy="32%" r="82%"><stop offset="0%" stop-color="#f5f7f8"/><stop offset="55%" stop-color="#ccd1d5"/><stop offset="100%" stop-color="#99a0a6"/></radialGradient><path id="qArcA" d="M 12.5 53 A 37.5 37.5 0 0 1 87.5 53" fill="none"/></defs><circle cx="50" cy="50" r="48.5" fill="url(#qgA)"/><circle cx="50" cy="50" r="47.3" fill="none" stroke="#7d848a" stroke-width="2.4" stroke-dasharray="2.3 1.8"/><circle cx="50" cy="50" r="42" fill="none" stroke="#a9afb4" stroke-width="1"/><path d="M58 15 C46 13 35.5 19 31.5 29 C29.8 33 28 37 26.5 41 L22.2 46.5 C21.2 48.1 22 49.7 24 49.9 C23.1 52.1 23.5 54.1 25.3 55.3 C24.7 58.1 26.3 60.5 29.7 61.5 C33.1 62.5 35.1 65.1 35.9 68.6 L36.6 79 L68 81 C65.2 74.5 64.6 66.8 65.6 59.2 C67.8 55.4 70.8 56.4 73.3 60.2 C74.9 62.8 77.4 63.9 79.2 63.2 C77.9 58.8 77.2 54.6 77.8 49.8 C79.2 39.8 77.1 29.2 71.2 22.2 C67.7 18.1 63.2 15.7 58 15 Z" fill="#878e95" stroke="#646b71" stroke-width="1.1"/><path d="M36.5 27.5 C44.5 19 58.5 17 68.5 23.5 M39.8 34 C47.5 26 60.5 24.3 70 30.2" fill="none" stroke="#646b71" stroke-width="0.9"/><path d="M56.5 41.5 C59.8 40.3 61.6 43.2 59.4 46" fill="none" stroke="#646b71" stroke-width="0.9"/><path d="M31.3 39.8 L36.8 40.1" stroke="#646b71" stroke-width="1.1"/><path d="M74.5 66.5 L66.2 62.8 L66.8 71.2 Z M74.5 66.5 L82.2 62.8 L81.6 71.2 Z" fill="#878e95" stroke="#646b71" stroke-width="0.9"/><circle cx="74.5" cy="66.5" r="1.7" fill="#878e95" stroke="#646b71" stroke-width="0.9"/><text x="6.5" y="62.5" font-family="Georgia,'Times New Roman',serif" font-size="4.6" font-weight="700" fill="#646b71">IN GOD WE</text><text x="9" y="68.8" font-family="Georgia,'Times New Roman',serif" font-size="4.6" font-weight="700" fill="#646b71">TRUST</text><text x="30.5" y="88.5" font-family="Georgia,'Times New Roman',serif" font-size="9" font-weight="700" fill="#646b71" text-anchor="middle" transform="rotate(-24 30.5 88.5)">1</text><text x="42" y="92.5" font-family="Georgia,'Times New Roman',serif" font-size="9" font-weight="700" fill="#646b71" text-anchor="middle" transform="rotate(-8 42 92.5)">9</text><text x="54.5" y="92.5" font-family="Georgia,'Times New Roman',serif" font-size="9" font-weight="700" fill="#646b71" text-anchor="middle" transform="rotate(8 54.5 92.5)">8</text><text x="66" y="88.5" font-family="Georgia,'Times New Roman',serif" font-size="9" font-weight="700" fill="#646b71" text-anchor="middle" transform="rotate(24 66 88.5)">5</text><text x="86" y="64" font-family="Georgia,'Times New Roman',serif" font-size="5.5" font-weight="700" fill="#646b71" text-anchor="middle">P</text><text font-family="Georgia,'Times New Roman',serif" font-size="10.5" font-weight="700" letter-spacing="2.2" fill="#646b71"><textPath href="#qArcA" startOffset="50%" text-anchor="middle">LIBERTY</textPath></text></svg></div><div class="coinFace coinBack" id="flipFaceB"><svg viewBox="0 0 100 100" role="img" aria-label="1985 quarter — tails, the eagle"><defs><radialGradient id="qgB" cx="38%" cy="32%" r="82%"><stop offset="0%" stop-color="#f5f7f8"/><stop offset="55%" stop-color="#ccd1d5"/><stop offset="100%" stop-color="#99a0a6"/></radialGradient><path id="qArcB" d="M 13 50 A 37 37 0 0 1 87 50" fill="none"/><path id="qArcB2" d="M 20 47 A 30.5 30.5 0 0 0 80 47" fill="none"/></defs><circle cx="50" cy="50" r="48.5" fill="url(#qgB)"/><circle cx="50" cy="50" r="47.3" fill="none" stroke="#7d848a" stroke-width="2.4" stroke-dasharray="2.3 1.8"/><circle cx="50" cy="50" r="42" fill="none" stroke="#a9afb4" stroke-width="1"/><text x="50" y="18.5" text-anchor="middle" font-family="Georgia,'Times New Roman',serif" font-size="3.7" letter-spacing="0.8" fill="#646b71">E PLURIBUS</text><text x="50" y="23.8" text-anchor="middle" font-family="Georgia,'Times New Roman',serif" font-size="3.7" letter-spacing="0.8" fill="#646b71">UNUM</text><path d="M45 40 C36 30 25 23 14.5 21.5 C19 26 21.5 30 22.5 34 C18.5 32.8 15.5 33.2 13.5 35.5 C19 38 22 41.5 23.5 45.5 C20 44.8 17.2 45.6 15.5 48 C24 52 34 53.5 43 50 Z" fill="#878e95" stroke="#646b71" stroke-width="1"/><path d="M55 40 C64 30 75 23 85.5 21.5 C81 26 78.5 30 77.5 34 C81.5 32.8 84.5 33.2 86.5 35.5 C81 38 78 41.5 76.5 45.5 C80 44.8 82.8 45.6 84.5 48 C76 52 66 53.5 57 50 Z" fill="#878e95" stroke="#646b71" stroke-width="1"/><path d="M42 42.5 C35 35.5 28 30.5 21 27.5 M43 46.5 C36 41.5 29.5 37.5 23.5 35.5 M58 42.5 C65 35.5 72 30.5 79 27.5 M57 46.5 C64 41.5 70.5 37.5 76.5 35.5" fill="none" stroke="#646b71" stroke-width="0.8"/><circle cx="50" cy="30.5" r="4.4" fill="#878e95" stroke="#646b71" stroke-width="1"/><path d="M46.2 28.2 L38.8 31 L46.2 34 Z" fill="#878e95" stroke="#646b71" stroke-width="0.9"/><circle cx="48.4" cy="29.4" r="0.75" fill="#646b71"/><path d="M41.5 36.5 h17 v11 c0 7 -3.8 10.5 -8.5 13.5 c-4.7 -3 -8.5 -6.5 -8.5 -13.5 Z" fill="#a7adb3" stroke="#646b71" stroke-width="1.1"/><path d="M45.8 38.5 v14.5 M50 38.5 v17 M54.2 38.5 v14.5" stroke="#7d848a" stroke-width="1" fill="none"/><path d="M44 60.5 L42.5 66 M56 60.5 L57.5 66" stroke="#646b71" stroke-width="1.5" fill="none"/><path d="M31 66.5 H65 M31 69.8 H65" stroke="#646b71" stroke-width="1.3"/><path d="M65 64.8 L71.5 68.2 L65 71.6 Z" fill="#878e95" stroke="#646b71" stroke-width="0.8"/><path d="M31 68.2 L25.5 65.2 M31 68.2 L25.5 71.2" stroke="#646b71" stroke-width="1.2" fill="none"/><path d="M50 79.5 C38 78.5 27.5 72 23 61.5 M50 79.5 C62 78.5 72.5 72 77 61.5" fill="none" stroke="#646b71" stroke-width="1.3"/><ellipse cx="27" cy="68" rx="3.4" ry="1.5" transform="rotate(-38 27 68)" fill="#878e95" stroke="#646b71" stroke-width="0.7"/><ellipse cx="32.5" cy="73.5" rx="3.4" ry="1.5" transform="rotate(-58 32.5 73.5)" fill="#878e95" stroke="#646b71" stroke-width="0.7"/><ellipse cx="40" cy="77.2" rx="3.4" ry="1.5" transform="rotate(-76 40 77.2)" fill="#878e95" stroke="#646b71" stroke-width="0.7"/><ellipse cx="73" cy="68" rx="3.4" ry="1.5" transform="rotate(38 73 68)" fill="#878e95" stroke="#646b71" stroke-width="0.7"/><ellipse cx="67.5" cy="73.5" rx="3.4" ry="1.5" transform="rotate(58 67.5 73.5)" fill="#878e95" stroke="#646b71" stroke-width="0.7"/><ellipse cx="60" cy="77.2" rx="3.4" ry="1.5" transform="rotate(76 60 77.2)" fill="#878e95" stroke="#646b71" stroke-width="0.7"/><circle cx="70.5" cy="64.5" r="1.05" fill="#878e95" stroke="#646b71" stroke-width="0.6"/><circle cx="66" cy="69.8" r="1.05" fill="#878e95" stroke="#646b71" stroke-width="0.6"/><text font-family="Georgia,'Times New Roman',serif" font-size="7.2" font-weight="700" letter-spacing="1.6" fill="#646b71"><textPath href="#qArcB" startOffset="50%" text-anchor="middle">UNITED STATES OF AMERICA</textPath></text><text font-family="Georgia,'Times New Roman',serif" font-size="7.6" font-weight="700" letter-spacing="2" fill="#646b71"><textPath href="#qArcB2" startOffset="50%" text-anchor="middle">QUARTER DOLLAR</textPath></text></svg></div></div></div>
   <p id="flipText" style="font-size:19px;font-weight:700;">Flipping…</p>
-  <p class="small">A real 1985 quarter — heads (Washington), the bottom player goes first; tails (the eagle), the top player. Then the quarter stays on the paper for the rest of the match, a little barrier on the table. Tap to skip ahead.</p>
+
 </div></div>
 
 <div class="modalBack" id="logModal"><div class="modal">
@@ -256,7 +524,6 @@ table.spec td{border:1.5px solid var(--line);padding:5px 8px;vertical-align:top;
 
 <div class="modalBack" id="passModal"><div class="modal" style="text-align:center;">
   <h2 id="passTitle">Pass the device!</h2>
-  <p id="passText"></p>
   <button class="btn primary" id="passOk">I'm ready →</button>
 </div></div>
 
@@ -271,9 +538,12 @@ table.spec td{border:1.5px solid var(--line);padding:5px 8px;vertical-align:top;
 </div></div>
 
 <div class="modalBack" id="howModal"><div class="modal">
-  <h2>📖 How to Play</h2>
+  <div class="row" style="justify-content:space-between;flex-wrap:nowrap;">
+    <h2 style="margin:0;">📖 How to Play</h2>
+    <span class="howTabs"><button class="btn small gold" id="howTab1">Basics</button> <button class="btn small" id="howTab2">More</button></span>
+    <button class="btn primary" data-close="howModal">Close</button>
+  </div>
   <div id="howBody"></div>
-  <button class="btn primary" data-close="howModal">Close</button>
 </div></div>
 
 <div class="modalBack" id="setModal"><div class="modal">
@@ -281,18 +551,19 @@ table.spec td{border:1.5px solid var(--line);padding:5px 8px;vertical-align:top;
   <label class="lbl">Master volume</label><input type="range" id="volMaster" min="0" max="100" value="80"/>
   <label class="lbl">Music volume</label><input type="range" id="volMusic" min="0" max="100" value="40"/>
   <label class="lbl">Sound effects volume</label><input type="range" id="volSfx" min="0" max="100" value="85"/>
-  <label class="lbl">Lunchroom ambience level (distant chatter, trays, chairs, the odd laugh)</label><input type="range" id="volAmb" min="0" max="100" value="55"/>
-  <label class="lbl">Classroom / lunchroom ambience</label>
+  <label class="lbl">Ambience level</label><input type="range" id="volAmb" min="0" max="100" value="55"/>
+  <label class="lbl">Ambience</label>
   <div class="row"><span class="chip sel" id="ambOn">On</span><span class="chip" id="ambOff">Off</span></div>
-  <label class="lbl">Light ambient music</label>
+  <label class="lbl">Music</label>
   <div class="row"><span class="chip sel" id="musOn">On</span><span class="chip" id="musOff">Off</span></div>
-  <p class="small">Audio uses the guarded <b>ambient</b> session, so game sound mixes with your other apps (music, podcasts) instead of pausing them. Real mixing can only be confirmed on your own device.</p>
   <button class="btn primary" data-close="setModal" style="margin-top:10px;">Done</button>
 </div></div>
 
-<div class="modalBack" id="varModal"><div class="modal" style="max-width:760px;">
-  <h2>🎛 Variants — the full rulebook drawer</h2>
-  <p class="small">Presets, every switch, tools, CPU and battlefield. Whatever is set here applies to the next game you start.</p>
+<div class="modalBack" id="varModal"><div class="modal" style="max-width:1240px;">
+  <div class="row" style="justify-content:space-between;flex-wrap:nowrap;">
+    <h2 style="margin:0;">🎛 Variants</h2>
+    <span class="vTabs"><button class="btn small gold" id="vTab1">Rules</button> <button class="btn small" id="vTab2">Switches</button> <button class="btn small" id="vTab3">Tools &amp; field</button></span>
+  </div>
   <div id="variantsBody"></div>
   <div class="row" style="margin-top:14px;justify-content:space-between;">
     <button class="btn" id="btnResetDefaults">↺ Reset to Defaults</button>
@@ -721,7 +992,7 @@ function defaultCfg(){
     fighterCount:3, tankMix:"2L1H",
     shipHp:1, spaceBase:"forcefield", defense:"player",
     obstacle:"tunnel", edge:"wrap", deployment:"produce", friendly:"partial",
-    cpuDiff:"lunch", layout:"face", boardMirror:"random", lunch:"60", lunchCustom:60, siege:true, prizes:true, rolledNote:null,
+    cpuDiff:"lunch", layout:"auto", boardMirror:"random", lunch:"60", lunchCustom:60, siege:true, prizes:true, rolledNote:null,
     paper:"looseleaf", constructionColor:CONSTRUCTION_COLORS[2],
     battlefield:"preset",
     p1:{flicker:"pencil", medium:"pencil", color:0, name:"Player 1"},
@@ -772,11 +1043,11 @@ function renderHome(){
   // THEME
   var grid=document.getElementById("themeGrid"); grid.innerHTML="";
   [["space","🚀","SPACE","Mothership + forcefield. Ships, gun turrets, tunneling shots through asteroids, wrap-around edges."],
-   ["knights","🏰","KNIGHTS","Castle + archer towers. Knights charge — no ranged shots. Get unhorsed, walk home, remount. Forests shelter, rocks block."],
+   ["knights","🏰","KNIGHTS","Castle + archer towers. Knights charge — no ranged shots. Get unhorsed, and he trudges home on his own to remount. Forests shelter, rocks block."],
    ["tanks","🛡️","TANKS","Bunker HQ + sandbags. Light Cannon (fast, straight shots) and Heavy Mortar (slow, lobs over cover). Heavier tank wins a ram."]]
   .forEach(function(t){
     var b=document.createElement("button"); b.className="themeCard"+(CFG.theme===t[0]?" sel":"");
-    b.innerHTML='<span class="big">'+t[1]+'</span> <b style="font-size:19px;">'+t[2]+'</b><p class="small" style="color:var(--ink);">'+t[3]+'</p>';
+    b.innerHTML='<span class="big">'+t[1]+'</span> <b style="font-size:19px;">'+t[2]+'</b>';
     b.addEventListener("click", function(){ audioInit(); CFG.theme=t[0]; refreshUI(); });
     grid.appendChild(b);
   });
@@ -796,14 +1067,14 @@ function renderHome(){
   // paper still reveals its color swatches in the row right under it.
   var ps=document.getElementById("paperSel"); ps.innerHTML="";
   PAPERS.forEach(function(pp){
-    var op=document.createElement("option"); op.value=pp.id; op.textContent=pp.label+" — "+pp.desc; ps.appendChild(op);
+    var op=document.createElement("option"); op.value=pp.id; op.textContent=pp.label; ps.appendChild(op);
   });
   ps.value=CFG.paper;
   ps.onchange=function(){ CFG.paper=ps.value; refreshUI(); };
   // FIGHTER STYLE — the same persisted setting the Variants drawer edits;
   // changing either dropdown updates the other (both render from SETTINGS).
   var fsH=document.getElementById("fighterSel"); fsH.innerHTML="";
-  [["triangles","✈️ Triangles — flat paper-game fighters"],["darts","➤ Darts — sleek arrow jets"],["rockets","🚀 Rockets — rounded cartoon rockets"],["rotate","🔀 Rotate — a different style every match"]].forEach(function(o){
+  [["triangles","✈️ Triangles"],["darts","➤ Darts"],["rockets","🚀 Rockets"],["rotate","🔀 Rotate"]].forEach(function(o){
     var op2=document.createElement("option"); op2.value=o[0]; op2.textContent=o[1]; fsH.appendChild(op2);
   });
   fsH.value=SETTINGS.fighterStyle||"rotate";
@@ -819,9 +1090,7 @@ function renderHome(){
     });
     ex.appendChild(row);
   }
-  var n2=document.createElement("p"); n2.className="small";
-  n2.textContent="Readability rule: busy papers (newspaper especially) are faded and scaled down under the game, so the print never competes — your traces stay the darkest thing on the page. Paper is cosmetic only.";
-  ex.appendChild(n2);
+
 }
 
 /* SHARED TOOLS (Matthew, Oct 26 2026): both players ALWAYS flick the same
@@ -831,16 +1100,16 @@ function renderHome(){
 function sharedToolsBlock(){
   var box=document.createElement("div"); box.className="card"; box.style.boxShadow="none"; box.style.marginTop="10px";
   var t=document.createElement("h3"); t.style.marginTop="0"; t.textContent="Shared tools — both players, every match"; box.appendChild(t);
-  var l1=document.createElement("label"); l1.className="lbl"; l1.textContent="Flicker (what both players flick)"; box.appendChild(l1);
+  var l1=document.createElement("label"); l1.className="lbl"; l1.textContent="Flicker"; box.appendChild(l1);
   box.appendChild(chipRow([{v:"pencil",t:"✏️ Pencil"},{v:"pen",t:"🖊 Pen"}], CFG.p1.flicker, function(v){ CFG.p1.flicker=v; }));
-  var l2=document.createElement("label"); l2.className="lbl"; l2.textContent="Drawing medium (what both players' traces are made of)"; box.appendChild(l2);
+  var l2=document.createElement("label"); l2.className="lbl"; l2.textContent="Drawing medium"; box.appendChild(l2);
   box.appendChild(chipRow([{v:"pencil",t:"✏️ Pencil (thin)"},{v:"pen",t:"🖊 Pen (medium)"},{v:"crayon",t:"🖍 Crayon (fat, wobbly)"}], CFG.p1.medium, function(v){ CFG.p1.medium=v; }));
   return box;
 }
 function toolBlock(who, label){
   var box=document.createElement("div"); box.className="card"; box.style.boxShadow="none"; box.style.marginTop="10px";
   var t=document.createElement("h3"); t.style.marginTop="0"; t.textContent=label; box.appendChild(t);
-  var l3=document.createElement("label"); l3.className="lbl"; l3.textContent="Color — the only thing that differs between players"; box.appendChild(l3);
+  var l3=document.createElement("label"); l3.className="lbl"; l3.textContent="Color"; box.appendChild(l3);
   var sw=document.createElement("div"); sw.className="row";
   PLAYER_COLORS.forEach(function(c,i){
     var s=document.createElement("span"); s.className="swatch"+(who.color===i?" sel":""); s.style.background=c.hex; s.title=c.name;
@@ -853,11 +1122,11 @@ function toolBlock(who, label){
 
 function renderVariants(){
   var body=document.getElementById("variantsBody"); body.innerHTML="";
-  var h=document.createElement("h3"); h.style.marginTop="0"; h.textContent="Preset first — then tinker with the switches"; body.appendChild(h);
+  var h=document.createElement("h3"); h.style.marginTop="0"; h.textContent="Presets"; body.appendChild(h);
   var pr=document.createElement("div"); pr.className="grid";
   Object.keys(PRESETS).forEach(function(key){
     var b=document.createElement("button"); b.className="themeCard"+(CFG.preset===key?" sel":"");
-    b.innerHTML="<b>"+PRESETS[key].label+"</b><p class='small' style='color:var(--ink);'>"+PRESETS[key].desc+"</p>";
+    b.innerHTML="<b>"+PRESETS[key].label+"</b>";
     b.addEventListener("click", function(){ audioInit(); applyPreset(key); refreshUI(); });
     pr.appendChild(b);
   });
@@ -866,57 +1135,45 @@ function renderVariants(){
   var rbtn=document.createElement("button"); rbtn.className="btn primary"; rbtn.textContent="🎲 Roll random rules";
   rbtn.addEventListener("click", function(){ audioInit(); rollRandomRules(); });
   rb.appendChild(rbtn);
-  var rs=document.createElement("p"); rs.className="small"; rs.style.marginTop="6px";
-  rs.textContent = CFG.rolledNote ? CFG.rolledNote : "One tap checks a whole surprise pack of rules at once — turn structure, Siege Momentum, Field prizes, obstacles, edges, friendly fire, defenses, fighter count, shared medium and paper. Your theme, players, layout, controls, fighter style and CPU difficulty are never rolled. Tweak anything below afterwards, or roll again.";
-  rb.appendChild(rs); body.appendChild(rb);
+ body.appendChild(rb);
   var lay=document.createElement("div");
-  lay.appendChild(selRow("Table layout (bases top & bottom, or left & right)","layout",[["face","Face-to-face — portrait sheet, bases top & bottom"],["side","Side-by-side — landscape sheet, bases left & right"]]));
+  lay.appendChild(selRow("Table layout","layout",[["auto","🖥 Follow the screen (default)"],["face","Face-to-face — portrait, bases top & bottom"],["side","Side-by-side — landscape, bases left & right"]]));
   body.appendChild(lay);
   var bl=document.createElement("div");
   bl.appendChild(selRow("Board layout","boardMirror",[["random","🎲 Random mirror — each match flips a coin (default)"],["drawn","🖼 As drawn"],["mirrored","🪞 Mirrored — flipped left-for-right"]]));
   body.appendChild(bl);
-  var bln=document.createElement("p"); bln.className="small";
-  bln.textContent="Plate boards only: the whole battlefield — artwork, obstacles, bases, turrets and rescue spots — flips together, and a 🪞 Mirrored board tag shows on flipped matches. Your own custom battlefields are never flipped. The Random rules roll never changes this.";
-  body.appendChild(bln);
+
   var ln=document.createElement("div");
-  ln.appendChild(selRow("Lunch length — the school clock on the board ends the match","lunch",[["30","🥪 Short Lunch — 30 turns"],["60","🕛 Lunch — 60 turns, 12:00 to 1:00 (default)"],["120","🍱 Long Lunch — 120 turns, out at 2:00"],["custom","✏️ Custom — type how many turns"]]));
+  ln.appendChild(selRow("Lunch length","lunch",[["30","🥪 Short — 30 turns"],["60","🕛 Lunch — 60 turns (default)"],["120","🍱 Long — 120 turns"],["custom","✏️ Custom"]]));
   if(CFG.lunch==="custom"){
     var cw=document.createElement("div");
-    var cl=document.createElement("label"); cl.className="lbl"; cl.textContent="Turns in a custom lunch (10–240)"; cw.appendChild(cl);
+    var cl=document.createElement("label"); cl.className="lbl"; cl.textContent="Custom turns (10–240)"; cw.appendChild(cl);
     var cin=document.createElement("input"); cin.type="number"; cin.min="10"; cin.max="240"; cin.step="1"; cin.value=CFG.lunchCustom||60;
     cin.style.cssText="width:100%;min-height:48px;font-size:16px;border:2.5px solid var(--ink);border-radius:10px;background:#fff;padding:6px 10px;font-family:inherit;";
     cin.addEventListener("change", function(){ var v=parseInt(cin.value,10); if(isNaN(v)) v=60; CFG.lunchCustom=Math.max(10,Math.min(240,v)); cin.value=CFG.lunchCustom; });
     cw.appendChild(cin); ln.appendChild(cw);
   }
-  var lnn=document.createElement("p"); lnn.className="small";
-  lnn.textContent="One minute per turn on the analog clock in the board's corner; the final 10 minutes run red. When the lunch ends with both bases standing, more base damage wins — level damage is a draw. Presets and the Random roll never change the lunch length.";
-  ln.appendChild(lnn);
+
   body.appendChild(ln);
   if(CFG.mode==="1p"){
     var d=document.createElement("div");
     d.appendChild(selRow("CPU difficulty","cpuDiff",[["recess","Recess — big aim wobble, casual choices"],["lunch","Lunchroom — a fair fight (default)"],["study","Study Hall — sharp aim, smart picks"]]));
-    var per=document.createElement("p"); per.className="small";
-    per.textContent="CPU personality: Space plays calculating and wrap-happy · Knights charges aggressively and walks unhorsed knights home · Tanks races for the hills and lobs mortars over cover.";
-    d.appendChild(per); body.appendChild(d);
+ body.appendChild(d);
   }
-  var g=document.createElement("div"); g.className="grid"; g.style.marginTop="8px";
+  var g=document.createElement("div"); g.className="grid vSwitchStart"; g.style.marginTop="8px";
   var c1=document.createElement("div"), c2=document.createElement("div");
-  c1.appendChild(selRow("Turn structure","turnStructure",[["fast","Move + Shoot — move one fighter, then shoot with that same fighter (default)"],["classic","Classic — move OR shoot, one flick"],["ramming","Ramming — one flick moves and attacks"]]));
+  c1.appendChild(selRow("Turn structure","turnStructure",[["fast","Move + Shoot (default)"],["classic","Classic"],["ramming","Ramming"]]));
   (function(){
     var w=document.createElement("div");
-    var l=document.createElement("label"); l.className="lbl"; l.textContent="Siege Momentum (Momentum + Breach)"; w.appendChild(l);
+    var l=document.createElement("label"); l.className="lbl"; l.textContent="Siege Momentum"; w.appendChild(l);
     w.appendChild(chipRow([{v:true,t:"⚔️ On (default)"},{v:false,t:"Off — classic"}], CFG.siege, function(v){ CFG.siege=v; }));
-    var d=document.createElement("p"); d.className="small";
-    d.textContent="On: movement flicks aimed toward the enemy base travel up to 20% farther (straight at it = 1.20x; sideways or backward = no change, never a penalty — shots are NOT boosted), and every counted hit on a base also brings down the nearest still-standing enemy defense structure (Breach). Off: both rules off — classic distances and base hits, exactly as before.";
-    w.appendChild(d); c1.appendChild(w);
+ c1.appendChild(w);
   })();
   (function(){
     var w=document.createElement("div");
-    var l=document.createElement("label"); l.className="lbl"; l.textContent="Field prizes (Prisoner rescue + Armor star)"; w.appendChild(l);
+    var l=document.createElement("label"); l.className="lbl"; l.textContent="Field prizes"; w.appendChild(l);
     w.appendChild(chipRow([{v:true,t:"⭐ On (default)"},{v:false,t:"Off"}], CFG.prizes, function(v){ CFG.prizes=v; }));
-    var d=document.createElement("p"); d.className="small";
-    d.textContent="On: each side has ONE captured teammate held in the enemy's half (a pod, cage or pen whose flag or plume flies in their color). Any of your fighters whose move crosses the spot frees them — they join you right there as a fresh fighter, ABOVE the production cap (your base still only builds while you're below the cap). And one golden ARMOR STAR sits at the exact center of the board: the first fighter whose move crosses it becomes Armored and shrugs off the first hit that would damage, unhorse or wreck it. Off: neither prize appears.";
-    w.appendChild(d); c1.appendChild(w);
+ c1.appendChild(w);
   })();
   c1.appendChild(selRow("Flick control scheme","control",[["true","True Flick — swipe speed is power, no preview"],["hybrid","Hybrid — direction shows, distance is skill"],["aimed","Aimed — dotted preview with a max-length cap"]]));
   c1.appendChild(selRow("Fighters per side (also the production cap)","fighterCount",[["2","2"],["3","3 (default)"],["4","4"],["5","5"]]));
@@ -936,7 +1193,7 @@ function renderVariants(){
     var fsWrap=document.createElement("div");
     var fsLbl=document.createElement("label"); fsLbl.className="lbl"; fsLbl.textContent="Fighter style"; fsWrap.appendChild(fsLbl);
     var fsSel=document.createElement("select");
-    [["triangles","Triangles — flat paper-game fighters"],["darts","Darts — sleek arrow jets"],["rockets","Rockets — rounded cartoon rockets"],["rotate","Rotate — a different style every match (default)"]].forEach(function(o){
+    [["triangles","Triangles"],["darts","Darts"],["rockets","Rockets"],["rotate","Rotate (default)"]].forEach(function(o){
       var op=document.createElement("option"); op.value=o[0]; op.textContent=o[1]; fsSel.appendChild(op);
     });
     fsSel.value=SETTINGS.fighterStyle||"rotate";
@@ -944,41 +1201,39 @@ function renderVariants(){
     fsWrap.appendChild(fsSel); c2.appendChild(fsWrap);
   }
   g.appendChild(c1); g.appendChild(c2); body.appendChild(g);
-  var note=document.createElement("p"); note.className="small";
-  note.textContent="Every switch applies on top of the preset. Bases always use the same modest, capped footprint for both players, centered in their base zone — nobody can build a bigger mothership. Defense structures stand apart in front of the base and block movement like obstacles.";
-  body.appendChild(note);
+
   // tools — ONE shared flicker + medium for both sides; colors stay per player
-  var th=document.createElement("h3"); th.textContent="Tools (shared) & colors"; body.appendChild(th);
-  var p=document.createElement("p"); p.innerHTML="Both players always use the <b>same flicker</b> and the <b>same drawing medium</b> — nobody flicks a pen against a pencil, and both sides' traces are identical in type, texture and width. The medium still matters: <b>pencil</b> is thin and precise (threads gaps, must truly touch), <b>crayon</b> is fat and wobbly (clips targets easily, clumsy in gaps), <b>pen</b> is in between — now equally for both sides. The <b>only</b> per-player difference is color."; body.appendChild(p);
+  var th=document.createElement("h3"); th.textContent="Tools & colors"; th.className="vToolsStart"; body.appendChild(th);
+
   body.appendChild(sharedToolsBlock());
   body.appendChild(toolBlock(CFG.p1, CFG.mode==="2p" ? "Player 1 (bottom / left)" : "You"));
   if(CFG.mode==="2p") body.appendChild(toolBlock(CFG.p2, "Player 2 (top / right)"));
   else {
     var cpuBox=toolBlock(CFG.cpu, "CPU");
-    var cp=document.createElement("p"); cp.className="small"; cp.textContent="The CPU flicks and draws with the same shared tools as you — it differs only in color."; cpuBox.appendChild(cp);
+
     body.appendChild(cpuBox);
   }
-  if(CFG.sameTools){ var n=document.createElement("p"); n.className="kbdNote"; n.textContent="Competitive preset: shared tools are simply the house rule now — this preset keeps everything else classic."; body.appendChild(n); }
+
   // battlefield
   var bh=document.createElement("h3"); bh.textContent="Battlefield"; body.appendChild(bh);
   body.appendChild(chipRow([
     {v:"preset",t:"🗺 Ready-made field"},{v:"random",t:"🎲 Random field"},{v:"stamps",t:"🔷 Stamps — place them"},{v:"freehand",t:"✍️ Freehand — draw them"},{v:"empty",t:"⬜ Empty sheet"}
   ], CFG.battlefield, function(v){ CFG.battlefield=v; }));
-  var info=document.createElement("div"); info.style.marginTop="10px";
-  if(CFG.battlefield==="preset") info.innerHTML="<p>A hand-placed field for this theme, ready instantly. Fair and mirrored.</p>";
-  if(CFG.battlefield==="random") info.innerHTML="<p>A fresh mirrored field is generated when the match starts.</p>";
-  if(CFG.battlefield==="empty") info.innerHTML="<p>No obstacles. A pure race to the base.</p>";
-  if(CFG.battlefield==="stamps") info.innerHTML="<p>When the match starts you'll get the paper in <b>setup mode</b>: pick a stamp, tap the middle zone to drop it, tap a placed stamp to rotate it. Fairness rules enforced: middle zone only, no overlaps, size/count budget.</p>";
-  if(CFG.battlefield==="freehand") info.innerHTML="<p>When the match starts you'll get the paper in <b>setup mode</b>: draw closed shapes with your finger in your medium and they fill in as this theme's obstacles. Same fairness rules: middle zone only, no overlaps, budget applies.</p>";
-  body.appendChild(info);
-  var thn=document.createElement("p"); thn.className="kbdNote";
-  thn.textContent = CFG.theme==="space" ? "Space obstacles: asteroids. Shots tunnel through them (default); flying into one destroys your ship." :
-    CFG.theme==="knights" ? "Knights obstacles: rocks (block charges & arrows, unhorse on impact) and forests (never slow or stop a charge — ride straight through; ending a move inside shelters you: only 1-in-4 arrows get through)." :
-    "Tanks obstacles: hills (drivable high ground — crossing cuts your distance to three-quarters; from the top, cannon fire clears low cover) and ruined buildings (block straight shells; mortars fly over).";
-  body.appendChild(thn);
+
+
 }
 document.getElementById("btnStart").addEventListener("click", function(){ audioInit(); startMatch(); });
-document.getElementById("btnVariants").addEventListener("click", function(){ audioInit(); renderVariants(); document.getElementById("varModal").classList.add("open"); });
+function vTabShow(n){
+  var vm=document.getElementById("varModal");
+  vm.classList.toggle("vPage2", n===2); vm.classList.toggle("vPage3", n===3);
+  [1,2,3].forEach(function(k){ document.getElementById("vTab"+k).classList.toggle("gold", k===n); });
+}
+document.getElementById("btnVariants").addEventListener("click", function(){ audioInit(); renderVariants(); vTabShow(1); document.getElementById("varModal").classList.add("open"); });
+document.getElementById("vTab1").addEventListener("click", function(){ vTabShow(1); });
+document.getElementById("vTab2").addEventListener("click", function(){ vTabShow(2); });
+document.getElementById("vTab3").addEventListener("click", function(){ vTabShow(3); });
+document.getElementById("howTab1").addEventListener("click", function(){ document.getElementById("howModal").classList.remove("howPage2"); this.classList.add("gold"); document.getElementById("howTab2").classList.remove("gold"); });
+document.getElementById("howTab2").addEventListener("click", function(){ document.getElementById("howModal").classList.add("howPage2"); this.classList.add("gold"); document.getElementById("howTab1").classList.remove("gold"); });
 document.getElementById("btnResetDefaults").addEventListener("click", function(){
   var keepTheme=CFG.theme, keepMode=CFG.mode, keepPaper=CFG.paper;
   CFG=defaultCfg(); CFG.theme=keepTheme; CFG.mode=keepMode; CFG.paper=keepPaper;
@@ -1044,7 +1299,7 @@ function rollRandomRules(){
 function syncRollSummary(){
   var el=document.getElementById("setupRollSummary");
   if(!el) return;
-  if(CFG && CFG.rolledNote){ el.textContent=CFG.rolledNote+" Judge it, re-roll, tweak it in Variants — or hit Start Play and play exactly this pack."; el.style.display="block"; }
+  if(CFG && CFG.rolledNote){ el.textContent=CFG.rolledNote; el.style.display="block"; }
   else { el.textContent=""; el.style.display="none"; }
 }
 renderHome();
@@ -1073,15 +1328,15 @@ var MIRROR_THIS_MATCH=false;
 function mirrorX(x){ return MIRROR_THIS_MATCH ? FW-x : x; }
 function baseCenter(p){ // p: 0 or 1
   if(plateCfg()) return {x:mirrorX(PL().base[p].x*FW), y:PL().base[p].y*FH}; // centered on the drawn hull / keep / HQ
-  if(CFG.layout==="face") return p===0 ? {x:FW/2, y:FH-FH*0.06} : {x:FW/2, y:FH*0.06};
+  if(isFaceLayout()) return p===0 ? {x:FW/2, y:FH-FH*0.06} : {x:FW/2, y:FH*0.06};
   return p===0 ? {x:FW*0.06, y:FH/2} : {x:FW-FW*0.06, y:FH/2};
 }
 function baseZoneRect(p){
-  if(CFG.layout==="face") return p===0 ? {x:0,y:FH*(1-BASE_ZONE),w:FW,h:FH*BASE_ZONE} : {x:0,y:0,w:FW,h:FH*BASE_ZONE};
+  if(isFaceLayout()) return p===0 ? {x:0,y:FH*(1-BASE_ZONE),w:FW,h:FH*BASE_ZONE} : {x:0,y:0,w:FW,h:FH*BASE_ZONE};
   return p===0 ? {x:0,y:0,w:FW*BASE_ZONE,h:FH} : {x:FW*(1-BASE_ZONE),y:0,w:FW*BASE_ZONE,h:FH};
 }
 function midZone(){ // obstacles allowed only here
-  if(CFG.layout==="face") return {x:FW*0.06, y:FH*0.24, w:FW*0.88, h:FH*0.52};
+  if(isFaceLayout()) return {x:FW*0.06, y:FH*0.24, w:FW*0.88, h:FH*0.52};
   return {x:FW*0.24, y:FH*0.06, w:FW*0.52, h:FH*0.88};
 }
 function playerCfg(p){
@@ -1202,8 +1457,8 @@ function lunchTurns(){
 }
 
 function newGame(obstacles){
-  if(CFG.layout==="face"){ FW=760; FH= plateCfg() ? 1520 : 960; } else { FW=960; FH=760; } // plate mode: the field takes the plate's own 1:2 aspect, contain fit with no stretching
-  cv.width=FW; cv.height=FH;
+  if(isFaceLayout()){ FW=760; FH= plateCfg() ? 1520 : 960; } else { FW=960; FH=760; } // plate mode: the field takes the plate's own 1:2 aspect, contain fit with no stretching
+  PRES_ROT=computePresRot(); applyCanvasSize(); // landscape presentation swaps the canvas's displayed axes; board coordinates (FW×FH) never change
   // BOARD MIRROR decision, made once per match before any geometry is
   // built: plate boards only (never an editor/custom field — those
   // arrive as the obstacles argument — and never a drawn fallback).
@@ -1276,7 +1531,7 @@ function placePrizes(){
   // structures (with margin) wins, so the captive never sits inside a
   // rock or a ruin on any board.
   var pairs=[[0.44,0.385],[0.30,0.30],[0.68,0.32],[0.32,0.36],[0.64,0.38],[0.26,0.34],[0.58,0.30],[0.36,0.42]];
-  var face = CFG.layout==="face", spot0=null, spot1=null;
+  var face = isFaceLayout(), spot0=null, spot1=null;
   for(var i=0;i<pairs.length;i++){
     var fx=pairs[i][0], fy=pairs[i][1];
     var a = face ? {x:fx*FW, y:fy*FH} : {x:(1-fy)*FW, y:fx*FH};
@@ -1334,6 +1589,17 @@ function armorAbsorb(t){
 }
 function allUnits(p){ return G.units[p].filter(function(u){return u.alive;}); }
 function allTurrets(p){ return G.turrets[p].filter(function(t){return t.alive;}); }
+/* TURRET RELOAD (Oct 26, 2026 — Matthew's rule from live play: "Maybe
+   they can shoot once and then need a turn to reload?"): after a base
+   defense structure FIRES, that structure — per structure, never
+   shared — must spend its owner's NEXT turn reloading and cannot
+   fire; it is ready again the turn after. Stamped in global turn
+   counts at the moment of the shot (resolveShot): fired during turn
+   count T -> ready when G.turnCount reaches T+2, which is exactly
+   the start of the owner's next-but-one turn. CPU and auto-defense
+   structures stamp the same clock. Destroyed structures are never
+   ready. */
+function turretReady(t){ return !!t && t.alive && (t.readyAt==null || !G || G.turnCount>=t.readyAt); }
 function findThing(id){
   for(var p=0;p<2;p++){
     var u=G.units[p].filter(function(x){return x.id===id;})[0]; if(u) return u;
@@ -1389,11 +1655,22 @@ function placeCoin(){
   if(coinSpotClear(fx, fy)) G.coin={x:fx, y:fy, r:25, face:face, landed:false};
 }
 function landCoin(){ if(G && G.coin){ G.coin.landed=true; draw(); } } // from here on the quarter is ON the paper: drawn, and a barrier
-/* The Washington profile, shared by the flip card (inline SVG there) and
-   the quarter lying on the board (this Path2D). Same for the eagle wings. */
-var QUARTER_HEAD_D="M63 19 C54 15 43 18 39.5 26 C37 31 35.8 34.5 34.6 38.6 L32.8 44.2 C31.4 46.4 31.6 48.4 34 49.2 C33 52.4 33.6 54.8 35.8 56.4 C34.8 59.8 36.8 62.8 40.8 63.8 C44.4 64.8 45.8 68 46 72 L46.4 79 L73 83 C69.5 73 69 65 67.6 56.5 C69.8 48 71 39.5 69.2 30.8 C68.4 24.8 66.4 21 63 19 Z";
-var QUARTER_WING_L="M50 40 C38 30 24 28 15 36 C24 37 29 40 31 44 C24 43 19 45 17 49 C28 51 40 49 46 44 Z";
-var QUARTER_WING_R="M50 40 C62 30 76 28 85 36 C76 37 71 40 69 44 C76 43 81 45 83 49 C72 51 60 49 54 44 Z";
+/* The 1985-P quarter, redrawn from the real coin (Matthew sent the
+   reference photo): Washington in profile FACING LEFT, hair pulled
+   back into a ponytail tied with a small ribbon bow low at the back,
+   LIBERTY along the top rim, IN GOD WE TRUST in two lines at the
+   lower LEFT in front of the neck, 1985 spread along the BOTTOM rim,
+   a tiny P mint mark at the right edge behind the ponytail. The
+   reverse: eagle with wings RAISED and spread to the rim, head
+   turned to its right (beak to the viewer's left), clutching arrows
+   and an olive branch over a wreath, E PLURIBUS UNUM above its head
+   between the wings, QUARTER DOLLAR along the bottom. The profile
+   and wing Path2Ds below are shared by both faces' drawing code;
+   the flip card carries the same design as inline SVG. A drawn coin,
+   not a photograph — same silver linework as before. */
+var QUARTER_HEAD_D="M58 15 C46 13 35.5 19 31.5 29 C29.8 33 28 37 26.5 41 L22.2 46.5 C21.2 48.1 22 49.7 24 49.9 C23.1 52.1 23.5 54.1 25.3 55.3 C24.7 58.1 26.3 60.5 29.7 61.5 C33.1 62.5 35.1 65.1 35.9 68.6 L36.6 79 L68 81 C65.2 74.5 64.6 66.8 65.6 59.2 C67.8 55.4 70.8 56.4 73.3 60.2 C74.9 62.8 77.4 63.9 79.2 63.2 C77.9 58.8 77.2 54.6 77.8 49.8 C79.2 39.8 77.1 29.2 71.2 22.2 C67.7 18.1 63.2 15.7 58 15 Z";
+var QUARTER_WING_L="M45 40 C36 30 25 23 14.5 21.5 C19 26 21.5 30 22.5 34 C18.5 32.8 15.5 33.2 13.5 35.5 C19 38 22 41.5 23.5 45.5 C20 44.8 17.2 45.6 15.5 48 C24 52 34 53.5 43 50 Z";
+var QUARTER_WING_R="M55 40 C64 30 75 23 85.5 21.5 C81 26 78.5 30 77.5 34 C81.5 32.8 84.5 33.2 86.5 35.5 C81 38 78 41.5 76.5 45.5 C80 44.8 82.8 45.6 84.5 48 C76 52 66 53.5 57 50 Z";
 function drawQuarter(c, q){
   c.save(); c.translate(q.x, q.y);
   c.fillStyle="rgba(60,50,30,.25)"; c.beginPath(); c.ellipse(2.5, 4, q.r, q.r*0.92, 0, 0, 6.29); c.fill();
@@ -1406,14 +1683,38 @@ function drawQuarter(c, q){
   c.beginPath(); c.arc(0, 0, q.r-4.5, 0, 6.29); c.stroke();
   c.save(); c.scale(q.r/50, q.r/50); c.translate(-50, -50);
   c.fillStyle="#848b91"; c.strokeStyle="#6d747a"; c.lineWidth=1.5;
+  function arcText(str, rad, step, bottom, px){ // the coin's own lettering, letter by letter along the rim (the coin is a physical object — its words are the standing exception)
+    c.save(); c.fillStyle="#6d747a"; c.font="700 "+px+"px Georgia,'Times New Roman',serif"; c.textAlign="center"; c.textBaseline="middle";
+    for(var i=0;i<str.length;i++){
+      var a = bottom ? (Math.PI/2 + ((str.length-1)/2 - i)*step) : (-Math.PI/2 + (i-(str.length-1)/2)*step);
+      c.save(); c.translate(50+Math.cos(a)*rad, 50+Math.sin(a)*rad); c.rotate(bottom ? a-Math.PI/2 : a+Math.PI/2); c.fillText(str[i], 0, 0); c.restore();
+    }
+    c.restore();
+  }
   if(q.face==="tails"){
     c.fill(new Path2D(QUARTER_WING_L)); c.stroke(new Path2D(QUARTER_WING_L));
     c.fill(new Path2D(QUARTER_WING_R)); c.stroke(new Path2D(QUARTER_WING_R));
-    c.beginPath(); c.arc(50, 33, 4.6, 0, 6.29); c.fill(); c.stroke();
-    c.fill(new Path2D("M54 30.8 L60.5 33.3 L54 36.3 Z")); c.stroke(new Path2D("M54 30.8 L60.5 33.3 L54 36.3 Z"));
-    c.fill(new Path2D("M41 40 h18 v11 c0 7 -4 10 -9 13 c-5 -3 -9 -6 -9 -13 Z")); c.stroke(new Path2D("M41 40 h18 v11 c0 7 -4 10 -9 13 c-5 -3 -9 -6 -9 -13 Z"));
+    c.stroke(new Path2D("M42 42.5 C35 35.5 28 30.5 21 27.5 M58 42.5 C65 35.5 72 30.5 79 27.5"));
+    c.beginPath(); c.arc(50, 30.5, 4.4, 0, 6.29); c.fill(); c.stroke();
+    c.fill(new Path2D("M46.2 28.2 L38.8 31 L46.2 34 Z")); c.stroke(new Path2D("M46.2 28.2 L38.8 31 L46.2 34 Z")); // beak to the viewer's left — the eagle's head is turned to its right
+    c.fill(new Path2D("M41.5 36.5 h17 v11 c0 7 -3.8 10.5 -8.5 13.5 c-4.7 -3 -8.5 -6.5 -8.5 -13.5 Z")); c.stroke(new Path2D("M41.5 36.5 h17 v11 c0 7 -3.8 10.5 -8.5 13.5 c-4.7 -3 -8.5 -6.5 -8.5 -13.5 Z"));
+    c.stroke(new Path2D("M31 66.5 H65 M31 69.8 H65 M65 64.8 L71.5 68.2 L65 71.6 M50 79.5 C38 78.5 27.5 72 23 61.5 M50 79.5 C62 78.5 72.5 72 77 61.5")); // arrows bundle + the wreath curving beneath
+    c.save(); c.fillStyle="#6d747a"; c.font="700 3.4px Georgia,'Times New Roman',serif"; c.textAlign="center"; c.textBaseline="middle";
+    c.fillText("E PLURIBUS", 50, 18.5); c.fillText("UNUM", 50, 23.8); c.restore();
+    arcText("UNITED STATES OF AMERICA", 41.5, 0.104, false, 3);
+    arcText("QUARTER DOLLAR", 40, 0.185, true, 3.8);
   } else {
     c.fill(new Path2D(QUARTER_HEAD_D)); c.stroke(new Path2D(QUARTER_HEAD_D));
+    c.stroke(new Path2D("M36.5 27.5 C44.5 19 58.5 17 68.5 23.5 M39.8 34 C47.5 26 60.5 24.3 70 30.2 M31.3 39.8 L36.8 40.1")); // hair waves + the eye line
+    c.fill(new Path2D("M74.5 66.5 L66.2 62.8 L66.8 71.2 Z")); c.stroke(new Path2D("M74.5 66.5 L66.2 62.8 L66.8 71.2 Z"));
+    c.fill(new Path2D("M74.5 66.5 L82.2 62.8 L81.6 71.2 Z")); c.stroke(new Path2D("M74.5 66.5 L82.2 62.8 L81.6 71.2 Z")); // the ribbon bow on the ponytail
+    c.save(); c.fillStyle="#6d747a"; c.textAlign="center"; c.textBaseline="middle";
+    c.font="700 4.4px Georgia,'Times New Roman',serif"; c.fillText("IN GOD WE", 17.5, 62.5); c.fillText("TRUST", 17.5, 68.8);
+    c.font="700 5.5px Georgia,'Times New Roman',serif"; c.fillText("P", 86, 64); // the tiny mint mark, behind the ponytail
+    c.font="700 8.5px Georgia,'Times New Roman',serif";
+    c.fillText("1", 31.5, 85.5); c.fillText("9", 42.5, 89.8); c.fillText("8", 54, 89.8); c.fillText("5", 64.5, 85.5); // 1985 spread along the bottom rim
+    c.restore();
+    arcText("LIBERTY", 40, 0.21, false, 4.6);
   }
   c.restore(); c.restore();
 }
@@ -1427,6 +1728,7 @@ function drawLunchClock(c){
   var cp=clockPos(), total=lunchTurns(), elapsed=G.turnCount||0, t=Math.min(elapsed, total);
   var late=(total-elapsed)<=10;
   c.save(); c.translate(cp.x, cp.y);
+  if(PRES_ROT) c.rotate(-Math.PI/2); // the clock does NOT turn with the sheet: it stays upright (12 at the top, the red final-10 stretch readable) wherever the rotation puts its corner; its movement-only barrier footprint is unchanged (barrierAt works in board space)
   c.fillStyle="rgba(60,50,30,.20)"; c.beginPath(); c.ellipse(3, 5, cp.r, cp.r*0.94, 0, 0, 6.29); c.fill();
   c.beginPath(); c.arc(0, 0, cp.r, 0, 6.29); c.fillStyle="#fdfdf4"; c.fill();
   c.lineWidth=5; c.strokeStyle= late ? "#c1271b" : "#2b2b33"; c.stroke();
@@ -1448,15 +1750,25 @@ function drawLunchClock(c){
   c.fillStyle= late ? "#c1271b" : "#2b2b33"; c.beginPath(); c.arc(0, 0, 4, 0, 6.29); c.fill();
   c.restore();
 }
-/* REINFORCEMENTS, ON THE BASE: a disc in front of each base showing
-   production at a glance — owner-color with a white ＋ when a fighter
-   can be requested (a gold pulse on the side to move), countdown pips
-   while the base readies the next one (one pip per turn of waiting),
-   a quiet white bar when the squad is at its cap. Tapping the side-to-
-   move's disc IS the production action (see the pointer handler). */
+/* The production button lives ON the base (one-screen pass): a disc
+   in the owner's color that fires the same action as #btnLaunch and
+   carries its own cooldown pips. PLACEMENT (Oct 26, 2026 — moved after
+   live 2P play: "The reserve button is too close to the active ships.
+   We've pressed it a bunch of times by accident. Can we move it to a
+   different part of the ship?"): the disc used to sit in FRONT of the
+   base, dead center — exactly where that side's fighters spawn and
+   gather, so taps aimed at fighters kept landing on it. It now sits
+   on the base's BACK corner: the end of the base farthest from the
+   enemy, on the flank away from the spawn lane, with clear water
+   between it and every fighter tap target and the defense structures
+   (which all stand on the base's front). The same back-corner logic
+   serves all three bases (mothership, castle, HQ), in both sheet
+   orientations and in mirrored matches — everything derives from
+   baseCenter/dirToEnemy, which already carry the mirror. */
 function prodBtnPos(p){
-  var bc=baseCenter(p), d=dirToEnemy(p), off=baseFootH()/2+30;
-  return { x:Math.max(30, Math.min(FW-30, bc.x+d.x*off)), y:Math.max(30, Math.min(FH-30, bc.y+d.y*off)), r:23 };
+  var bc=baseCenter(p), d=dirToEnemy(p), sd={x:-d.y, y:d.x};
+  var lat=baseFootW()/2-10, back=baseFootH()/2+26;
+  return { x:Math.max(28, Math.min(FW-28, bc.x+sd.x*lat-d.x*back)), y:Math.max(28, Math.min(FH-28, bc.y+sd.y*lat-d.y*back)), r:23 };
 }
 function prodPulseOn(){ return !!(G && !G.over && CFG.deployment!=="none"); }
 function drawProdButton(c, p){
@@ -1496,12 +1808,90 @@ function fitBoard(){
   if(!col || !cv) return;
   var aw=col.clientWidth-4, ah=col.clientHeight-4;
   if(aw<60 || ah<60) return;
-  var s=Math.min(aw/FW, ah/FH);
+  var s=Math.min(aw/dispW(), ah/dispH());
   if(!isFinite(s) || s<=0) return;
-  cv.style.width=Math.floor(FW*s)+"px";
-  cv.style.height=Math.floor(FH*s)+"px";
+  cv.style.width=Math.floor(dispW()*s)+"px";
+  cv.style.height=Math.floor(dispH()*s)+"px";
 }
-window.addEventListener("resize", fitBoard);
+/* ============================================================
+   LANDSCAPE PAPER (Oct 26, 2026 — Matthew, on an iPad held wide:
+   "rotate the paper so that it is landscape — right now it is
+   wasting a lot of space"). A PRESENTATION transform only, at the
+   render/input boundary: all game state stays in board coordinates
+   (FW×FH, face geometry), rendering rotates the sheet 90° clockwise
+   — board (x,y) lands on screen (FH-y, x), so the two bases sit on
+   the LEFT (Player 1) and RIGHT (Player 2) edges and the sheet
+   fills a wide stage instead of standing narrow in its middle —
+   and pointer input maps back through the exact inverse. Board
+   mirroring is applied earlier, in board space, so it composes
+   untouched; CPU simulation, collisions, graze cores, momentum
+   and every rule run in board space and never see the rotation.
+   The turn bar and all chrome stay unrotated, and the match still
+   fits one screen with no scrolling in either orientation.
+   WHEN: the Table layout choice decides — "auto" (the default)
+   follows the screen (wide stage = landscape sheet, tall stage =
+   today's portrait sheet, exactly as before); "face" forces the
+   portrait sheet; "side" is its own landscape geometry already.
+   The lunch clock is the one drawing that does NOT turn with the
+   sheet (see drawLunchClock): it stays upright, 12 at the top.
+   The quarter turns with the paper like a physical coin. */
+var PRES_ROT=false;
+function isFaceLayout(){ return CFG.layout!=="side"; }
+function dispW(){ return PRES_ROT?FH:FW; }
+function dispH(){ return PRES_ROT?FW:FH; }
+function stageLandscape(){
+  // The SCREEN's aspect decides (the stage is a full-viewport fixed layer,
+  // so the window IS the stage). Measuring the board column instead would
+  // misfire on portrait phones, where the tall turn bar squeezes the column
+  // itself wider-than-tall — and it could never flip back. This is stable:
+  // it depends on nothing the rotation itself changes.
+  return window.innerWidth>=window.innerHeight;
+}
+function computePresRot(){
+  if(!isFaceLayout()) return false;     // side-by-side geometry already IS a landscape sheet
+  if(CFG.layout==="face") return false; // face-to-face forces the portrait sheet
+  return stageLandscape();              // "auto" (default): follow the screen
+}
+function applyCanvasSize(){ cv.width=dispW(); cv.height=dispH(); }
+function refreshPresentation(){
+  PRES_ROT=computePresRot();
+  if(G) applyCanvasSize();
+  updateTurnIndicator();
+  fitBoard();
+  if(G) draw();
+}
+window.addEventListener("resize", refreshPresentation);
+/* ---------- 2P TURN INDICATOR (Oct 26, 2026): whose turn it is,
+   readable from either seat. One big pill in the current player's
+   color sits at THAT player's end of the stage, in the chrome at
+   the board's edge (never lettered on the paper): bottom on
+   Player 1's turn / top, turned 180°, on Player 2's in portrait
+   face-to-face; at the player's side, turned toward them, in the
+   landscape presentation (and the side-by-side sheet). The text
+   is the setup name when one is set ("Matthew's turn"), else
+   "Player 1's turn" / "Player 2's turn". Updated from updateHUD,
+   so it switches the moment a turn passes — flicks, launches and
+   defense fire all funnel through there. 1P keeps the old badge
+   only; these slots stay hidden. ---------- */
+function turnScreenSide(p){
+  // where player p's base sits ON SCREEN in the current presentation
+  if(CFG.layout==="side" || PRES_ROT) return p===0 ? "left" : "right";
+  return p===0 ? "bottom" : "top";
+}
+function updateTurnIndicator(){
+  var slots={top:"turnEdgeTop", bottom:"turnEdgeBottom", left:"turnEdgeLeft", right:"turnEdgeRight"};
+  var pills={top:"turnEdgeTopPill", bottom:"turnEdgeBottomPill", left:"turnEdgeLeftPill", right:"turnEdgeRightPill"};
+  var show=null;
+  if(G && CFG.mode==="2p" && !G.over && !G.draw) show=turnScreenSide(G.turn);
+  for(var k in slots){
+    var el=document.getElementById(slots[k]); if(!el) continue;
+    if(k===show){
+      var pill=document.getElementById(pills[k]);
+      if(pill){ pill.textContent=subjectName(G.turn)+"'s turn"; pill.style.background=PLAYER_COLORS[playerCfg(G.turn).color].hex; }
+      el.style.display="flex";
+    } else el.style.display="none";
+  }
+}
 
 /* ---------- log / HUD ---------- */
 function log(msg){
@@ -1525,13 +1915,14 @@ function updateHUD(){
       var showClock = CFG.mode==="1p" || G.turn===G.clock.side;
       if(showClock){
         var cTotal=G.clock.start||G.clock.left; var pips=""; for(var ci2=0;ci2<cTotal;ci2++) pips+= ci2<G.clock.left ? "●" : "○";
-        cp.textContent="⏱ DRAW IN "+G.clock.left+" — "+playerName(G.clock.side)+" must land a base hit! "+pips;
+        cp.textContent="⏱ Draw in "+G.clock.left+" "+pips;
         cp.classList.toggle("hot", G.clock.left<=2);
       } else { cp.textContent=""; cp.classList.remove("hot"); }
     } else { cp.textContent=""; cp.classList.remove("hot"); }
   }
   tb.style.borderColor=col; tb.style.color=col;
   var mTag=document.getElementById("mirrorTag"); if(mTag) mTag.style.display = G.mirror ? "" : "none"; // 🪞 tag lives in the chrome, never on the paper
+  updateTurnIndicator(); // the 2P turn pill at the current player's end follows every turn change (incl. launches & defense fire, which end the turn through here)
   // Base health is NOT lettered anywhere any more: it reads off the base
   // itself — the forcefield bubble, the cracks, the scorch, the flames —
   // and the sandbags are drawn in front of the bunker while they last.
@@ -1550,11 +1941,11 @@ function updateHUD(){
   // ready defense structure — the "these guns SHOOT" cue in the chrome.
   var tf=document.getElementById("btnTurretFire");
   if(tf){
-    var readyT = (!G.over && CFG.defense==="player" && (CFG.mode==="2p"||G.turn===0)) ? allTurrets(G.turn) : [];
+    var readyT = (!G.over && CFG.defense==="player" && (CFG.mode==="2p"||G.turn===0)) ? allTurrets(G.turn).filter(turretReady) : [];
     if(readyT.length){
       tf.style.display="inline-flex"; tf.disabled=false;
-      tf.textContent = CFG.theme==="space" ? "🔫 Fire the mothership's guns — tap a turret!" :
-        CFG.theme==="knights" ? "🏹 Fire an archer tower — tap one!" : "💣 Fire a bunker cannon — tap one!";
+      tf.textContent = CFG.theme==="space" ? "🔫 Fire turret" :
+        CFG.theme==="knights" ? "🏹 Fire tower" : "💣 Fire cannon";
     } else tf.style.display="none";
   }
   var mc=document.getElementById("matchCard");
@@ -1563,11 +1954,7 @@ function updateHUD(){
     "Shared tools: "+CFG.p1.flicker+" flicker · "+CFG.p1.medium+" traces — both sides, only the colors differ"+
     (CFG.theme==="space" ? "<br>🚀 Fighter style: <b>"+FIGHTER_STYLE_NAMES[MATCH_STYLE]+"</b>"+((SETTINGS.fighterStyle||"rotate")==="rotate"?" (rotating — change it in Variants)":"") : "");
   var sel=G.selected?findThing(G.selected):null;
-  document.getElementById("selInfo").textContent = sel ? ("Selected: "+thingLabel(sel)+(sel.turret?" (fires as your turn action)":"")+" — now flick from it!"+(modeChoiceApplies(sel)?" (Tap it again to flip "+(G.action==="move"?"Move → Shoot":"Shoot → Move")+".)":"")) : "Nothing selected. Tap one of your "+(CFG.theme==="knights"?"knights or towers":CFG.theme==="tanks"?"tanks or cannons":"ships or turrets")+".";
-  document.getElementById("hintLine").textContent = coachActive ? "Coach is guiding you — follow the margin notes!" :
-    (CFG.theme==="space" && !SETTINGS.turretHintDone && !G.over && (CFG.mode==="2p"||G.turn===0)) ? "💡 Those cubes beside your mothership are GUN TURRETS — and they shoot! Tap a glowing one to fire it, just like a fighter." :
-    (G.clock && !G.over) ? "⏱ Stalemate clock: DRAW IN "+G.clock.left+" — "+playerName(G.clock.side)+" has "+G.clock.left+" of their own turns left to land a hit on the enemy base, or the fighter-less side can clear it by building a replacement. (A side that can take no action at all loses at once.)" :
-    (CFG.mode==="1p"&&G.turn===1 ? "CPU is lining up a flick…" : "Tap your fighter to select it, then "+(CFG.control==="aimed"?"drag from it and release":"flick from it")+".");
+  document.getElementById("selInfo").textContent = sel ? thingLabel(sel) : ""; // MINIMAL WORDING: selection speaks through its drawn cue, not a sentence;
 }
 
 /* ============================================================
@@ -1593,7 +1980,7 @@ var ART={};
    literal URL) worked. Every loader below therefore names its file
    in full. Do not "tidy" these back into loops over path pieces. */
 function loadArt(src){
-  if(window.__SS_ASSETS&&window.__SS_ASSETS[src])src=window.__SS_ASSETS[src]; // text-snapshot build: artwork ships as base64 JS modules
+ if(window.__SS_ASSETS&&window.__SS_ASSETS[src])src=window.__SS_ASSETS[src]; // text-snapshot build: artwork ships as base64 JS modules
   var im=new Image();
   im.onload=function(){ if(window.G) draw(); if(window.PC) practiceDraw(); };
   im.onerror=function(){ im.__failed=true; if(window.G) draw(); };
@@ -1621,7 +2008,7 @@ ART["asteroid3"]=loadArt("assets/pieces/asteroid3.webp");
    ============================================================ */
 var PLATE_BROKEN={}; // a plate whose file failed to load: that theme falls back to the drawn board (see plateCfg)
 function loadPlate(src, key){
-  if(window.__SS_ASSETS&&window.__SS_ASSETS[src])src=window.__SS_ASSETS[src]; // text-snapshot build: artwork ships as base64 JS modules
+ if(window.__SS_ASSETS&&window.__SS_ASSETS[src])src=window.__SS_ASSETS[src]; // text-snapshot build: artwork ships as base64 JS modules
   var im=new Image();
   im.onload=function(){ if(window.G) draw(); };
   im.onerror=function(){ PLATE_BROKEN[key]=true; if(window.G) draw(); };
@@ -1706,7 +2093,7 @@ var PLATE_IMGS={ space:PLATE_IMG };
 PLATE_IMGS["knights"]=loadPlate("assets/knights-plate.webp", "knights");
 PLATE_IMGS["tanks"]=loadPlate("assets/tanks-plate.webp", "tanks");
 function PL(){ return PLATES[CFG.theme]||PLATES.space; }
-function plateCfg(){ return !!(CFG && PLATES[CFG.theme] && !PLATE_BROKEN[CFG.theme] && CFG.paper==="looseleaf" && CFG.battlefield==="preset" && CFG.layout==="face"); }
+function plateCfg(){ return !!(CFG && PLATES[CFG.theme] && !PLATE_BROKEN[CFG.theme] && CFG.paper==="looseleaf" && CFG.battlefield==="preset" && CFG.layout!=="side"); }
 
 /* ============================================================
    FIGHTER STYLES (Matthew, Oct 26, 2026: "I like both of these.
@@ -1940,11 +2327,11 @@ function drawPaper(c){
     c.strokeStyle="rgba(225,110,110,0.6)"; c.beginPath(); c.moveTo(52,0); c.lineTo(52,FH); c.stroke();
     // slightly ragged torn edge down the hole side
     c.strokeStyle="rgba(150,128,92,0.55)"; c.lineWidth=1.6; c.beginPath();
-    if(CFG.layout==="face"){ for(var ry=0;ry<=FH;ry+=26){ var rx=2+sr(ry*1.7)*3.4; ry===0?c.moveTo(rx,ry):c.lineTo(rx,ry); } }
+    if(isFaceLayout()){ for(var ry=0;ry<=FH;ry+=26){ var rx=2+sr(ry*1.7)*3.4; ry===0?c.moveTo(rx,ry):c.lineTo(rx,ry); } }
     else { for(var rx2=0;rx2<=FW;rx2+=26){ var ry2=2+sr(rx2*1.7)*3.4; rx2===0?c.moveTo(rx2,ry2):c.lineTo(rx2,ry2); } }
     c.stroke();
     c.fillStyle="#e8e2d2";
-    var holes = CFG.layout==="face" ? [[26,120],[26,FH/2],[26,FH-120]] : [[120,26],[FW/2,26],[FW-120,26]];
+    var holes = isFaceLayout() ? [[26,120],[26,FH/2],[26,FH-120]] : [[120,26],[FW/2,26],[FW-120,26]];
     holes.forEach(function(h){ c.beginPath(); c.arc(h[0],h[1],13,0,6.29); c.fill(); c.strokeStyle="#b9b09a"; c.stroke(); });
   }
   if(CFG.paper==="graph"){
@@ -2059,6 +2446,49 @@ function drawObstacle(c,o){
   }
   c.restore();
 }
+function trudgeActive(){ return !!(G && G.units && (G.units[0].concat(G.units[1]).some(function(u){ return u.trudgeUntil && Date.now()<u.trudgeUntil; }))); }
+/* KNIGHTS AUTO-WALK (Oct 26, 2026 — Matthew's rule change: knights walk
+   home on their own). An unhorsed knight is no longer selectable and
+   nobody spends a flick on him: at the END of each of his owner's
+   turns, EACH unhorsed knight of that side trudges ONE step toward
+   his own castle — one foot-pace (145, the old walk flick's full
+   length) in a straight line. The step is pure travel: it damages
+   nothing, unhorses nobody, triggers no combat, even passing an
+   enemy. A rock (or the tabletop furniture) blocks the way and he
+   stops short of it; forests never block him — he is on foot, and
+   moveObstacleAt already lets knights through the trees. When a step
+   brings him to his own castle he REMOUNTS at full charging strength
+   and is a normal selectable knight from his owner's next turn.
+   Everything else about being on foot is unchanged: he cannot hurt
+   the castle or towers, and a second hit while he travels — tower
+   arrows included — puts him out. The step is drawn as a short trace
+   plus a quick slide of the piece (see the units draw loop), so both
+   players see him trudging; it costs no time in the turn flow. */
+function autoWalkHome(p){
+  if(CFG.theme!=="knights" || !G || G.over) return;
+  G.units[p].forEach(function(u){
+    if(!u.alive || u.kind!=="knight" || u.mounted) return;
+    var bc=baseCenter(p);
+    var dx=bc.x-u.x, dy=bc.y-u.y, dist=Math.hypot(dx,dy);
+    if(dist<2){ u.mounted=true; SFX.pop(); log("🐴 "+playerName(p)+"'s knight remounted at his castle — back to full charging strength!"); return; }
+    var stepLen=Math.min(145, dist); // one foot-pace
+    var pts=sampleLine({x:u.x,y:u.y}, {x:u.x+dx/dist*stepLen, y:u.y+dy/dist*stepLen}, 5);
+    var dest=pts[pts.length-1], arrived=false;
+    for(var s2=1;s2<pts.length;s2++){
+      var q=pts[s2];
+      if(baseHitAt(q, p)){ dest=q; arrived=true; break; }
+      if(barrierAt(q, 4) || moveObstacleAt(q, 6, u)){ dest=pts[s2-1]; break; } // blocked: stops short (dest may be the start point — he waits there)
+    }
+    var fx=u.x, fy=u.y;
+    u.x=dest.x; u.y=dest.y;
+    if(dest.x!==fx || dest.y!==fy){
+      addTrace([{x:fx,y:fy},{x:dest.x,y:dest.y}], p, playerCfg(p).medium, false); // the trudge, drawn like every move — both players see it
+      u.trudge={fx:fx, fy:fy, t0:Date.now()}; u.trudgeUntil=Date.now()+430; // the piece visibly slides the step (draw loop)
+      SFX.hooves(Math.hypot(dest.x-fx, dest.y-fy), false);
+    }
+    if(arrived){ u.mounted=true; SFX.pop(); log("🐴 "+playerName(p)+"'s knight trudged home and remounted — back to full charging strength!"); }
+  });
+}
 function turretHaloOn(){ return !!(G && !G.over && CFG.defense==="player" && (allTurrets(0).length>0 || allTurrets(1).length>0)); }
 function thingLabel(t){
   if(t.turret) return t.kind==="turret"?"Gun turret":t.kind==="tower"?"Archer tower":"Bunker cannon";
@@ -2149,8 +2579,11 @@ function drawThing(c,t){
   var col=PLAYER_COLORS[playerCfg(t.owner).color].hex;
   var ci=playerCfg(t.owner).color;
   var isSel = G && G.selected===t.id;
+  var reloading = !!(t.turret && G && !turretReady(t));
+  function reloadVeil(){ if(!reloading) return; /* RELOAD RULE, visible: a structure that fired sits DIM and QUIET under a grey veil — no halo, no sparkle — until its turn comes back around; the exact opposite of the golden ready pulse, readable from either seat. No words on the paper, just light. */
+    c.save(); c.globalAlpha=0.45; c.fillStyle="#6f6a5e"; c.beginPath(); c.arc(t.x,t.y,(t.r||24)+2,0,6.29); c.fill(); c.restore(); }
   if(isSel){ c.save(); c.strokeStyle="#e9a13b"; c.lineWidth=3; c.setLineDash([6,4]); c.beginPath(); c.arc(t.x,t.y,32,0,6.29); c.stroke(); c.restore(); }
-  if(t.turret && G && !G.over && CFG.defense==="player" && t.owner===G.turn){
+  if(t.turret && G && !G.over && CFG.defense==="player" && t.owner===G.turn && turretReady(t)){ // the golden READY pulse — never shown for a reloading structure
     /* READY STRUCTURES PULSE on their owner's turn — a soft golden halo
        with orbiting sparkles, on the plate and the drawn board alike:
        these guns can shoot, and this is their turn to do it. */
@@ -2161,7 +2594,7 @@ function drawThing(c,t){
     for(var sp2=0;sp2<4;sp2++){ var sa2=sp2*1.57+Date.now()/520; c.beginPath(); c.arc(t.x+Math.cos(sa2)*((t.r||24)+11), t.y+Math.sin(sa2)*((t.r||24)+11), 2.2, 0, 6.29); c.fill(); }
     c.restore();
   }
-  if(plateCfg() && t.turret) return; // on the plate, the drawn structure IS the turret — the halo above is its only overlay while it stands
+  if(plateCfg() && t.turret){ reloadVeil(); return; } // on the plate, the drawn structure IS the turret — the halo above is its only overlay while it stands (and the grey veil while it reloads)
   var ex=t.x, ey=t.y; // recoil kick: the piece jumps back from its own shot for a beat
   if(t.turret && t.recoil && Date.now()<t.recoil.until){ var rk=(t.recoil.until-Date.now())/170; ex-=t.recoil.x*6*rk; ey-=t.recoil.y*6*rk; }
   var drawn=false;
@@ -2236,7 +2669,7 @@ function drawThing(c,t){
     }
     c.restore();
   }
-  if(drawn) return;
+  if(drawn){ reloadVeil(); return; }
   /* ---- vector fallback while art loads ---- */
   c.save(); c.translate(t.x,t.y); c.rotate(t.angle); c.lineJoin="round";
   if(t.kind==="ship"){
@@ -2287,6 +2720,7 @@ function drawThing(c,t){
     }
   }
   c.restore();
+  reloadVeil();
 }
 function drawShieldBubble(c, x, y, r, flash){
   // loose swirly strokes + paint-splatter sparkles, like the sample's bubble
@@ -2713,6 +3147,7 @@ function draw(){
   if(!G) return;
   ctx.save();
   if(G.shake>0){ ctx.translate((Math.random()-0.5)*G.shake,(Math.random()-0.5)*G.shake); G.shake*=0.82; if(G.shake<0.4)G.shake=0; }
+  if(PRES_ROT){ ctx.translate(FH,0); ctx.rotate(Math.PI/2); } // landscape presentation: the whole sheet turns 90° CW — everything drawn below is in board coordinates
   if(plateCfg()){ drawPlate(ctx); drawPlateState(ctx); }
   else { drawPaper(ctx); drawBaseZones(ctx); G.obstacles.forEach(function(o){ drawObstacle(ctx,o); }); }
   if(G.coin && G.coin.landed) drawQuarter(ctx, G.coin); // the flip's quarter, lying on the paper under the traces — shots cross over it, moves bump into it
@@ -2720,8 +3155,21 @@ function draw(){
   drawBase(ctx,0); drawBase(ctx,1);
   if(CFG.prizes) drawPrizes(ctx);
   for(var p=0;p<2;p++){ G.turrets[p].forEach(function(t){ if(t.alive) drawThing(ctx,t); }); }
-  for(var p2=0;p2<2;p2++){ G.units[p2].forEach(function(u){ if(u.alive) drawThing(ctx,u); }); }
+  for(var p2=0;p2<2;p2++){ G.units[p2].forEach(function(u){ if(!u.alive) return;
+    if(u.trudge && u.trudgeUntil && Date.now()<u.trudgeUntil){ // AUTO-WALK: the trudge — the state position is already final; only the drawing slides from where the step began
+      var pr=Math.min(1,(Date.now()-u.trudge.t0)/430);
+      ctx.save(); ctx.translate((u.trudge.fx-u.x)*(1-pr), (u.trudge.fy-u.y)*(1-pr)); drawThing(ctx,u); ctx.restore();
+    } else drawThing(ctx,u);
+  }); }
   drawProdButton(ctx,0); drawProdButton(ctx,1); // reinforcements, requested at the base itself
+  if(CFG.mode==="2p" && !G.over){ // 2P at-a-glance cue, in the side to move's color: a soft pulsing outline on their base and its reinforcements disc (drawn in board space, so it turns with the sheet and always hugs the right base)
+    var tp=G.turn, tbc=baseCenter(tp), tcol=PLAYER_COLORS[playerCfg(tp).color].hex, tpu=0.5+0.5*Math.sin(Date.now()/340);
+    ctx.save(); ctx.strokeStyle=tcol; ctx.lineCap="round";
+    ctx.globalAlpha=0.30+0.28*tpu; ctx.lineWidth=4;
+    ctx.beginPath(); ctx.ellipse(tbc.x, tbc.y, baseFootW()/2+11+3*tpu, baseFootH()/2+11+3*tpu, 0, 0, 6.29); ctx.stroke();
+    if(CFG.deployment!=="none" && G.bases[tp].hp>0){ var tpp=prodBtnPos(tp); ctx.globalAlpha=0.35+0.30*tpu; ctx.lineWidth=3; ctx.beginPath(); ctx.arc(tpp.x, tpp.y, tpp.r+6+2*tpu, 0, 6.29); ctx.stroke(); }
+    ctx.restore();
+  }
   drawLunchClock(ctx); // the school clock in the corner — its footprint is out of play for movement
   // particles
   G.particles=G.particles.filter(function(pt){ return pt.t<pt.max; });
@@ -2780,7 +3228,7 @@ function draw(){
     pips.forEach(function(pp){ ctx.beginPath(); ctx.arc(pp[0],pp[1],3.4,0,6.29); ctx.fill(); });
     ctx.restore(); }
   ctx.restore();
-  if(G.anim || G.particles.length || G.stickmen.length || G.pods.length || G.shake>0 || (G.bases[0].hp===1||G.bases[1].hp===1) || turretHaloOn() || prodPulseOn()){
+  if(G.anim || trudgeActive() || G.particles.length || G.stickmen.length || G.pods.length || G.shake>0 || (G.bases[0].hp===1||G.bases[1].hp===1) || turretHaloOn() || prodPulseOn() || (CFG.mode==="2p" && !G.over)){
     cancelAnimationFrame(rafId); rafId=requestAnimationFrame(draw);
   }
 }
@@ -2854,6 +3302,38 @@ function obstacleAt(pt,pad){ return G.obstacles.filter(function(o){
 function baseHitAt(pt, owner){ // does pt touch the OTHER base (or own, for full FF checks caller decides)
   var bc=baseCenter(owner);
   return Math.abs(pt.x-bc.x)<baseFootW()/2+6 && Math.abs(pt.y-bc.y)<baseFootH()/2+6;
+}
+/* SPACE FORCEFIELD — LETHAL TO MOVEMENT (Oct 26, 2026 — Matthew: "If
+   you move your ship into the force field that should kill your
+   ship."). While a mothership's forcefield is UP, its shield bubble
+   destroys ANY ship (either player's) whose MOVEMENT path reaches
+   the bubble's CORE. It is a movement collision only: the zap scores
+   NO base hit and does NOT drop or damage the shield — a SHOT that
+   hits the shield is still base hit 1, exactly as before (resolveShot
+   never calls this). When the shield is down there is no forcefield
+   and the rule does not apply; the hull behaves as it always has.
+   The test is the game's forgiving obstacle-edge test: the core is
+   the central 60% of the bubble (radii x 0.6, the obsCoreContains
+   factor) — a path touching only the outer band scrapes by unharmed.
+   Spawn rows and production launches were re-measured against both
+   bubbles (plate: fully outside the drawn bubbles; drawn board: the
+   launch distance clears the bubble's rim), so no ship is ever
+   placed inside the lethal zone. The CPU's simMoveOutcome runs this
+   same test, so it never plans a suicide run into a raised shield. */
+function shieldIsUp(p){
+  if(CFG.theme!=="space" || !G || !G.bases || !G.bases[p]) return false;
+  var hp=G.bases[p].hp;
+  return (CFG.spaceBase==="forcefield" && hp>=3) || (CFG.spaceBase==="extra" && hp>2);
+}
+function shieldBubble(p){ // the bubble's ellipse, matching what is drawn (plate: the drawn bubble; drawn board: the swirly circle)
+  if(plateCfg()){ var b=PL().bubbles[p]; return {x:b.x*FW, y:b.y*FH, rx:b.rx*FW, ry:b.ry*FH}; }
+  var bc=baseCenter(p), r=BASE_W*0.63;
+  return {x:bc.x, y:bc.y, rx:r, ry:r};
+}
+function shieldCoreHit(pt, p){
+  var b=shieldBubble(p); if(!b) return false;
+  var dx=(pt.x-b.x)/(b.rx*0.6), dy=(pt.y-b.y)/(b.ry*0.6);
+  return dx*dx+dy*dy<1;
 }
 function wallBlocks(a,b,owner){
   if(CFG.theme!=="space"||CFG.spaceBase!=="wall") return false;
@@ -2980,7 +3460,7 @@ function unhorse(k, why){
   if(!k.mounted) { killThing(k,"Second hit on foot — he's out."); return; }
   if(armorAbsorb(k)) return; // FIELD PRIZES: armored knight shrugs off the unhorse and stays in the saddle
   k.mounted=false; SFX.thunk();
-  log("🐴 Unhorsed! "+playerName(k.owner)+"'s knight is on foot — walk him home to his castle to remount. "+(why||""));
+  log("🐴 Unhorsed! "+playerName(k.owner)+"'s knight is on foot — he trudges home on his own now, one step at the end of each of his owner's turns, and remounts when he reaches the castle. "+(why||""));
 }
 /* PRODUCTION (default game): a base builds/launches/trains a replacement
    fighter as a turn action, up to the Fighter Count cap, with no pool limit.
@@ -3061,8 +3541,7 @@ function endMatchDraw(why){
   crowdReact("draw");
   setTimeout(function(){
     document.getElementById("overTitle").textContent = G.sdNote ? "🕐 Lunch over — dead level!" : "🤝 Stalemate — it's a draw!";
-    document.getElementById("overText").textContent = G.sdNote ? G.sdNote+" Honours even, crayons down." :
-      "The clock ran out: the side with fighters couldn't land a base hit in "+(clockStart||"its")+" turns. Honours even, crayons down.";
+    document.getElementById("overText").textContent = G.sdNote || ""; // MINIMAL WORDING: results keep the winner line (the title) — and, for lunch-over endings, the damage tally that decided it — and nothing else;
     document.getElementById("overModal").classList.add("open");
   }, 900);
 }
@@ -3074,8 +3553,7 @@ function endMatch(winner){
   updateHUD(); draw();
   setTimeout(function(){
     document.getElementById("overTitle").textContent = "💥 "+subjectName(winner)+" "+(secondPerson(winner)?"win!":"wins!");
-    document.getElementById("overText").textContent = G.sdNote ? G.sdNote+" No base was destroyed — the base-damage tally decides it." :
-      subjPossessive(1-winner)+" base went up in a glorious crayon explosion — and every last stick-figure crew member escaped unharmed.";
+    document.getElementById("overText").textContent = G.sdNote || ""; // MINIMAL WORDING: winner line only (see endMatchDraw);
     document.getElementById("overModal").classList.add("open");
   }, 900);
 }
@@ -3102,6 +3580,14 @@ function resolveMove(u, end, vec){
   var stopAt=travel.length-1, hitSomething=null;
   for(var s=1;s<travel.length;s++){
     var pt=travel[s];
+    // SPACE FORCEFIELD (movement only, see shieldIsUp): a ship reaching
+    // a raised bubble's core — either base's, either player's — is
+    // destroyed at the point of entry. Tested before the hull so the
+    // zap (no base hit, shield untouched) is the outcome that reads.
+    if(u.kind==="ship"){
+      for(var bp2=0;bp2<2;bp2++){ if(shieldIsUp(bp2) && shieldCoreHit(pt, bp2)){ stopAt=s; hitSomething={type:"shield", owner:bp2, pt:pt}; break; } }
+      if(hitSomething) break;
+    }
     // own base zone remount (knights)
     // enemy base
     if(baseHitAt(pt, 1-u.owner)){ stopAt=s; hitSomething={type:"base", owner:1-u.owner, pt:pt}; break; }
@@ -3191,6 +3677,13 @@ function resolveMove(u, end, vec){
       if(u.kind==="tank"&&hitSomething.ob.type==="hill"){ u.x=finalPt.x; u.y=finalPt.y; log("⛰ On the hilltop! Cannon fire from here clears low cover."); }
       else if(u.kind==="tank"&&hitSomething.ob.type==="ruin"){ killThing(u,"Drove straight into a ruined building."); }
       else killThing(u,"Flew straight into a "+hitSomething.ob.type+".");
+    } else if(hitSomething.type==="shield"){
+      // THE ZAP: destroyed at the point of entry (the trace already ends
+      // there), crew out in escape pods. NO base hit is recorded and the
+      // shield does not drop, flicker or take damage — movement only.
+      u.x=finalPt.x; u.y=finalPt.y;
+      spawnEscape(u.x, u.y, 3);
+      killThing(u, hitSomething.owner===u.owner ? "Flew into its OWN forcefield — zapped at the bubble's rim! The shield doesn't even flicker." : "Flew into the enemy forcefield — zapped at the bubble's rim! No base hit — the shield doesn't even flicker.");
     } else if(hitSomething.type==="base"){
       if(u.kind==="ship"){ killThing(u,"Crashed into the enemy mothership. Heroic, but crossed out."); }
       else { u.x=travel[Math.max(0,stopAt-3)].x; u.y=travel[Math.max(0,stopAt-3)].y; log("Tanks don't ram bases — shoot it!"); }
@@ -3242,6 +3735,7 @@ function resolveShot(shooter, end, vec){
     var mzl=Math.atan2(vec.y,vec.x), tr2=shooter.r||22;
     G.particles.push({muzzle:true, vx:0, vy:0, x:shooter.x+Math.cos(mzl)*(tr2+10), y:shooter.y+Math.sin(mzl)*(tr2+10), ang:mzl, t:0, max:7, r:26});
     shooter.recoil={x:Math.cos(mzl), y:Math.sin(mzl), until:Date.now()+170};
+    shooter.readyAt=G.turnCount+3; // RELOAD RULE: stamped the moment it fires, on the firing turn's count — the owner's next turn is +2 (turns alternate), so +3 keeps it dark through that whole turn and ready again the turn after
     SFX.thunk();
     if(CFG.theme==="tanks") SFX.cannon(true); // the bunker cannon speaks too, a touch softer than a tank's own gun
     if(CFG.theme==="space" && !SETTINGS.turretHintDone){ SETTINGS.turretHintDone=true; saveSettings(); }
@@ -3377,7 +3871,6 @@ function afterAction(thing, action){
        so their turn simply ends. Turrets and production never enter
        this branch: firing one is a whole turn of its own. */
     G.fastPhase="shoot"; G.movedId=thing.id; setAction("shoot", true);
-    log("Move + Shoot: now the shot! Flick again from the same fighter (or End Turn).");
     updateHUD();
     if(CFG.mode==="1p" && G.turn===1) setTimeout(cpuTurn, 850); // CPU takes its shot phase too
     return;
@@ -3411,17 +3904,7 @@ function setAction(a, fromPhase){
     b.setAttribute("aria-pressed", on?"true":"false");
     b.classList.toggle("locked", CFG.turnStructure!=="classic");
   });
-  document.getElementById("actionHelp").textContent =
-    CFG.turnStructure==="fast" ? (G&&G.fastPhase==="shoot"?"Move + Shoot: shot phase — the fighter that moved takes the shot.":"Move + Shoot: move phase first, then the same fighter shoots.") :
-    CFG.turnStructure==="ramming" ? "Ramming: your Move flick also attacks everything it crosses." :
-    "Classic: one flick — move or shoot. Tap the selected fighter again to flip the pick.";
-  var note=document.getElementById("actionModeNote");
-  if(note){
-    note.textContent =
-      CFG.turnStructure==="fast" ? "🔀 Move + Shoot sets this switch for you: Move first, then Shoot with the same fighter." :
-      CFG.turnStructure==="ramming" ? "🏃 MOVE — in Ramming every flick moves AND attacks; there is no separate Shoot." :
-      (a==="move" ? "🏃 MOVE is picked — and stays picked until you flip it." : "💥 SHOOT is picked — and stays picked until you flip it.");
-  }
+  // MINIMAL WORDING: no sentences around the toggle — its two labels, the selection cue and the primed aim cue teach Move and Shoot by state.
 }
 document.querySelectorAll("#actionSeg button").forEach(function(b){
   b.addEventListener("click", function(){
@@ -3433,6 +3916,7 @@ document.querySelectorAll("#actionSeg button").forEach(function(b){
 function autoTurrets(p){
   if(CFG.defense!=="auto"||G.over) return;
   allTurrets(p).forEach(function(t){
+    if(!turretReady(t)) return; // RELOAD RULE: auto-defense fire stamps the same clock — a structure that fired sits out the owner's next turn
     var foes=allUnits(1-p); if(!foes.length) return;
     foes.sort(function(a,b){ return Math.hypot(a.x-t.x,a.y-t.y)-Math.hypot(b.x-t.x,b.y-t.y); });
     var f=foes[0], d=Math.hypot(f.x-t.x,f.y-t.y);
@@ -3476,6 +3960,7 @@ function endTurn(){
   var prev=G.turn;
   autoTurrets(prev);
   if(G.over) return;
+  autoWalkHome(prev); // KNIGHTS AUTO-WALK: the ending side's unhorsed knights trudge one step home before the turn passes
   // stalemate clock burns down only on the fighter-having side's own turns
   if(G.clock && G.clock.side===prev){
     G.clock.left--;
@@ -3493,29 +3978,34 @@ function endTurn(){
   G.selected=null;
   G.traces.forEach(function(t){ /* ages already advance per trace drawn */ });
   updateHUD(); draw();
-  if(CFG.mode==="2p"){
-    showPass();
-  } else if(G.turn===1){
+  /* 2P: the turn now passes SILENTLY (Matthew: "The pass and play pop up
+     showing each time is too much. Maybe just show the first turn and
+     that's it."). No popup, no modal, no tap-to-continue gate on ANY
+     turn change — flicks, launches and base-defense fire included; the
+     turn pill at the new player's end (updateHUD, above) is the signal.
+     The ONE handoff popup of a match opens with the first turn, right
+     after the coin flip (see startMatch / finishEditor). There is no
+     hidden information in this game, so nothing depended on the popup. */
+  if(CFG.mode==="1p" && G.turn===1){
     setTimeout(cpuTurn, 1000);
   }
 }
 function showPass(){
   var m=document.getElementById("passModal");
   document.getElementById("passTitle").textContent="Pass the device to "+playerName(G.turn)+"!";
-  document.getElementById("passText").textContent=playerName(G.turn)+" plays in "+PLAYER_COLORS[playerCfg(G.turn).color].name+", flicking a "+playerCfg(G.turn).flicker+" and drawing with a "+playerCfg(G.turn).medium+". No peeking at secret plans — there are none, it's paper.";
   m.classList.add("open");
 }
 document.getElementById("passOk").addEventListener("click", function(){ audioInit(); document.getElementById("passModal").classList.remove("open"); });
 document.getElementById("btnEndTurn").addEventListener("click", function(){ if(G&&!G.over&&(CFG.mode==="2p"||G.turn===0)) endTurn(); });
 document.getElementById("btnTurretFire").addEventListener("click", function(){
   if(!G||G.over) return;
-  var ready=allTurrets(G.turn); if(!ready.length) return;
+  var ready=allTurrets(G.turn).filter(turretReady); if(!ready.length) return;
   // select the first ready structure (or cycle to the next if one is picked):
   // a turret's flick is always a shot, with the normal aim cue.
   var cur=ready.filter(function(t){ return t.id===G.selected; })[0];
   var nxt=ready[(ready.indexOf(cur)+1)%ready.length];
   G.selected=nxt.id;
-  log("🔫 "+thingLabel(nxt)+" selected — "+(CFG.control==="aimed"?"drag from it and release to FIRE!":"flick from it to FIRE!"));
+  log("🔫 "+thingLabel(nxt)+" selected.");
   updateHUD(); draw();
 });
 document.getElementById("btnLaunch").addEventListener("click", function(){
@@ -3551,6 +4041,7 @@ function simMoveOutcome(u, end){
   var pts=sampleLine({x:u.x,y:u.y}, end, 5);
   for(var s=1;s<pts.length;s++){
     var pt=pts[s];
+    if(u.kind==="ship"){ for(var bs=0;bs<2;bs++){ if(shieldIsUp(bs) && shieldCoreHit(pt, bs)) return {kind:"death", t:pt.t}; } } // SPACE FORCEFIELD: the CPU plans with the same lethal-bubble core test the resolver uses — it never suicides into a raised shield
     if(baseHitAt(pt, 1-u.owner)){
       if(u.kind==="knight") return {kind: u.mounted?"basehit":"stop", t:pt.t};
       if(u.kind==="ship") return {kind:"death", t:pt.t};
@@ -3673,6 +4164,7 @@ function cpuTurn(){
   if(!fastShoot && canProduce(p) && (myUnits.length===0 || Math.random()<0.4)){ document.getElementById("btnLaunch").click(); return; }
   /* Shot candidates: honest lines at the base, fighters, turrets */
   myUnits.concat(myTurrets).forEach(function(t){
+    if(t.turret && !turretReady(t)) return; // RELOAD RULE: a structure that fired sits out its owner's next turn — the CPU's guns reload too
     if(fastShoot && t.id!==G.movedId) return; // Move + Shoot: the shot belongs to the fighter that moved
     if(fastMove && !t.turret) return; // Move + Shoot, move phase: fighters move, they don't shoot yet
     if(CFG.theme==="knights" && !t.turret) return; // knights have no ranged shot
@@ -3709,10 +4201,8 @@ function cpuTurn(){
     }
     if(u.kind==="knight"){
       if(!u.mounted){
-        var home=baseCenter(p), dh=Math.hypot(home.x-u.x, home.y-u.y);
-        addCand(u, "move", Math.atan2(home.y-u.y, home.x-u.x), Math.min(maxLen(u,"move"), dh+12), 78); // walk home to remount
-        var advK=dirToEnemy(p);
-        addCand(u, "move", Math.atan2(advK.y,advK.x)+(Math.random()-0.5)*0.8, maxLen(u,"move")*0.7, 18);
+        // AUTO-WALK: no candidates — an unhorsed CPU knight is not flicked
+        // anywhere; he trudges home on his own at the end of the CPU's turns.
       } else {
         addCand(u, "move", Math.atan2(foeBase.y-u.y, foeBase.x-u.x), Math.min(maxLen(u,"move"), dB), clockPush?115 : latePush?102 : 64); // charge the castle
         foes.forEach(function(f){ var d=Math.hypot(f.x-u.x,f.y-u.y); if(d<maxLen(u,"move")+22) addCand(u, "move", Math.atan2(f.y-u.y,f.x-u.x), Math.min(maxLen(u,"move"), d), 52); });
@@ -3771,12 +4261,15 @@ function cpuTurn(){
 var input={down:false, sx:0, sy:0, x:0, y:0, t:0, thing:null, preview:null, path:[], pan:null};
 function toLogical(e, canvas){
   var r=canvas.getBoundingClientRect();
-  return { x:(e.clientX-r.left)*(canvas.width/r.width), y:(e.clientY-r.top)*(canvas.height/r.height) };
+  var cx=(e.clientX-r.left)*(canvas.width/r.width), cy=(e.clientY-r.top)*(canvas.height/r.height);
+  if(canvas===cv && PRES_ROT){ return { x:cy, y:FH-cx }; } // inverse of the landscape presentation (screen (FH-y, x) -> board (x, y)): flicks, drag previews, taps and selections land where the player touched
+  return { x:cx, y:cy };
 }
 function pickThing(pt, p){
   var best=null, bd=40;
   G.units[p].concat(G.turrets[p]).forEach(function(t){
     if(!t.alive) return;
+    if(t.kind==="knight" && !t.mounted) return; // AUTO-WALK: an unhorsed knight is never selectable for movement — he trudges home on his own at the end of his owner's turns (autoWalkHome, in the turn flow)
     var d=Math.hypot(t.x-pt.x,t.y-pt.y); if(d<bd){ bd=d; best=t; }
   });
   return best;
@@ -3814,7 +4307,7 @@ setupPointer(cv, {
     if(t && CFG.turnStructure==="fast" && CFG.theme!=="knights" && G.fastPhase==="shoot" && t.id!==G.movedId){
       // MOVE + SHOOT: the shot phase belongs to the fighter that moved —
       // nothing else can be flicked until the shot is taken or the turn ends.
-      log("Move + Shoot: the shot belongs to the fighter that just moved — flick from it, or End Turn to skip the shot.");
+      log("Move + Shoot: the shot belongs to the fighter that moved.");
       t=null;
     }
     if(t){ input.flipArmed = (G.selected===t.id) && modeChoiceApplies(t); // a plain re-TAP (no drag) on the picked fighter flips Move/Shoot on release
@@ -3825,6 +4318,7 @@ setupPointer(cv, {
     if(!input.down||!input.thing) return;
     input.x=pt.x; input.y=pt.y; input.path.push(pt);
     var t=input.thing;
+    if(t.turret && !turretReady(t)){ draw(); return; } // RELOAD RULE: no aim cue from a structure that cannot fire — the fire prompt never invites a reloading gun
     if(CFG.control==="aimed"){
       var dx=pt.x-t.x, dy=pt.y-t.y, L=Math.hypot(dx,dy), cap=maxLen(t, effectiveAction(t));
       var cl=Math.min(L,cap);
@@ -3878,7 +4372,7 @@ function flipModeIfArmed(){
   var t=input.thing;
   if(!modeChoiceApplies(t)) return;
   setAction(G.action==="move" ? "shoot" : "move");
-  log("🔀 Tapped again — flipped to "+(G.action==="move"?"🏃 MOVE":"💥 SHOOT")+". The pick sticks until you flip it.");
+  log("🔀 "+(G.action==="move"?"🏃 MOVE":"💥 SHOOT"));
   updateHUD();
 }
 function effectiveAction(t){
@@ -3890,6 +4384,7 @@ function effectiveAction(t){
 }
 function doAction(t, act, end, dir){
   if(G.over) return;
+  if(act==="shoot" && t.turret && !turretReady(t)){ log("That defense is still reloading — it fired on its last turn and needs this one to reload. It can fire again next turn."); SFX.pop(); return; } // RELOAD RULE: a reloading (or destroyed) structure can never be fired, whoever asks
   if(CFG.turnStructure==="fast" && CFG.theme!=="knights" && G.fastPhase==="shoot" && t.id!==G.movedId) return; // Move + Shoot: only the moved fighter may act in the shot phase
   // Ramming preset: a move whose path crosses enemies also damages them
   if(act==="move"){ resolveMove(t, end, dir); if(CFG.turnStructure==="ramming") rammingHits(t,end); return; }
@@ -3929,7 +4424,7 @@ function showEditorBar(){
     [32,44,58].forEach(function(s){ var b2=document.createElement("button"); b2.className="btn small"+(G.editor.stampSize===s?" gold":""); b2.textContent=s;
       b2.addEventListener("click", function(){ G.editor.stampSize=s; showEditorBar(); }); bar.appendChild(b2); bar.appendChild(document.createTextNode(" ")); });
   } else {
-    bar.innerHTML="<b>Freehand:</b> draw a closed blob (roughly round, at least a coin across). It becomes a "+(CFG.theme==="space"?"asteroid":CFG.theme==="knights"?"forest":"hill")+". Budget: up to 8 obstacles, middle zone only, no overlaps.";
+    bar.innerHTML="<b>Freehand:</b> draw a closed blob.";
   }
   var clear=document.createElement("button"); clear.className="btn small"; clear.textContent="🗑 Clear field";
   clear.addEventListener("click", function(){ G.obstacles=[]; draw(); });
@@ -3985,7 +4480,7 @@ function finishEditor(){
   fitBoard(); // the editor bar leaves the stage — the board grows back
   updateHUD(); draw();
   if(SETTINGS.tutorialSeen===false && CFG.mode==="1p"){ landCoin(); startCoach(); if(CFG.mode==="1p"&&G.turn===1) setTimeout(cpuTurn,1200); }
-  else { showCoinFlip(function(){ if(CFG.mode==="1p"&&G.turn===1){ setTimeout(cpuTurn,650); } }); }
+  else { showCoinFlip(function(){ if(CFG.mode==="1p"&&G.turn===1){ setTimeout(cpuTurn,650); } else if(CFG.mode==="2p"){ showPass(); } }); } // 2P: the match's ONE handoff popup opens with the first turn, as the flip card closes }
 }
 
 /* ============================================================
@@ -3994,11 +4489,12 @@ function finishEditor(){
 var coachActive=false, coachStep=0;
 var COACH_LINES=[];
 function startCoach(){
+  return; // MINIMAL WORDING (Oct 26, 2026): the margin coach is retired — Move and Shoot teach themselves through state (the selection cue, the primed aim cue, the toggle's two labels), not sentences. The tutorial branch in startMatch still lands the coin and kicks off a CPU first turn itself.
   COACH_LINES=[
     "Hi! I'm your margin coach. ✎ First flick: tap one of your fighters at your end, then "+(CFG.control==="aimed"?"drag away from it and let go":"flick outward from it")+" to MOVE. Try it!",
     "Nice! Moving draws a trace — traces stay and fade, and they never block anything. Next: "+(CFG.theme==="knights"?"knights can't shoot — CHARGE is move + attack in one.":CFG.turnStructure==="fast"?"that SAME fighter now shoots — flick from it again and take the shot.":"pick Shoot up top, tap a fighter, and flick a SHOT at something."),
     CFG.theme==="space" ? "Space secret: shots TUNNEL through asteroids, carving holes. And the mothership's forcefield is just hit 1 of 3 — pop it early!" :
-    CFG.theme==="knights" ? "Knights secret: charge the castle and you score a hit — but the impact unhorses you. Then it's a brave walk home through arrow range to remount." :
+    CFG.theme==="knights" ? "Knights secret: charge the castle and you score a hit — but the impact unhorses you. Then he trudges home on his own, one step at the end of each of your turns, through arrow range to remount." :
     "Tanks secret: Heavy Mortars lob OVER hills and ruins and skip the bunker's sandbags entirely. Light Cannons are fast but blocked by cover — unless you're on a hilltop!",
     "Last thing: the enemy base falls in 3 hits. You never have to mop up their fighters. Now go win it — I'll be in the margin if you need me. (How to Play has the full rules.)"
   ];
@@ -4025,7 +4521,7 @@ document.getElementById("coachSkip").addEventListener("click", function(){ coach
 function showView(id){
   ["viewSetup","viewGame","viewPractice"].forEach(function(v){ document.getElementById(v).style.display = v===id ? (v==="viewGame"?"flex":"block") : "none"; });
   window.scrollTo(0,0);
-  if(id==="viewGame") fitBoard(); // the one-screen stage sizes the board to the space it actually has
+  if(id==="viewGame") refreshPresentation(); // the one-screen stage sizes the board to the space it actually has — and turns the sheet if the stage is wide
 }
 /* ============================================================
    THE COIN FLIP, MADE VISIBLE (Oct 26, 2026). The game has flipped
@@ -4093,7 +4589,7 @@ function startMatch(){
   log("✏️ "+CFG.theme.toUpperCase()+" battle on "+PAPERS.filter(function(x){return x.id===CFG.paper;})[0].label+". Base footprint is capped and identical for both sides — the fight is won in the middle of the page.");
   if(needEditor){ startEditor(); }
   else if(!SETTINGS.tutorialSeen && CFG.mode==="1p"){ landCoin(); startCoach(); if(CFG.mode==="1p"&&G.turn===1){ setTimeout(cpuTurn,1200); } } // tutorial match: no ceremony, the coach owns the opening — the flip still decided who starts, and the quarter still lands on the paper
-  else { showCoinFlip(function(){ if(CFG.mode==="1p"&&G.turn===1){ setTimeout(cpuTurn,650); } }); } // the CPU's first turn starts only once the flip card is gone — never soft-locked behind it
+  else { showCoinFlip(function(){ if(CFG.mode==="1p"&&G.turn===1){ setTimeout(cpuTurn,650); } else if(CFG.mode==="2p"){ showPass(); } }); } // 2P: the match's ONE handoff popup opens with the first turn, as the flip card closes } // the CPU's first turn starts only once the flip card is gone — never soft-locked behind it
   updateHUD(); draw();
 }
 document.getElementById("btnQuit").addEventListener("click", function(){
@@ -4135,34 +4631,25 @@ document.getElementById("btnBackResults").addEventListener("click", function(){
 /* ---------- How to Play ---------- */
 function howHTML(){
   var themeRules = CFG.theme==="space" ?
-    "<h3>🚀 Space</h3><p>Ships die in "+CFG.shipHp+" hit(s). Shots <b>tunnel through asteroids</b>, carving holes (variation: block / destroy). Flying into an asteroid, a ship, or a wall destroys your ship; ship-vs-ship collisions destroy both. The <b>mothership forcefield is hit 1 of 3</b> — it flashes, ripples, and drops; hit 2 cracks and burns; hit 3 blows it. Two player-fired gun turrets stand guard beside it — <b>on your turn they pulse gold because they can SHOOT</b>: tap one, then flick from it, exactly like firing a fighter (there's a Fire button in the turn card too). Default edge: ships and shots <b>wrap</b> around the sides of space.</p>" :
+    "<h3>🚀 Space</h3><p>Ships die in "+CFG.shipHp+" hit(s). Shots <b>tunnel asteroids</b>, carving holes (Variants: block, destroy). Flying into an asteroid, a ship or a wall wrecks the ship; two ships colliding wreck both. The <b>forcefield is hit 1 of 3</b>. While it is UP, flying into its <b>core</b> zaps any ship at the rim — band grazes pass — scoring <b>no base hit</b> and leaving the shield untouched; shots still count it as hit 1. Turrets <b>pulse gold</b> when they can fire: tap one, flick, like a fighter. Fired, a turret <b>reloads through your next turn</b> — dim grey, then gold; each reloads alone. Ships and shots <b>wrap</b> the edges.</p>" :
     CFG.theme==="knights" ?
-    "<h3>🏰 Knights</h3><p>Knights have <b>no ranged shot</b> — the flick is a <b>charge</b>. Crossing an enemy knight unhorses him; reaching the castle scores a hit <b>and unhorses the charger</b>. On foot: short walk flicks, can't hurt the castle, one more hit and he's out. Touch your own castle to <b>remount</b>. Archer towers fire arrows as your turn action. <b>Rocks</b> block charges and arrows and unhorse on impact. <b>Forests</b> never slow or stop a charge — ride straight through at full distance. But <b>end your move inside one</b> and you are sheltered: only <b>1-in-4</b> arrows get through the trees.</p>" :
-    "<h3>🛡️ Tanks</h3><p><b>Light Cannon:</b> fast long flicks, straight shells blocked by hills and ruins, dies in 1 hit. <b>Heavy Mortar:</b> slow short flicks, lobs a shell that arcs <b>over</b> everything and bursts at its landing point; takes 2 hits (first leaves it smoking and slower). <b>Heavier tank wins a ram.</b> Hills are drivable high ground: crossing cuts your distance to <b>three-quarters</b>, but from the top a cannon fires over low cover. The bunker's <b>sandbags absorb the first straight cannon hit</b> — mortars skip them entirely.</p>";
-  return "<p><b>The heart of it:</b> flick your fighters across the paper. Blow up the <b>enemy base in 3 hits</b> to win — you never have to mop up their fighters.</p>"+
-  "<p><b>🏭 Production (the default game):</b> losing fighters never ends your game by itself. Instead of moving or shooting, spend your turn action to <b>build a new fighter at your base</b> — a ship launches, a knight trains, a tank rolls out — as long as you're below your <b>Fighter Count cap</b>. There's no total pool limit; production is how you refill. The request button sits <b>on the base itself</b>: a disc in your color with a ＋ when a fighter can be requested — <b>tap it</b>. After a build it counts the cooldown down in <b>pips</b> (one per turn of waiting); a quiet bar means you're at your cap. One catch: <b>production has a cooldown</b> — after a base builds a fighter, it can't build again on your next turn; the turn after, it's ready. (Variants can change this: Launch Bay starts you with half your force, and <b>Hardcore</b> turns production off entirely.)</p>"+
-  "<p><b>⏱ The stalemate clock:</b> when a side loses its last fighter, the clock starts for the side that still has fighters: it has <b>its surviving fighters + 2</b> of its own turns to land a hit on the enemy base — <b>1 fighter left = 3 turns, 2 = 4, 3 = 5</b> — so the side that played defensively and kept its fleet earns the longer chance. The count is set from the fleet standing at the moment the clock starts; fighters lost while it runs <b>don't shrink it</b>, and if the clock clears and later re-arms, it counts the fleet standing then. The turn bar counts it down in big numbers (DRAW IN 5… 4… …), turning red and pulsing at 2 and 1. Land a hit and the clock clears — play continues, and it can re-arm later. If the fighter-less side simply <b>builds a replacement fighter</b>, it's not fighter-less any more and the clock clears on the spot — and a fighter-less side whose production is only on cooldown still counts as able to act, so the clock never punishes it for waiting one turn. Run out of turns with no base hit and the match is a <b>draw</b>, not a win for the camper. One hard edge: a side that can take <i>no action at all</i> — no fighters, no functioning turrets/towers/cannons, and no way to build or launch one, now or after cooldown (Hardcore, or an empty Launch Bay) — <b>loses immediately</b>; that beats the clock.</p>"+
-  "<p><b>🕐 The lunch clock:</b> the analog school clock in the corner of the paper starts at <b>12:00</b> and ticks <b>one minute per turn</b>. A standard lunch is <b>60 turns</b> — when the clock reaches <b>1:00, lunch is over</b>: if no base has fallen, the side that dealt <b>more total base damage</b> wins (every landed hit counts, shield pops included — the forcefield is hit 1 of 3); level damage is a <b>draw</b>. The clock's <b>final 10 minutes run red</b>, and the red stretch is always marked faintly on the dial, so the end never ambushes anyone. Variants sets the lunch: <b>Short Lunch</b> (30 turns), <b>Long Lunch</b> (120 turns, out at 2:00), or your own number of turns. The clock is furniture, too: its corner of the paper is <b>out of play for movement</b> — fighters bump to a stop there, though shots fly right under it.</p>"+
-  "<p><b>A turn (Move + Shoot, the standard):</b> tap one of your fighters and flick to <b>move</b> it — then flick from <b>that same fighter</b> to <b>shoot</b>. One fighter takes both halves of the turn. Firing a defense structure instead, or spending the turn on production, is a whole turn of its own. Knights skip all this: their charge moves and hits in one flick. (Variants offers the old <b>Classic</b> structure instead: move OR shoot, one flick.) Traces stay on the paper and fade; the newest is always darkest; traces never collide.</p>"+
-  "<p><b>🪙 The quarter:</b> a real <b>1985 quarter</b> decides who goes first, every match — <b>heads</b> (Washington), the bottom player starts; <b>tails</b> (the eagle), the top player. Watch the flip card when a match (or a Rematch) starts. Then the quarter <b>stays on the paper</b> where it landed for the rest of the match: a <b>movement-only barrier</b> — fighters bump to a stop against it, but shots pass right over a coin lying flat, and it never hurts anyone.</p>"+
-  "<p><b>🪞 Mirrored boards:</b> on the drawn plate boards, a match can start flipped left-for-right — artwork, obstacles, bases and rescue spots all flip together, and a 🪞 Mirrored board tag shows when it happens. Board layout in Variants picks Random mirror (a fresh coin flip each match), As drawn, or always Mirrored.</p>"+
-  "<p><b>🎲 Roll random rules:</b> tap Random on the setup screen (or in Variants) for a surprise match — it checks a whole pack of rule variants at once and shows you what you got, and you can re-roll or tweak before you start. The roll never changes your theme or controls, and a Rematch keeps the pack you rolled.</p>"+
-  "<p><b>🖥 One screen:</b> the whole match fits on one screen — no scrolling, nothing to pan to. Drag from your fighter to flick it. Words live off the paper: in the ☰ Menu (How to Play, the Battle Log &amp; Match Card) and the turn bar.</p>"+
-  "<p><b>⚔️ Momentum:</b> a <b>movement</b> flick aimed <b>toward the enemy base travels farther</b> — up to <b>20% farther</b> flicking straight at it (1.20x), fading to no boost sideways, and <b>never a penalty</b> backward. Knights charges count (their movement is their attack); <b>shots do not</b> — Space and Tanks guns and turret fire keep their exact ranges. The aim preview shows the true boosted distance, and the Tanks hill cost still stacks on top.</p>"+
-  "<p><b>🧱 Breach:</b> every hit that lands on a base — <b>the Space forcefield hit counts</b> — also brings down the <b>nearest still-standing defense structure</b> guarding that base: a gun turret, archer tower or bunker cannon, its crew escaping as usual. If no structure stands, nothing extra happens. Momentum and Breach are one package — the <b>Siege Momentum</b> switch in Variants turns both off for the classic game.</p>"+
-  "<p><b>🪶 Forgiving edges:</b> clip an obstacle's edge and you scrape by; hit it square and it wrecks you. A move only counts as a hit when it reaches the <b>middle</b> of a rock, ruin or asteroid — the outer band is a free scrape, and your move completes. (Shots are not forgiven: they still strike the whole obstacle.)</p>"+
-  "<p><b>🔓 Prisoner rescue:</b> free your captured teammate in the enemy half to gain a fighter beyond your limit. One teammate per side is held in a pod, cage or pen whose flag or plume flies in your color; any of your fighters whose <b>move</b> crosses the spot frees them, and they join you right there as a fresh fighter — <b>above the production cap</b> (your base still only builds while you're below it). One rescue per side per match; enemies can't free or harm yours, and shots pass right over the spot.</p>"+
-  "<p><b>⭐ The armor star:</b> grab the golden star at the center of the board and that fighter shrugs off one hit. The first blow that would damage, unhorse or wreck that fighter is eaten by the armor instead, and then it's spent. The star is gone once taken, and lost armor never drops or transfers. Rescue and star are one package — the <b>Field prizes</b> switch in Variants turns both off.</p>"+
-  "<p><b>🏃/💥 The Move / Shoot switch:</b> the big two-sided switch in the turn card shows the current action (blue for Move, red for Shoot). In the standard <b>Move + Shoot</b> game it follows the turn for you — Move first, then Shoot with the same fighter — and says so. In the <b>Classic</b> variant the choice is yours: the pick <b>stays picked</b> for your next fighter and your next turn until you flip it, and <b>tapping the already-selected fighter again</b> flips it. Either way the flick's aim cue follows the switch (fine dots = Move, long dashes = Shoot), so what it shows is what the flick does. Knights charge (move + hit in one) and Ramming flicks don't split Move and Shoot at all.</p>"+
-  "<p><b>🏁 After the whistle:</b> the results screen has a <b>View Board</b> button — it hides the results and shows the final board exactly as the match ended, traces, damage, wrecks and survivors in place. It's look-only; <b>Back to results</b> returns you to Rematch / Change setup / View Board.</p>"+
+    "<h3>🏰 Knights</h3><p>Knights have <b>no shot</b> — the flick is a <b>charge</b>. Crossing an enemy unhorses him; reaching the castle scores a hit and unhorses the charger. On foot he cannot hurt the castle, and one more hit puts him out — but he <b>trudges home alone</b>: one step at the end of each of your turns (rocks block, forests don't slow), <b>remounting</b> on arrival. Towers fire arrows as your turn action, then <b>reload through your next turn</b> — dim, then gold. <b>Rocks</b> block charges and arrows. <b>Forests</b> never stop a charge; end inside one and only <b>1-in-4</b> arrows get through.</p>" :
+    "<h3>🛡️ Tanks</h3><p><b>Light Cannon:</b> fast, long, straight shells — hills and ruins block; 1 hit kills. <b>Heavy Mortar:</b> slow, short, lobs over everything, bursts on landing; 2 hits, smoking and slower after the first. <b>Heavier tank wins a ram.</b> Hills: crossing costs a quarter of the move; from the top, cannon fire clears low cover. <b>Sandbags</b> absorb the bunker's first straight hit — mortars skip them. The bunker cannon fires as your turn action, then <b>reloads through your next turn</b>.</p>";
+  return "<p><b>The heart of it:</b> flick your fighters across the paper. Blow up the <b>enemy base in 3 hits</b> — never mop up their fighters.</p>"+
+  "<p><b>A turn (Move + Shoot):</b> flick one fighter to <b>move</b>, then flick the <b>same fighter</b> to <b>shoot</b>. Firing a structure, or building, is a whole turn instead. <b>Classic</b> (Variants): move or shoot, one flick. Traces stay and fade; they never collide.</p>"+
+  "<p><b>🏭 Production:</b> spend a turn to <b>build a fighter</b> at your base, up to your cap. The disc on the base's <b>back corner</b>: ＋ ready, <b>pips</b> cooling down (one turn), quiet bar at cap. Launch Bay starts you at half; Hardcore builds nothing.</p>"+
   themeRules+
-  "<h3>The fair-base rule</h3><p>Every base — mothership, castle, bunker — uses the <b>same modest, capped footprint</b> for both players, centered inside its own base zone (the end 12% of the sheet). Bases never stick out into the battlefield, can't be resized or moved. Battles are won in the middle of the page.</p>"+
-  "<h3>Defense structures stand apart — and block</h3><p>Gun turrets, archer towers, and bunker cannons are <b>freestanding structures in front of the base</b>, guarding the approach — not attached to it. They are <b>obstacles</b>: a fighter whose move trace reaches one resolves exactly like hitting an obstacle (a ship or tank is wrecked — the heavier-tank-wins rule does <i>not</i> apply to structures; a knight's charge stops and unhorses him), whether the structure is the enemy's or your own. Shots still destroy them in 1 hit, as before. Thread the gap between them, or shoot them down first.</p>"+
-  "<h3>Tools are real — and shared</h3><p><b>Both players always use the same flicker and the same drawing medium</b> — one shared choice per match, picked in Variants; the CPU uses them too. Traces and beams are identical in type, texture and width on both sides; <b>only the color differs</b>. <b>Pencil</b> traces are thin and precise (thread gaps, must truly touch). <b>Crayon</b> is fat and wobbly (clips easily, clumsy in gaps). <b>Pen</b> is in between. The shared flicker (pencil/pen) changes the feel for everyone: a pen flick is steadier than a pencil flick.</p>"+
-  "<h3>Active switches this match</h3><p>Turn structure: <b>"+CFG.turnStructure+"</b> · Control: <b>"+CFG.control+"</b> · Friendly fire: <b>"+CFG.friendly+"</b> (default Partial: your shots can hit your own fighters, never your own base) · Edge: <b>"+CFG.edge+"</b> · Obstacles: <b>"+CFG.obstacle+"</b> · Deployment: <b>"+CFG.deployment+"</b> · Defense: <b>"+CFG.defense+"</b> · Siege Momentum: <b>"+(CFG.siege?"on":"off")+"</b> · Field prizes: <b>"+(CFG.prizes?"on":"off")+"</b>.</p>"+
-  "<p>When <i>any</i> structure is destroyed — mothership, castle, bunker, turret, tower, or cannon — its crew escapes on screen, completely unharmed: on land, little stick figures run out and flee off the paper; in Space, the crew ejects in tiny escape pods that bob away into the margin. It's paper. Everyone's fine.</p>";
+  "<p><b>🕐 Two clocks.</b> <b>Lunch:</b> one minute per turn from 12:00; 60 turns (Variants 30, 120, custom) ends it — <b>most base damage wins</b>, level draws. The last 10 minutes run red. Its corner is out of play for movement; shots pass under. <b>Stalemate:</b> lose your last fighter and the other side has <b>its fighters + 2</b> of its turns to land a base hit, else a draw — a hit, or building a replacement, clears it. A side that can do nothing at all loses at once.</p>"+
+  "<p class=\"howPage2\"><b>🪙 The quarter:</b> a <b>1985-P</b> flips for first player each match — heads (Washington, left-facing, ponytail with a ribbon bow, 1985 along the bottom, tiny P mint mark), bottom starts; tails (eagle, wings raised, E PLURIBUS UNUM between them), top starts. It then lies on the paper all match: movement bumps to a stop on it; shots pass over.</p>"+
+  "<p><b>⚔️ Momentum &amp; Breach:</b> movement flicks toward the enemy base travel up to <b>20% farther</b>; never a penalty backward; shots unboosted — the preview shows the true distance. Each base hit also destroys that base's <b>nearest standing structure</b>.</p>"+
+  "<p><b>🪶 Forgiving edges:</b> a move wrecks only on an obstacle's <b>core</b>; clip the outer band and you scrape by. Shots take the whole obstacle.</p>"+
+  "<p><b>🔓⭐ Field prizes:</b> a captured teammate waits in the enemy half — any fighter whose move crosses the spot <b>frees</b> them, a fresh fighter <b>above your cap</b> (one per side). The golden <b>star</b> at center: the first fighter across it shrugs off the first hit that would damage, unhorse or wreck it.</p>"+
+  "<p><b>Bases &amp; structures:</b> every base shares one <b>capped footprint</b> in its end zone; battles are won in the middle. Structures stand in front of the base and <b>block like obstacles</b> — ram one and you wreck (knights unhorse); shots destroy them in one hit. Crews of anything destroyed <b>escape unharmed</b>: stick figures on land, escape pods in space.</p>"+
+  "<p><b>🏃/💥 The switch &amp; tools:</b> the Move/Shoot switch sets itself in Move + Shoot; in Classic your pick sticks until flipped — <b>tap the selected fighter again</b> to flip. The aim cue follows: dots move, dashes shoot. Tools are <b>shared</b> — same flicker, same medium both sides: pencil thin and precise, crayon fat and wobbly, pen between. Only color differs.</p>"+
+  "<p><b>🖥 One screen:</b> no scrolling; on wide screens the sheet turns <b>landscape</b> — the clock alone stays upright. <b>2P:</b> a pill in the current player's color sits at their end; their base and disc pulse with it. Plate boards can <b>mirror-flip</b> as one (Variants). Results offer <b>View Board</b> — the final board, look-only. <b>Random</b> rolls a pack of variants; a Rematch keeps it.</p>"+
+  "<p><b>This match:</b> turn structure <b>"+CFG.turnStructure+"</b> · control <b>"+CFG.control+"</b> · friendly fire <b>"+CFG.friendly+"</b> · edge <b>"+CFG.edge+"</b> · obstacles <b>"+CFG.obstacle+"</b> · deployment <b>"+CFG.deployment+"</b> · defense <b>"+CFG.defense+"</b> · Siege Momentum <b>"+(CFG.siege?"on":"off")+"</b> · Field prizes <b>"+(CFG.prizes?"on":"off")+"</b>.</p>";
 }
-function openHow(){ document.getElementById("howBody").innerHTML=howHTML(); document.getElementById("howModal").classList.add("open"); }
+function openHow(){ document.getElementById("howBody").innerHTML=howHTML(); var hm=document.getElementById("howModal"); hm.classList.remove("howPage2"); document.getElementById("howTab1").classList.add("gold"); document.getElementById("howTab2").classList.remove("gold"); hm.classList.add("open"); }
 
 /* ---------- Settings modal wiring ---------- */
 function syncSettingsUI(){
@@ -4200,6 +4687,14 @@ document.querySelectorAll("[data-close]").forEach(function(b){
 
 /* ---------- Dev Log ---------- */
 document.getElementById("devBody").textContent =
+"Oct 26, 2026 (night, latest) — RELOAD, CORRECTED BEFORE ANYONE HAD TO FIND IT IN PLAY. Drive-testing the new turret reload end to end caught an off-by-one in its arithmetic: the reload stamp was set two turns out from the firing turn, but because turns alternate, the owner's next turn IS two counts later — so the stamp expired exactly as that turn began and the structure was, in practice, never actually dark. The stamp now sits three counts out: fire on your turn, the structure spends your ENTIRE next turn reloading (dim grey veil, no aim preview, no Fire prompt, a flick with it refused), and it is gold and ready again the turn after — for player-fired and automatic defense fire alike, since both run through the same shot resolver. Everything else in the reload entry below stands as written.\n\n————————————————\n\n" +
+"Oct 26, 2026 (night, latest) — SHORT-LANDSCAPE PAGES. The fit pass's last holdouts were the two deep panels on a short landscape screen (a phone on its side): at readable sizes the full Variants drawer and the full How to Play simply hold more than a 390-pixel-tall panel can show at once, and squeezing them smaller would have made the words a rumor. So on short landscape screens only, those two panels page by name-tabs instead of ever scrolling: Variants opens on Rules (presets and the headline choices), with Switches and Tools & field tabs beside it; How to Play opens on Basics with a More tab. Every control and paragraph is exactly one tap away, nothing scrolls anywhere, and on any taller screen — the iPad included — both panels show everything at once in their columns, tabs hidden, exactly as the previous entry describes. The setup screen squeezes its theme cards and player chips into single rows at that size for the same reason.\n\n————————————————\n\n" +
+"Oct 26, 2026 (night, latest) — THE FIT PASS. Follow-up to the landscape-panels work above: measured honestly, three panels still overflowed a short landscape screen on first layout (Variants, How to Play, the setup card), so the packing got denser rather than the claims softer. How to Play was rewritten telegram-tight — every rule kept, the sentences cut to the bone (roughly a quarter of its former length); the Variants drawer packs five columns with compact controls and lets its two composite groups flow across columns; the Dev Log's landscape columns got smaller; the setup card goes three columns on short screens; and the portrait phone start screen compacts its theme cards into one row so the start screen fits its screen too. Verified by re-driving every screen and panel at 1180x820, 844x390 and 390x844 and asserting zero document or panel overflow anywhere.\n\n————————————————\n\n" +
+"Oct 26, 2026 (night, latest) — MINIMAL WORDING, AND MENUS THAT LIVE IN THE LANDSCAPE.\n\n1) MINIMAL WORDING (Matthew: 'The menu and any wording should be minimal. Even move and shoot should be obvious from the play style.'). A pass over the whole game removed instructional and explanatory sentences from the match view and the menus. The turn bar loses the sentences around the Move/Shoot toggle (the toggle stays, with its two short labels only), the 'Nothing selected — tap one of your…' line (selection now shows just the piece's name, and its drawn cue does the talking), the hint line, and the charge note shrinks to a label. Move and Shoot teach themselves through state: selecting a fighter shows its move cue; once it has moved, the same fighter sits primed with the aim cue, which reads as Shoot. A turret's invitation is its golden glow — the fire control keeps only a short label ('Fire turret'). The margin coach is retired: its sentences are exactly what this pass removes, and the tutorial opening still lands the coin and starts play without it. The pass popup is its title alone. Results keep the winner line and, for lunch-over endings, the damage tally that decided it — nothing else. Menu lists are item names only; Variants and Settings keep the names of the choices themselves (those words ARE the controls) and lose every explanatory paragraph around them — preset blurbs, rules explainers, the tools essay, all gone; dropdown options are names too. How to Play remains the one place explanation lives, tightened. The Dev Log is exempt, as a log by nature.\n\n2) MENUS IN THE LANDSCAPE (Matthew: 'I would like the menu to be incorporated as much as possible into the landscape. I don't want anything on the screen to have to scroll.'). In landscape, every panel is designed into the wide space: modals go wide and lay their content out in columns — How to Play in three columns, the Variants drawer in three columns of control groups, Settings in two — and the Battle Log & Match Card panel runs wide with the log beside the card. Nothing scrolls: no page scroll, no panel scroll, no scrollable sub-regions. Content that can grow is sized to its panel instead: the Battle Log shows its most recent entries fitted to the panel, and the Dev Log opens in small three-column type showing its newest entries. The setup screen goes wide as well — title row, a two-column card, one button row, the whole start screen inside the viewport — and the practice sheet sizes itself by screen height. Portrait keeps today's one-screen, scroll-free behavior untouched. Verified by driving every screen and panel at 1180x820 and 844x390 and asserting no document or panel scroll anywhere, portrait included.\n\n————————————————\n\n" +
+"Oct 26, 2026 (night, latest) — KNIGHTS WALK HOME ON THEIR OWN (Matthew's rule change, approved in play). Manual walk flicks for unhorsed knights are GONE, replaced by AUTO-WALK: an unhorsed knight is no longer selectable for movement at all — nobody, human or CPU, spends a flick on him. At the END of each of his owner's turns, every unhorsed knight of that side automatically trudges one step toward his own castle: one foot-pace (145, the old walk flick's full length) in a straight line. A rock blocks the way and he stops short of it; forests do not slow him — he is on foot. The step is pure travel: it damages nothing, unhorses nobody and triggers no combat, even if it passes an enemy. Each step shows as a short trace and a quick slide of the piece, with soft walking hoofbeats, so both players see him trudging without turns dragging. When a step brings him to his own castle he remounts at full charging strength and is a normal selectable knight again from his owner's next turn. Everything else about being on foot is unchanged: he still cannot hurt the castle or towers, and a second hit while he travels — a tower arrow during the opponent's turns included — still puts him out. The CPU's unhorsed knights auto-walk identically (its planner no longer wastes candidates walking them home). How to Play and the unhorsing message now say remounting is automatic.\n\n————————————————\n\n" +
+"Oct 26, 2026 (night, latest) — THE FORCEFIELD IS LETHAL TO FLY INTO (Matthew: 'If you move your ship into the force field that should kill your ship.'). Space only, and movement only. While a mothership's forcefield is UP, its shield bubble kills any ship — either player's — whose movement path reaches the bubble's core: the ship is destroyed at the point of entry, its trace ends there, and its crew bails out in escape pods. The test is the game's forgiving obstacle-edge test, the core being the central 60% of the bubble: a path that touches only the outer band scrapes by unharmed. The zap scores NO base hit and does NOT drop or damage the shield — a shot hitting the shield remains base hit 1 exactly as before, because this is a movement collision, never a shot outcome. Flying into your OWN raised bubble kills you just the same. When the shield is down there is no forcefield and the rule sleeps; the wall and no-shield Space variants have no bubble and are untouched, the mothership hull behaves as it always has, and Knights and Tanks (no forcefields) are unchanged. The CPU's flick simulation runs the identical core test and scores it as death, so it plans around a raised bubble and never suicides into one. And no ship is ever placed inside the lethal zone: spawn rows and production launch positions were re-measured against both bubbles — on the plate they land fully outside the drawn bubbles, and on the drawn board the launch distance clears the bubble's rim — so a fresh ship never starts inside the field it would die flying into.\n\n————————————————\n\n" +
+"Oct 26, 2026 (night, latest) — THE RESERVE DISC MOVES TO THE BACK OF THE BASE, AND TURRETS GET A RELOAD TURN.\n\n1) THE REINFORCEMENTS DISC MOVED (Matthew, from live 2P play: 'The reserve button is too close to the active ships. We've pressed it a bunch of times by accident. Can we move it to a different part of the ship?'). It sat in front of the base, dead center — exactly where that side's fighters spawn and gather, so taps aimed at fighters kept landing on it. It still lives ON the base (that placement is a standing rule), but now it sits on the base's BACK corner: the end farthest from the enemy, away from the spawn lane, with clear water between the disc and every fighter tap target and the defense structures, which all stand on the base's front. The same back-corner logic serves all three bases (mothership, castle, HQ), both sheet orientations and mirrored matches — everything derives from the base center and the toward-enemy direction, which already carry the mirror. Behavior untouched: owner color, a tap requests a reinforcement, cooldown pips and the at-cap quiet state as before. Driven taps confirm fighters parked near the base select cleanly without ever triggering production, and tapping the disc itself still builds.\n\n2) TURRETS: DIAGNOSED FIRST (Matthew: 'The turrets don't seem to be working.'). Driven end to end in all three themes through the real pointer path (tap the structure, drag, release): the Space gun turrets, the Knights archer tower and the Tanks bunker cannon all fire — the projectile resolves, hits and damages (a parked ship crossed out, a knight unhorsed by the arrow, a light tank wrecked), and the turn passes. Firing itself was never broken. What the tests exposed is why it can feel broken from the seats: a structure fires as a whole turn of its own, so in Move + Shoot, once a fighter has moved, the shot phase belongs to that fighter and a turret flick is refused — and that refusal only ever appeared as a line in the hidden battle log, with nothing on screen saying why. Plus the only armed signal was the ready pulse. So the armed state is now unmistakable in both directions: ready structures pulse gold on their owner's turn (as before), and a structure that cannot fire — above all a reloading one — sits visibly dimmed and quiet under a grey veil, so ready and not-ready read at a glance from either seat.\n\n3) THE RELOAD RULE (Matthew: 'Maybe they can shoot once and then need a turn to reload?'). Exactly that. After a base defense structure fires, THAT structure must spend its owner's next turn reloading and cannot fire; it is ready again the turn after. Reload is per structure, never shared — one turret reloading never grounds its twin. It binds everyone: the other seat in 2P, the CPU (its candidate flicks skip reloading structures entirely), and auto-defense fire stamps the same clock. On the paper a reloading structure wears the dim grey veil — no words, no numbers. The Fire button only appears when a ready structure exists, the button and the flick path never invite or accept a shot from a structure that is reloading or destroyed (a flick from one is refused with a note in the log), and firing still consumes the turn, as it always has.\n\n————————————————\n\n" +
+"Oct 26, 2026 (night, latest) — LANDSCAPE PAPER, THE QUARTER REDRAWN AS A REAL 1985-P, AND A 2P TURN INDICATOR AT THE PLAYER'S OWN END.\n\n1) LANDSCAPE PAPER (Matthew, playing on an iPad held wide: 'rotate the paper so that it is landscape — right now it is wasting a lot of space'). The rotation is a PRESENTATION transform at the render/input boundary, not a rules change: every piece of game state stays in the old board coordinates. On a stage wider than it is tall, the canvas presents the sheet turned 90° clockwise — the long axis runs horizontally, Player 1's base sits on the LEFT edge and Player 2's on the RIGHT, and the sheet fills the stage with no empty side bands. Rendering applies the one transform to everything on the paper (plate art, obstacles, units, traces, bases, reinforcements discs, defenses, the star, the prisoners, the landed quarter — which turns with the paper like a physical coin); pointer input maps back through the exact inverse, so flicks, drag previews, taps and selections land where the player touched. Board mirroring still happens earlier, in board space, and composes with the rotation; the CPU, collisions (graze cores included), momentum and every rule are untouched. The turn bar and chrome never rotate, and the match still fits one screen with no scrolling in both orientations. ONE EXCEPTION STAYS UPRIGHT: the hand-drawn lunch clock counter-rotates in its corner — 12 at the top, the red final-10 stretch readable — while its movement-only barrier footprint works in board space exactly as before, as does the quarter's. The Variants Table layout gains the default: Follow the screen (auto); Face-to-face still forces the portrait sheet, Side-by-side its landscape sheet.\n\n2) THE QUARTER IS A REAL 1985-P NOW (Matthew sent the PCGS reference photo: 'Quarter should look like this'). Both faces were redrawn — the flip card's SVG and the coin lying on the paper share the design. OBVERSE: Washington in profile FACING LEFT (the old drawing faced the wrong way and dated itself in the corner), hair pulled back into a ponytail tied with a small ribbon bow low at the back; LIBERTY along the top rim; IN GOD WE TRUST in two lines at the lower LEFT in front of the neck; the date 1985 spread along the BOTTOM rim beneath the bust; a tiny P mint mark at the right edge behind the ponytail. REVERSE: the eagle's wings are RAISED and spread wide to the rim (the old wings drooped), its head turned to its right — beak to the viewer's left — clutching a horizontal bundle of arrows and an olive branch, a leafy wreath curving beneath it; UNITED STATES OF AMERICA along the top, E PLURIBUS UNUM in small letters above the eagle's head between the wings, QUARTER DOLLAR along the bottom. It is still a hand-drawn coin in the game's silver linework, not a photograph; its size, the flip ceremony, the landed-face logic and its movement-only barrier behavior are unchanged. The coin's lettering is the standing exception to the no-words-on-the-paper rule — it is a physical object on the table; the paper itself stays word-free.\n\n3) 2P TURN INDICATOR AT THE CURRENT PLAYER'S END (Matthew: 'There should be something to indicate whose turn it is when playing 2P' — the little top-chrome tag reads from one seat only). In 2P matches a big pill in screen chrome at the board's edge now sits at the CURRENT player's end of the stage: in portrait face-to-face, the bottom end on Player 1's turn and the TOP end — rotated 180°, so the player sitting there reads it — on Player 2's; in the landscape presentation it sits at the current player's side, turned toward that side. The pill wears the player's color and their setup name when one is set ('Matthew's turn'), else 'Player 1's turn' / 'Player 2's turn'. It is refreshed from the same HUD update every turn change funnels through, so it switches the moment a turn passes, launches and base-defense fire included. Second cue, same color, no words: the side to move's base and its reinforcements disc wear a soft pulsing outline that switches sides with the turn. 1P matches keep the existing turn badge exactly as before.\n\n4) THE PASS-AND-PLAY POPUP SHOWS ONCE A MATCH (Matthew: 'The pass and play pop up showing each time is too much. Maybe just show the first turn and that's it.'). He is right that it gated every single handoff. Now the popup appears ONLY for the first turn of a match — the opening handoff, opening as the coin-flip card closes and naming the player the flip sent first (a Rematch is a new match, so its first turn shows it too, editor battlefields included). Every later turn change is silent: no popup, no modal, no tap-to-continue — the turn passes immediately, by flick, by launch, or by base-defense fire, and the new turn pill at the incoming player's end is the signal. Nothing else depended on the popup: there is no hidden information in this game. 1P matches are unchanged.\n\n————————————————\n\n" +
 "Oct 26, 2026 (night, latest) — FLAGS IN THE OWNER'S COLOR, AND THE APPROVED PRIZE ART.\n\n"+
 "1) CASTLE FLAGS FLY THEIR OWNER'S COLOR (Matthew: 'The red knights with the blue flags is confusing. The red knights should have red flags and the blue knights should have blue flags. Or a corresponding color'). He was right about the drawing: the Knights plate flies blue flags on BOTH castles and purple ones on the top towers, whoever owns them — so the red side's castle wore the blue side's color. The plate itself is untouched (it is an approved drawing); instead, every baked-in flag is papered over in the plate's own paper tone with the crossed ruled line redrawn, and a fresh wavy pennant in the castle owner's color is drawn at the same pole, flying the same direction the drawing flies it — bottom castle and its towers fly east, the upside-down top castle flies west, and a mirrored match flips the flags with everything else. The flags follow the color PICK, not just the defaults: pick green in Variants and your castle flies green. A tower's flag is not re-flown once that tower falls, and the keep's flag comes down with the castle — the papered-over spot stays bare, like the wreck under it. Red side red, blue side blue, from the first turn.\n\n"+
 "2) THE PRIZE ART IS THE APPROVED SHEETS NOW (Matthew approved both example sheets before they were cut). The code-drawn armor star and prisoner doodles are replaced by sprites cut from those sheets: the armor star is the RIGHT star of the star sheet — the chunky one with the rough pencil outline and crayon fill — and the prisoners are the prisoner sheet's three doodles: the escape-pod pilot for Space, the caged knight for Knights, the sandbag-pen crew for Tanks, backgrounds lifted to white at cut time so they multiply onto the paper like every other sprite. The sheets' blue owner details take the prisoner's owner's color per match, the same correspondence rule as the castle flags: the pod's flag, the caged knight's plume and the pen's flag are re-tinted in code for whoever is held there (blue stays blue; a red owner's prisoner flies red). The armored fighter's badge echoes the new star — the little star sprite itself rides with the fighter inside its gold ring. And per Matthew's follow-up, there is NO circle or ring drawn around the star spot or the prisoner spots anymore, in the match or in View Board: the sprites sit on the paper on their own. Nothing about behavior changed: same pickup and rescue touch areas in the logic, prisoners still never targets and never obstacles, Field prizes off still removes both, View Board still shows the end state faithfully.\n\n"+
