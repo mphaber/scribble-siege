@@ -1329,9 +1329,10 @@ var rafId=null;
    positions, spawns, prize spots), so gameplay code and the CPU
    simulation only ever see the final coordinates and can never
    disagree with the flipped drawing. The plate image itself is
-   flipped in drawPlate. The armor star sits on the centerline and
-   never moves. Custom battlefields and drawn fallback boards are
-   never mirrored (plateCfg() is false for both). */
+   flipped in drawPlate. Prize placement runs after mirroring,
+   against the final field (see placePrizes). Custom battlefields
+   and drawn fallback boards are never mirrored (plateCfg() is
+   false for both). */
 var MIRROR_THIS_MATCH=false;
 function mirrorX(x){ return MIRROR_THIS_MATCH ? FW-x : x; }
 function baseCenter(p){ // p: 0 or 1
@@ -1517,35 +1518,112 @@ function newGame(obstacles){
    touching it does nothing, and an unfreed prisoner is not a fighter
    for the stalemate / outright-loss rules (it never enters G.units
    until freed).
-   ARMOR STAR: one golden star at the EXACT center of the board. The
-   first fighter whose movement path crosses or ends on it picks it
-   up and becomes Armored (armorAbsorb below); the star is then gone
-   for the match. Armor never drops or transfers. */
-function prizeSpotClear(x, y){
-  if(x<70||x>FW-70||y<70||y>FH-70) return false;
+   ARMOR STAR: one golden star at the center of the board — the exact
+   center whenever it is clear, otherwise the nearest fully clear
+   spot to it (prizeSpotClear / prizeRelocate below: a prize never
+   sits inside an obstacle, base, structure, spawn, bubble, clock or
+   quarter). The first fighter whose movement path crosses or ends
+   on it picks it up and becomes Armored (armorAbsorb below); the
+   star is then gone for the match. Armor never drops or transfers. */
+/* PRIZE CLEARANCE (fix, Oct 27, 2026 — Matthew: "Sometimes the star
+   bonus is showing up inside of a meteor and is unattainable.").
+   Placement runs against the FINAL field — obstacles as actually
+   built (plate / Random / stamps / freehand), mirroring already
+   applied — and a spot counts as clear only when the prize's WHOLE
+   footprint sits on open paper: the disc below covers the drawn
+   sprite (the star is 76px across; the prisoner sprites run up to
+   80x98) and its pickup / rescue radius, tested against each
+   obstacle's FULL footprint (core AND graze band — a prize half
+   inside the forgiving edge is still inside the meteor), plus bases,
+   spawn points, defense structures, a raised shield bubble, the
+   clock's disc, a quarter already on the paper, and the other
+   prize's footprint. A blocked spot RELOCATES to the nearest fully
+   clear spot, so an unobstructed board keeps its prizes exactly
+   where they have always been, and a blocked one moves the prize
+   only as far as it has to. The old code placed the star at board
+   center unconditionally (the drawn fallback board parks an obstacle
+   dead center, and Random fields can too) and let the prisoner pair
+   fall back to its first candidate unchecked. */
+var PRIZE_FOOT={star:40, prisoner:52};
+function prizeSpotClear(x, y, rad, other){
+  if(x<rad+4||x>FW-rad-4||y<rad+4||y>FH-rad-4) return false;
+  var cp=clockPos();
+  if(Math.hypot(x-cp.x, y-cp.y) < cp.r+rad) return false; // the clock's disc is out of play
+  if(G.coin && Math.hypot(x-G.coin.x, y-G.coin.y) < G.coin.r+rad) return false; // a quarter already down (editor re-placement); a fresh quarter is placed after the prizes and coinSpotClear keeps it clear of both
+  if(other && Math.hypot(x-other.x, y-other.y) < rad+other.r) return false; // the other prize's footprint
   for(var p=0;p<2;p++){
     var bc=baseCenter(p);
-    if(Math.abs(x-bc.x)<baseFootW()/2+46 && Math.abs(y-bc.y)<baseFootH()/2+46) return false;
-    for(var i=0;i<G.turrets[p].length;i++){ var t=G.turrets[p][i]; if(t.alive && Math.hypot(x-t.x, y-t.y)<(t.r||24)+42) return false; }
+    if(Math.abs(x-bc.x)<baseFootW()/2+rad && Math.abs(y-bc.y)<baseFootH()/2+rad) return false;
+    if(CFG.theme==="space" && (CFG.spaceBase==="forcefield"||CFG.spaceBase==="extra")){
+      var bb=shieldBubble(p), bdx=(x-bb.x)/(bb.rx+rad), bdy=(y-bb.y)/(bb.ry+rad);
+      if(bdx*bdx+bdy*bdy<1) return false; // inside the drawn forcefield bubble
+    }
+    for(var i=0;i<G.turrets[p].length;i++){ var t=G.turrets[p][i]; if(t.alive && Math.hypot(x-t.x, y-t.y)<(t.r||24)+rad) return false; }
+    for(var s=0;s<G.units[p].length;s++){ var u=G.units[p][s]; if(u.alive && Math.hypot(x-u.x, y-u.y)<rad+26) return false; } // spawn points
   }
-  for(var j=0;j<G.obstacles.length;j++){ var o=G.obstacles[j]; if(!o.erased && obsContains(o, {x:x,y:y}, 30)) return false; }
+  for(var j=0;j<G.obstacles.length;j++){ var o=G.obstacles[j]; if(!o.erased && obsContains(o, {x:x,y:y}, rad)) return false; }
   return true;
 }
+/* The nearest fully-clear spot to (cx, cy): expanding rings around
+   the target, then a coarse grid sweep keeping the closest qualifier
+   as a last resort. extra(x, y) is an optional added constraint (the
+   prisoner pair test). Returns null only when nothing on the whole
+   sheet qualifies. */
+function prizeRelocate(cx, cy, rad, extra){
+  function ok(x, y){ return (!extra || extra(x, y)) && prizeSpotClear(x, y, rad); }
+  if(ok(cx, cy)) return {x:cx, y:cy};
+  var maxR=Math.hypot(FW, FH);
+  for(var ring=12; ring<=maxR; ring+=12){
+    var steps=Math.max(16, Math.round(2*Math.PI*ring/14));
+    for(var i=0;i<steps;i++){
+      var a=(i/steps)*Math.PI*2 - Math.PI/2;
+      var x=cx+Math.cos(a)*ring, y=cy+Math.sin(a)*ring;
+      if(x<0||x>FW||y<0||y>FH) continue;
+      if(ok(x, y)) return {x:x, y:y};
+    }
+  }
+  var best=null, bd=Infinity;
+  for(var gy=rad+4; gy<=FH-rad-4; gy+=14){
+    for(var gx=rad+4; gx<=FW-rad-4; gx+=14){
+      if(!ok(gx, gy)) continue;
+      var d=(gx-cx)*(gx-cx)+(gy-cy)*(gy-cy);
+      if(d<bd){ bd=d; best={x:gx, y:gy}; }
+    }
+  }
+  return best;
+}
 function placePrizes(){
-  G.star={x:FW/2, y:FH/2, taken:false};
-  // candidate spots for PLAYER 0's prisoner (held in player 1's half),
-  // face layout first; side-by-side transposes them into the right half.
-  // The first pair whose spots are BOTH clear of obstacles, bases and
-  // structures (with margin) wins, so the captive never sits inside a
-  // rock or a ruin on any board.
+  var cx=FW/2, cy=FH/2;
+  // ARMOR STAR: the board's exact center whenever the center is clear
+  // (the usual case on every board) — otherwise the nearest fully
+  // clear spot to the center, so the star is never drawn inside a
+  // meteor, rock or ruin and is always reachable.
+  var ss=prizeRelocate(cx, cy, PRIZE_FOOT.star, null);
+  G.star = ss ? {x:ss.x, y:ss.y, taken:false} : {x:cx, y:cy, taken:false};
+  var starKeep={x:G.star.x, y:G.star.y, r:PRIZE_FOOT.star};
+  // PRISONERS: candidate spots for PLAYER 0's prisoner (held in
+  // player 1's half), face layout first; side-by-side transposes them
+  // into the right half. The first pair whose spots are BOTH fully
+  // clear wins, so the captive never sits inside a rock or a ruin on
+  // any board. When every candidate is blocked, the pair relocates
+  // symmetrically — the mirrored twin moves with it, so both sides
+  // keep the same detour — and it stays in the enemy half.
   var pairs=[[0.44,0.385],[0.30,0.30],[0.68,0.32],[0.32,0.36],[0.64,0.38],[0.26,0.34],[0.58,0.30],[0.36,0.42]];
   var face = isFaceLayout(), spot0=null, spot1=null;
-  for(var i=0;i<pairs.length;i++){
-    var fx=pairs[i][0], fy=pairs[i][1];
-    var a = face ? {x:fx*FW, y:fy*FH} : {x:(1-fy)*FW, y:fx*FH};
-    if(MIRROR_THIS_MATCH && face) a.x=FW-a.x; // the captive's cell flips with the board (clearance is tested on the final spot)
-    var b = {x:FW-a.x, y:FH-a.y};
-    if(prizeSpotClear(a.x, a.y) && prizeSpotClear(b.x, b.y)){ spot0=a; spot1=b; break; }
+  function cand(fx, fy){ var a = face ? {x:fx*FW, y:fy*FH} : {x:(1-fy)*FW, y:fx*FH}; if(MIRROR_THIS_MATCH && face) a.x=FW-a.x; return a; } // the captive's cell flips with the board (clearance is tested on the final spot)
+  function pairClear(x, y){
+    return (face ? y<cy : x>cx)
+      && prizeSpotClear(x, y, PRIZE_FOOT.prisoner, starKeep)
+      && prizeSpotClear(FW-x, FH-y, PRIZE_FOOT.prisoner, starKeep);
+  }
+  for(var i=0;i<pairs.length && !spot0;i++){
+    var a0=cand(pairs[i][0], pairs[i][1]);
+    if(pairClear(a0.x, a0.y)){ spot0=a0; spot1={x:FW-a0.x, y:FH-a0.y}; }
+  }
+  for(var k=0;k<pairs.length && !spot0;k++){
+    var ak=cand(pairs[k][0], pairs[k][1]);
+    var mv=prizeRelocate(ak.x, ak.y, PRIZE_FOOT.prisoner, pairClear);
+    if(mv){ spot0=mv; spot1={x:FW-mv.x, y:FH-mv.y}; }
   }
   if(!spot0){ var f0=pairs[0]; spot0 = face ? {x:f0[0]*FW, y:f0[1]*FH} : {x:(1-f0[1])*FW, y:f0[0]*FH}; if(MIRROR_THIS_MATCH && face) spot0.x=FW-spot0.x; spot1={x:FW-spot0.x, y:FH-spot0.y}; }
   G.prisoners=[{x:spot0.x, y:spot0.y, freed:false}, {x:spot1.x, y:spot1.y, freed:false}];
@@ -1988,7 +2066,6 @@ var ART={};
    literal URL) worked. Every loader below therefore names its file
    in full. Do not "tidy" these back into loops over path pieces. */
 function loadArt(src){
- if(window.__SS_ASSETS&&window.__SS_ASSETS[src])src=window.__SS_ASSETS[src]; // text-snapshot build: artwork ships as base64 JS modules
   var im=new Image();
   im.onload=function(){ if(window.G) draw(); if(window.PC) practiceDraw(); };
   im.onerror=function(){ im.__failed=true; if(window.G) draw(); };
@@ -2036,7 +2113,6 @@ ART["cannon"]=loadArt("assets/pieces/cannon.webp");
    ============================================================ */
 var PLATE_BROKEN={}; // a plate whose file failed to load: that theme falls back to the drawn board (see plateCfg)
 function loadPlate(src, key){
- if(window.__SS_ASSETS&&window.__SS_ASSETS[src])src=window.__SS_ASSETS[src]; // text-snapshot build: artwork ships as base64 JS modules
   var im=new Image();
   im.onload=function(){ if(window.G) draw(); };
   im.onerror=function(){ PLATE_BROKEN[key]=true; if(window.G) draw(); };
@@ -4533,6 +4609,8 @@ function finishEditor(){
   var bar=document.getElementById("editorBar"); if(bar) bar.remove();
   G.editor=null;
   log("Battlefield set! "+playerName(G.turn)+" to move.");
+  G.coin=null; // the quarter is re-placed below anyway; its placeholder spot must not fence the prizes out
+  if(CFG.prizes) placePrizes(); // re-place the prizes against the FINAL field — the editor's obstacles didn't exist when newGame placed them, and a drawn obstacle may cover the first spots picked
   placeCoin(); // re-place the quarter against the FINAL field — the editor's obstacles didn't exist when newGame placed it
   fitBoard(); // the editor bar leaves the stage — the board grows back
   updateHUD(); draw();
@@ -4744,6 +4822,7 @@ document.querySelectorAll("[data-close]").forEach(function(b){
 
 /* ---------- Dev Log ---------- */
 document.getElementById("devBody").textContent =
+"Oct 27, 2026 — PRIZES NEVER SIT INSIDE A METEOR ANY MORE (Matthew: 'Sometimes the star bonus is showing up inside of a meteor and is unattainable. Can you correct this?'). He could: the armor star was placed at the board's exact center with no clearance check at all — and the drawn fallback board parks an obstacle dead center, Random fields can drop one there, and the Space plate's middle asteroid overlaps the star's sprite — while the prisoner pair, though checked, fell back to its first candidate unchecked when no candidate cleared (which is every Knights plate match: the pair was landing in a forest and against a rock). Placement now runs against the field that was actually generated — plate, Random, stamps and freehand alike, mirroring already applied, and re-run after the battlefield editor finishes, the same discipline the quarter already used. A spot is clear only when the prize's whole footprint (sprite plus pickup/rescue radius) sits on open paper: no overlap with any obstacle's full footprint, core or graze band, and none with bases, spawn points, defense structures, a raised shield bubble, the clock's disc, the landed quarter, or the other prize. A blocked star relocates to the nearest fully clear spot to board center; a blocked prisoner pair relocates symmetrically, mirrored twin and all, staying in the enemy half. Unobstructed boards are untouched: the star still sits at exact center and the prisoner pair still takes its first candidate (verified across the plates and the fallback boards). Nothing else about prizes changed: still one star and one prisoner per side per match, same pickup and rescue rules, no mid-match respawns in longer games. Verified by driving Space matches with an asteroid over board center (plate and several Random seeds) and collecting the relocated star with a real flick, plus Knights and Tanks prisoner relocations.\n\n————————————————\n\n" +
 "Oct 26, 2026 (night, latest) — RELOAD, CORRECTED BEFORE ANYONE HAD TO FIND IT IN PLAY. Drive-testing the new turret reload end to end caught an off-by-one in its arithmetic: the reload stamp was set two turns out from the firing turn, but because turns alternate, the owner's next turn IS two counts later — so the stamp expired exactly as that turn began and the structure was, in practice, never actually dark. The stamp now sits three counts out: fire on your turn, the structure spends your ENTIRE next turn reloading (dim grey veil, no aim preview, no Fire prompt, a flick with it refused), and it is gold and ready again the turn after — for player-fired and automatic defense fire alike, since both run through the same shot resolver. Everything else in the reload entry below stands as written.\n\n————————————————\n\n" +
 "Oct 26, 2026 (night, latest) — SHORT-LANDSCAPE PAGES. The fit pass's last holdouts were the two deep panels on a short landscape screen (a phone on its side): at readable sizes the full Variants drawer and the full How to Play simply hold more than a 390-pixel-tall panel can show at once, and squeezing them smaller would have made the words a rumor. So on short landscape screens only, those two panels page by name-tabs instead of ever scrolling: Variants opens on Rules (presets and the headline choices), with Switches and Tools & field tabs beside it; How to Play opens on Basics with a More tab. Every control and paragraph is exactly one tap away, nothing scrolls anywhere, and on any taller screen — the iPad included — both panels show everything at once in their columns, tabs hidden, exactly as the previous entry describes. The setup screen squeezes its theme cards and player chips into single rows at that size for the same reason.\n\n————————————————\n\n" +
 "Oct 26, 2026 (night, latest) — THE FIT PASS. Follow-up to the landscape-panels work above: measured honestly, three panels still overflowed a short landscape screen on first layout (Variants, How to Play, the setup card), so the packing got denser rather than the claims softer. How to Play was rewritten telegram-tight — every rule kept, the sentences cut to the bone (roughly a quarter of its former length); the Variants drawer packs five columns with compact controls and lets its two composite groups flow across columns; the Dev Log's landscape columns got smaller; the setup card goes three columns on short screens; and the portrait phone start screen compacts its theme cards into one row so the start screen fits its screen too. Verified by re-driving every screen and panel at 1180x820, 844x390 and 390x844 and asserting zero document or panel overflow anywhere.\n\n————————————————\n\n" +
