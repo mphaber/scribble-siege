@@ -630,6 +630,14 @@ table.spec td{border:1.5px solid var(--line);padding:5px 8px;vertical-align:top;
 <script src="assets/pieces/tanks/light-red.js"></script>
 <script src="assets/pieces/tanks/light-teal.js"></script>
 <script src="assets/pieces/turret.js"></script>
+<script src="assets/pieces/tower.js"></script>
+<script src="assets/pieces/ruin.js"></script>
+<script src="assets/pieces/rock.js"></script>
+<script src="assets/pieces/hq.js"></script>
+<script src="assets/pieces/hill.js"></script>
+<script src="assets/pieces/forest.js"></script>
+<script src="assets/pieces/castle.js"></script>
+<script src="assets/pieces/cannon.js"></script>
 <script src="assets/space-plate.js"></script>
 <script src="assets/tanks-plate.js"></script>
 <script src="assets/cheer.js"></script>
@@ -1992,6 +2000,26 @@ ART["ship"]=loadArt("assets/pieces/ship.webp");
 ART["asteroid1"]=loadArt("assets/pieces/asteroid1.webp");
 ART["asteroid2"]=loadArt("assets/pieces/asteroid2.webp");
 ART["asteroid3"]=loadArt("assets/pieces/asteroid3.webp");
+/* THE MISSING PIECES, DRAWN (Oct 27, 2026 — Matthew: "Yes, draw the
+   missing pieces"). The drawn board (any paper / field / layout that
+   isn't the approved plate) used to render Knights & Tanks terrain,
+   bases and defense structures as flat pencil placeholders, because
+   only Space's backup board ever got real drawings. These eight
+   pieces close that gap, each generated on its own as a complete
+   drawing on plain white in the same mixed-media hand as the
+   asteroids and unit sprites, and composited with multiply like
+   every other piece: Knights rock + forest, Tanks hill + ruin, the
+   castle, the HQ, the archer tower and the bunker cannon. The
+   castle and tower carry NO baked-in flag — the owner's pennant is
+   drawn fresh per owner in code, the same rule as the plates. */
+ART["rock"]=loadArt("assets/pieces/rock.webp");
+ART["forest"]=loadArt("assets/pieces/forest.webp");
+ART["hill"]=loadArt("assets/pieces/hill.webp");
+ART["ruin"]=loadArt("assets/pieces/ruin.webp");
+ART["castle"]=loadArt("assets/pieces/castle.webp");
+ART["hq"]=loadArt("assets/pieces/hq.webp");
+ART["tower"]=loadArt("assets/pieces/tower.webp");
+ART["cannon"]=loadArt("assets/pieces/cannon.webp");
 
 /* ============================================================
    THE APPROVED SPACE PLATE (Matthew, Oct 26, 2026: "Build the
@@ -2421,9 +2449,17 @@ function drawObstacle(c,o){
       return;
     }
   }
-  // Knights/Tanks obstacles use the plain pencil-outline drawings below
-  // (placeholder pieces until the Space art is approved and the method rolls over).
+  // Knights/Tanks obstacles: the hand-drawn pieces first (rock, forest,
+  // hill, ruin — same generated set and multiply composite as the
+  // asteroids); the plain pencil-outline drawings below remain only as
+  // the fallback while a piece is still loading.
   c.save(); c.translate(o.x,o.y);
+  var okey = (o.type==="rock"||o.type==="forest"||o.type==="hill"||o.type==="ruin") ? o.type : null;
+  if(okey && artReady(okey)){
+    var oim=ART[okey], ow=(o.type==="forest"?2.5:2.35)*o.r, oh=ow*(oim.naturalHeight/oim.naturalWidth);
+    drawArt(c, oim, 0, 0, ow, oh, o.rot||0);
+    c.restore(); return;
+  }
   if(o.type==="asteroid"){
     pencilStroke(c,function(){ c.beginPath();
       for(var i=0;i<14;i++){ var a=i/14*6.29, r=o.r*(0.8+sr(i*7+o.x)*0.3); var px=Math.cos(a)*r, py=Math.sin(a)*r; i?c.lineTo(px,py):c.moveTo(px,py); }
@@ -2609,6 +2645,18 @@ function drawThing(c,t){
       if(sim) drawn=drawArt(c, sim, t.x, t.y, 50, 50*(sim.naturalHeight||sim.height)/(sim.naturalWidth||sim.width), t.angle); }
     if(drawn && t.hp<CFG.shipHp){ c.save(); c.translate(t.x,t.y); c.rotate(t.angle); c.strokeStyle="rgba(40,40,45,.75)"; c.lineWidth=1.8;
       c.beginPath(); c.moveTo(-6,-7); c.lineTo(1,1); c.lineTo(-3,9); c.stroke(); c.restore(); }
+  } else if(t.kind==="tower"){
+    var wim=pieceFor("tower", null);
+    if(wim){ // the drawn archer tower stands upright; its owner's pennant is drawn fresh on top (the sprite carries no flag, as on the plate)
+      var wh=64, ww=wh*(wim.naturalWidth/wim.naturalHeight);
+      drawn=drawArt(c, wim, ex, ey, ww, wh, 0);
+      if(drawn){ c.save(); c.translate(ex,ey); c.strokeStyle="rgba(43,43,51,.7)"; c.lineWidth=1.4;
+        c.beginPath(); c.moveTo(0,-wh/2+3); c.lineTo(0,-wh/2-6); c.stroke();
+        c.fillStyle=col; c.beginPath(); c.moveTo(0,-wh/2-6); c.lineTo(11,-wh/2-3.4); c.lineTo(0,-wh/2-0.8); c.closePath(); c.fill(); c.restore(); }
+    }
+  } else if(t.kind==="cannon"){
+    var bim=pieceFor("cannon", null);
+    if(bim) drawn=drawArt(c, bim, ex, ey, 60, 60*(bim.naturalHeight||bim.height)/(bim.naturalWidth||bim.width), t.angle+Math.PI/2); // top-down, barrel UP in the drawing — quarter-turned to facing like the tanks
   } else if(t.kind==="turret"){
     var uim=pieceFor("turret", ci, 215);
     if(uim) drawn=drawArt(c, uim, ex, ey, 54, 54*(uim.naturalHeight||uim.height)/(uim.naturalWidth||uim.width), t.angle);
@@ -3043,11 +3091,20 @@ function drawBase(c,p){
     c.stroke(); c.restore();
   }
   // body: the generated piece, fitted INSIDE the locked 132x56 footprint
-  var img = (CFG.theme==="space" && artReady("mothership")) ? baseArtFor(p) : null;
+  // (the drawing may stand taller than the footprint, as the mothership
+  // already did — the footprint itself, and all collision, is unchanged)
+  var img = (CFG.theme==="space" && artReady("mothership")) ? baseArtFor(p)
+    : (CFG.theme==="knights" && artReady("castle")) ? ART["castle"]
+    : (CFG.theme==="tanks" && artReady("hq")) ? ART["hq"] : null;
   var drewArt=false;
   if(img){
-    var fb=fitArt(img, BASE_W, BASE_H*1.3);
+    var fb=fitArt(img, CFG.theme==="knights"?BASE_W*1.08:BASE_W, CFG.theme==="knights"?BASE_H*2.3:CFG.theme==="tanks"?BASE_H*1.55:BASE_H*1.3);
     drewArt=drawArt(c, img, bc.x, bc.y, fb.w, fb.h, rot, hp<=0?0.38:1);
+    if(drewArt && CFG.theme==="knights"){ // the castle flies its owner's color: no flag is baked into the sprite, the pennant is drawn fresh per owner — the same rule as the plate castles
+      c.save(); c.translate(bc.x,bc.y); c.rotate(rot); c.globalAlpha=hp<=0?0.38:1;
+      c.fillStyle=col; c.beginPath(); c.moveTo(0,-fb.h/2+2); c.lineTo(0,-fb.h/2-14); c.lineTo(16,-fb.h/2-9); c.lineTo(0,-fb.h/2-4); c.closePath(); c.fill();
+      c.restore();
+    }
   }
   if(!drewArt){
     c.save(); c.translate(bc.x,bc.y); c.rotate(rot); c.globalAlpha=hp<=0?0.3:1;
