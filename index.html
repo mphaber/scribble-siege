@@ -1486,6 +1486,7 @@ function newGame(obstacles){
     editor:null, anim:null, shake:0, flashShield:-1, lastRoll:null, clock:null, draw:false,
     prodCd:[0,0],        // production cooldown, in the producer's own turns (set to 2 on a launch, ticked down at the end of each of that side's turns — so exactly the next turn is blocked)
     turnCount:0,         // total completed turns, both sides — the lunch clock ends the match when the lunch runs out (60 turns by default)
+    prizeRefreshDone:false, // halftime prize refresh (long games only): fires exactly once, when turnCount reaches half the lunch
     baseDamage:[0,0],    // base hits LANDED by each side (shield pops count: the forcefield IS hit 1 of 3)
     sdNote:null          // set when sudden death decides the match, for the end screen
   };
@@ -1524,7 +1525,9 @@ function newGame(obstacles){
    sits inside an obstacle, base, structure, spawn, bubble, clock or
    quarter). The first fighter whose movement path crosses or ends
    on it picks it up and becomes Armored (armorAbsorb below); the
-   star is then gone for the match. Armor never drops or transfers. */
+   star is then gone for the match. Armor never drops or transfers.
+   LONG GAMES (lunch of 90+ turns) refresh both prizes once at
+   halftime — see refreshPrizesHalftime below. */
 /* PRIZE CLEARANCE (fix, Oct 27, 2026 — Matthew: "Sometimes the star
    bonus is showing up inside of a meteor and is unattainable.").
    Placement runs against the FINAL field — obstacles as actually
@@ -1592,6 +1595,18 @@ function prizeRelocate(cx, cy, rad, extra){
   }
   return best;
 }
+/* The prisoner candidate spots (fractions of the sheet), shared by
+   the opening placement and the halftime refresh: candidates for
+   PLAYER 0's prisoner (held in player 1's half); player 1's spot is
+   the point-mirror. prizeCand maps a fraction to board coordinates
+   for the active layout, flipping with a mirrored board. */
+var PRIZE_PAIRS=[[0.44,0.385],[0.30,0.30],[0.68,0.32],[0.32,0.36],[0.64,0.38],[0.26,0.34],[0.58,0.30],[0.36,0.42]];
+function prizeCand(fx, fy){
+  var face=isFaceLayout();
+  var a = face ? {x:fx*FW, y:fy*FH} : {x:(1-fy)*FW, y:fx*FH};
+  if(MIRROR_THIS_MATCH && face) a.x=FW-a.x; // the captive's cell flips with the board (clearance is tested on the final spot)
+  return a;
+}
 function placePrizes(){
   var cx=FW/2, cy=FH/2;
   // ARMOR STAR: the board's exact center whenever the center is clear
@@ -1608,9 +1623,9 @@ function placePrizes(){
   // any board. When every candidate is blocked, the pair relocates
   // symmetrically — the mirrored twin moves with it, so both sides
   // keep the same detour — and it stays in the enemy half.
-  var pairs=[[0.44,0.385],[0.30,0.30],[0.68,0.32],[0.32,0.36],[0.64,0.38],[0.26,0.34],[0.58,0.30],[0.36,0.42]];
+  var pairs=PRIZE_PAIRS;
   var face = isFaceLayout(), spot0=null, spot1=null;
-  function cand(fx, fy){ var a = face ? {x:fx*FW, y:fy*FH} : {x:(1-fy)*FW, y:fx*FH}; if(MIRROR_THIS_MATCH && face) a.x=FW-a.x; return a; } // the captive's cell flips with the board (clearance is tested on the final spot)
+  function cand(fx, fy){ return prizeCand(fx, fy); }
   function pairClear(x, y){
     return (face ? y<cy : x>cx)
       && prizeSpotClear(x, y, PRIZE_FOOT.prisoner, starKeep)
@@ -1627,6 +1642,109 @@ function placePrizes(){
   }
   if(!spot0){ var f0=pairs[0]; spot0 = face ? {x:f0[0]*FW, y:f0[1]*FH} : {x:(1-f0[1])*FW, y:f0[0]*FH}; if(MIRROR_THIS_MATCH && face) spot0.x=FW-spot0.x; spot1={x:FW-spot0.x, y:FH-spot0.y}; }
   G.prisoners=[{x:spot0.x, y:spot0.y, freed:false}, {x:spot1.x, y:spot1.y, freed:false}];
+}
+/* ============================================================
+   HALFTIME PRIZE REFRESH (Oct 27, 2026 — Matthew approved the
+   proposal as offered: "Yes, refresh prizes at halftime in long
+   games"). LONG GAMES ONLY: a lunch of 90 turns or more (Long Lunch
+   120, or a custom 90–240) with Field Prizes on. Exactly once per
+   match, at the end of the turn on which the completed-turn count
+   reaches half the lunch, the prizes top back up:
+   (1) STAR — if no unclaimed star is waiting, a fresh one is placed
+       at board center or the nearest fully clear spot, through the
+       same prizeSpotClear / prizeRelocate discipline as the opening
+       placement, against the field as it now stands (wrecks and all);
+       a star still waiting unclaimed is never doubled.
+   (2) PRISONERS — each side whose prisoner was already rescued gets
+       a NEW captive at its usual mirrored spot in the enemy half,
+       clear-checked and relocated minimally if blocked; a side whose
+       prisoner still waits gets no second one.
+   So at most one unclaimed star and one unrescued prisoner per side
+   exist at any time. Refreshed prizes are ordinary prizes — same
+   pickup, armor, rescue and CPU valuation (checkPrizes and the CPU
+   read G.star / G.prisoners, nothing else). Presentation stays
+   minimal: the new pieces fade in on the paper (bornAt, drawn by
+   drawPrizes), no modal, no words on the paper; one Battle Log line
+   notes the refresh. Standard 60 and Short 30 lunches never refresh,
+   Field Prizes off never refreshes, and a Rematch / new match resets
+   the once-per-match flag with the rest of G (prizeRefreshDone). */
+function halftimePrizesDue(){
+  return !!(CFG && CFG.prizes && lunchTurns()>=90);
+}
+/* A clear spot for ONE side's refreshed prisoner: the usual candidate
+   spots first (this side's own spot, not the pair), then the same
+   candidates relocated — always inside that side's enemy half, and
+   clear of the waiting star and of the other side's waiting prisoner. */
+function findPrisonerSpotFor(p, starKeep){
+  var cx=FW/2, cy=FH/2, face=isFaceLayout();
+  var other=G.prisoners && G.prisoners[1-p];
+  var otherKeep=(other && !other.freed) ? {x:other.x, y:other.y, r:PRIZE_FOOT.prisoner} : null;
+  function ownSpot(a){ return p===0 ? a : {x:FW-a.x, y:FH-a.y}; }
+  function clearFor(x, y){
+    var sx = p===0 ? x : FW-x, sy = p===0 ? y : FH-y; // test the half in player 0's frame
+    if(!(face ? sy<cy : sx>cx)) return false;
+    if(!prizeSpotClear(x, y, PRIZE_FOOT.prisoner, starKeep)) return false;
+    if(otherKeep && !prizeSpotClear(x, y, PRIZE_FOOT.prisoner, otherKeep)) return false;
+    return true;
+  }
+  for(var i=0;i<PRIZE_PAIRS.length;i++){
+    var c=ownSpot(prizeCand(PRIZE_PAIRS[i][0], PRIZE_PAIRS[i][1]));
+    if(clearFor(c.x, c.y)) return c;
+  }
+  for(var k=0;k<PRIZE_PAIRS.length;k++){
+    var ak=ownSpot(prizeCand(PRIZE_PAIRS[k][0], PRIZE_PAIRS[k][1]));
+    var mv=prizeRelocate(ak.x, ak.y, PRIZE_FOOT.prisoner, clearFor);
+    if(mv) return mv;
+  }
+  return null;
+}
+function refreshPrizesHalftime(){
+  if(!G || G.over || G.prizeRefreshDone) return;
+  G.prizeRefreshDone=true; // exactly once per match, topped up or not
+  if(!halftimePrizesDue()) return;
+  var now=(window.performance && performance.now) ? performance.now() : Date.now();
+  var added=[];
+  // (1) STAR: top up only when none is waiting unclaimed.
+  if(!G.star || G.star.taken){
+    var keeps=[];
+    if(G.prisoners) G.prisoners.forEach(function(prz){ if(prz && !prz.freed) keeps.push({x:prz.x, y:prz.y, r:PRIZE_FOOT.prisoner}); });
+    var ss=prizeRelocate(FW/2, FH/2, PRIZE_FOOT.star, function(x, y){
+      for(var i=0;i<keeps.length;i++){ if(!prizeSpotClear(x, y, PRIZE_FOOT.star, keeps[i])) return false; }
+      return true;
+    });
+    if(ss){ G.star={x:ss.x, y:ss.y, taken:false, bornAt:now}; added.push("a fresh golden ARMOR STAR"); }
+  }
+  // (2) PRISONERS: a new captive only for a side whose first was rescued.
+  if(G.prisoners){
+    var starKeep=(G.star && !G.star.taken) ? {x:G.star.x, y:G.star.y, r:PRIZE_FOOT.star} : null;
+    for(var p=0;p<2;p++){
+      var prz=G.prisoners[p];
+      if(!prz || !prz.freed) continue;
+      var spot=findPrisonerSpotFor(p, starKeep);
+      if(spot){ G.prisoners[p]={x:spot.x, y:spot.y, freed:false, bornAt:now}; added.push("a new captive for "+playerName(p)); }
+    }
+  }
+  if(added.length){
+    log("⏸ HALFTIME! The prizes are topped up: "+added.join(" and ")+" on the paper.");
+    SFX.pop();
+    draw();
+  }
+}
+/* Fade for a freshly refreshed prize (bornAt is set only on halftime
+   pieces; opening prizes have none and draw at full strength). */
+var PRIZE_FADE_MS=650;
+function prizeFade(prize){
+  if(!prize || !prize.bornAt) return 1;
+  try{ if(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches) return 1; }catch(e){}
+  var now=(window.performance && performance.now) ? performance.now() : Date.now();
+  var t=(now-prize.bornAt)/PRIZE_FADE_MS;
+  return t>=1 ? 1 : (t<0 ? 0 : t);
+}
+function prizeFading(){
+  if(!G) return false;
+  if(prizeFade(G.star)<1) return true;
+  if(G.prisoners) for(var p=0;p<2;p++){ if(G.prisoners[p] && prizeFade(G.prisoners[p])<1) return true; }
+  return false;
 }
 function pathTouches(pts, x, y, r){
   for(var i=0;i<pts.length;i++){ if(Math.hypot(pts[i].x-x, pts[i].y-y)<r) return true; }
@@ -2630,8 +2748,9 @@ function drawPrizes(c){
   if(G.star && !G.star.taken){
     var sx=G.star.x, sy=G.star.y;
     var sim=prizeSprite("star", 1);
-    if(!sim || !drawArt(c, sim, sx, sy, 76, 76)){
-      c.save();
+    var sfa=prizeFade(G.star); // a halftime-refreshed star fades in (bornAt); opening prizes draw at full strength
+    if(!sim || !drawArt(c, sim, sx, sy, 76, 76, 0, sfa)){
+      c.save(); c.globalAlpha=sfa;
       starPath(c, sx, sy, 21); c.fillStyle="#f6c945"; c.fill(); c.strokeStyle="#8a6414"; c.lineWidth=2.2; c.stroke();
       starPath(c, sx, sy, 9); c.fillStyle="#ffe89a"; c.fill();
       c.restore();
@@ -2643,11 +2762,12 @@ function drawPrizes(c){
     var col=PLAYER_COLORS[playerCfg(p).color].hex;
     var pkey = CFG.theme==="space" ? "pod" : CFG.theme==="knights" ? "knight" : "pen";
     var pim=prizeSprite(pkey, playerCfg(p).color);
+    var pfa=prizeFade(prz); // a halftime-refreshed captive fades in (bornAt); opening captives draw at full strength
     if(pim){
       var pd = pkey==="pod" ? {w:66,h:98} : pkey==="knight" ? {w:76,h:90} : {w:80,h:80};
-      if(drawArt(c, pim, prz.x, prz.y, pd.w, pd.h)) return;
+      if(drawArt(c, pim, prz.x, prz.y, pd.w, pd.h, 0, pfa)) return;
     }
-    c.save(); c.translate(prz.x, prz.y);
+    c.save(); c.translate(prz.x, prz.y); c.globalAlpha=pfa;
     c.strokeStyle="#2b2b33"; c.lineWidth=1.8; c.lineCap="round";
     if(CFG.theme==="space"){ // a stranded pilot in a little escape pod
       c.fillStyle="#efe9dc";
@@ -3361,7 +3481,7 @@ function draw(){
     pips.forEach(function(pp){ ctx.beginPath(); ctx.arc(pp[0],pp[1],3.4,0,6.29); ctx.fill(); });
     ctx.restore(); }
   ctx.restore();
-  if(G.anim || trudgeActive() || G.particles.length || G.stickmen.length || G.pods.length || G.shake>0 || (G.bases[0].hp===1||G.bases[1].hp===1) || turretHaloOn() || prodPulseOn() || (CFG.mode==="2p" && !G.over)){
+  if(G.anim || trudgeActive() || G.particles.length || G.stickmen.length || G.pods.length || G.shake>0 || (G.bases[0].hp===1||G.bases[1].hp===1) || turretHaloOn() || prodPulseOn() || prizeFading() || (CFG.mode==="2p" && !G.over)){
     cancelAnimationFrame(rafId); rafId=requestAnimationFrame(draw);
   }
 }
@@ -4103,6 +4223,7 @@ function endTurn(){
   G.turnCount++;
   if(G.prodCd && G.prodCd[prev]>0) G.prodCd[prev]--; // production cooldown ticks at the end of the producer's own turns
   if(G.turnCount>=lunchTurns() && !G.over){ resolveSuddenDeath(); return; } // the lunch clock runs out: most base damage takes it
+  if(!G.over && !G.prizeRefreshDone && G.turnCount>=Math.ceil(lunchTurns()/2)) refreshPrizesHalftime(); // HALFTIME (long games only): top the prizes back up, exactly once — refreshPrizesHalftime itself checks the 90+ turn / prizes-on scope
   G.turn=1-G.turn; G.fastPhase="move"; G.movedId=null;
   /* the Move/Shoot pick STICKS across turns in Classic (it used to reset
      to Move silently every turn); Fast re-enters on its Move phase and
@@ -4778,7 +4899,7 @@ function howHTML(){
   "<p class=\"howPage2\"><b>🪙 The quarter:</b> a <b>1985-P</b> flips for first player each match — heads (Washington, left-facing, ponytail with a ribbon bow, 1985 along the bottom, tiny P mint mark), bottom starts; tails (eagle, wings raised, E PLURIBUS UNUM between them), top starts. It then lies on the paper all match: movement bumps to a stop on it; shots pass over.</p>"+
   "<p><b>⚔️ Momentum &amp; Breach:</b> movement flicks toward the enemy base travel up to <b>20% farther</b>; never a penalty backward; shots unboosted — the preview shows the true distance. Each base hit also destroys that base's <b>nearest standing structure</b>.</p>"+
   "<p><b>🪶 Forgiving edges:</b> a move wrecks only on an obstacle's <b>core</b>; clip the outer band and you scrape by. Shots take the whole obstacle.</p>"+
-  "<p><b>🔓⭐ Field prizes:</b> a captured teammate waits in the enemy half — any fighter whose move crosses the spot <b>frees</b> them, a fresh fighter <b>above your cap</b> (one per side). The golden <b>star</b> at center: the first fighter across it shrugs off the first hit that would damage, unhorse or wreck it.</p>"+
+  "<p><b>🔓⭐ Field prizes:</b> a captured teammate waits in the enemy half — any fighter whose move crosses the spot <b>frees</b> them, a fresh fighter <b>above your cap</b> (one per side). The golden <b>star</b> at center: the first fighter across it shrugs off the first hit that would damage, unhorse or wreck it. <b>Long games</b> (90+ turns): at <b>halftime</b> a claimed star is replaced and each rescued captive is replaced — never a second one waiting.</p>"+
   "<p><b>Bases &amp; structures:</b> every base shares one <b>capped footprint</b> in its end zone; battles are won in the middle. Structures stand in front of the base and <b>block like obstacles</b> — ram one and you wreck (knights unhorse); shots destroy them in one hit. Crews of anything destroyed <b>escape unharmed</b>: stick figures on land, escape pods in space.</p>"+
   "<p><b>🏃/💥 The switch &amp; tools:</b> the Move/Shoot switch sets itself in Move + Shoot; in Classic your pick sticks until flipped — <b>tap the selected fighter again</b> to flip. The aim cue follows: dots move, dashes shoot. Tools are <b>shared</b> — same flicker, same medium both sides: pencil thin and precise, crayon fat and wobbly, pen between. Only color differs.</p>"+
   "<p><b>🖥 One screen:</b> no scrolling; on wide screens the sheet turns <b>landscape</b> — the clock alone stays upright. <b>2P:</b> a pill in the current player's color sits at their end; their base and disc pulse with it. Plate boards can <b>mirror-flip</b> as one (Variants). Results offer <b>View Board</b> — the final board, look-only. <b>Random</b> rolls a pack of variants; a Rematch keeps it.</p>"+
@@ -4822,6 +4943,7 @@ document.querySelectorAll("[data-close]").forEach(function(b){
 
 /* ---------- Dev Log ---------- */
 document.getElementById("devBody").textContent =
+"Oct 27, 2026 (later) — PRIZES REFRESH AT HALFTIME IN LONG GAMES (Matthew, approving the proposal as offered: 'Yes, refresh prizes at halftime in long games'). Scope is exactly the approved design: only matches whose lunch runs 90 turns or more (Long Lunch 120, or a custom 90–240) AND Field Prizes on. Exactly once per match, at the end of the turn on which the completed-turn count reaches half the lunch, the prizes top back up. (1) STAR: if no unclaimed star is waiting, a fresh one is placed at board center or the nearest fully clear spot, through the same prizeSpotClear / prizeRelocate clearance discipline as the opening placement, against the field as it stands at halftime; a star still waiting is never doubled. (2) PRISONERS: each side whose captive was already rescued gets a NEW captive at its usual mirrored spot in the enemy half, clear-checked with the same footprint test and relocated minimally if blocked; a side whose prisoner still waits gets no second one. At most one unclaimed star and one unrescued prisoner per side exist at any time. The refreshed pieces are ordinary prizes — the same pickup path grants the armor, the same rescue fields the extra fighter above the cap, and the CPU values them as it always has, because pickup, rescue and CPU code all read the same G.star / G.prisoners. Presentation stays minimal: the new pieces fade in on the paper over about half a second (they carry a bornAt stamp the opening prizes never get), no modal, no words on the paper; one line in the Battle Log notes the top-up. Standard 60 and Short 30 lunches are unchanged — no refresh at their halftime — Field Prizes off refreshes nothing, and a Rematch or new match resets the once-per-match flag with the rest of the game state. This supersedes one line in the entry below ('no mid-match respawns in longer games' — true when written this morning, before the refresh was approved). Verified by driving real matches headlessly through the game's own pickup and end-of-turn code: a Long Lunch Random-field game with the star claimed and a prisoner rescued before halftime gained a fresh clear star and a fresh captive at turn 60, and both worked (armor granted on pickup; the rescue fielded the extra fighter); a Long game with the star unclaimed at halftime kept its original star untouched, unmoved and undoubled; a Standard 60 game showed no refresh at turn 30; a custom 90 game refreshed at turn 45 while a custom 89 did not; Field Prizes off refreshed nothing; and across five more Random fields every refreshed spot passed the same full-footprint clearance checks as the opening placement.\n\n————————————————\n\n" +
 "Oct 27, 2026 — PRIZES NEVER SIT INSIDE A METEOR ANY MORE (Matthew: 'Sometimes the star bonus is showing up inside of a meteor and is unattainable. Can you correct this?'). He could: the armor star was placed at the board's exact center with no clearance check at all — and the drawn fallback board parks an obstacle dead center, Random fields can drop one there, and the Space plate's middle asteroid overlaps the star's sprite — while the prisoner pair, though checked, fell back to its first candidate unchecked when no candidate cleared (which is every Knights plate match: the pair was landing in a forest and against a rock). Placement now runs against the field that was actually generated — plate, Random, stamps and freehand alike, mirroring already applied, and re-run after the battlefield editor finishes, the same discipline the quarter already used. A spot is clear only when the prize's whole footprint (sprite plus pickup/rescue radius) sits on open paper: no overlap with any obstacle's full footprint, core or graze band, and none with bases, spawn points, defense structures, a raised shield bubble, the clock's disc, the landed quarter, or the other prize. A blocked star relocates to the nearest fully clear spot to board center; a blocked prisoner pair relocates symmetrically, mirrored twin and all, staying in the enemy half. Unobstructed boards are untouched: the star still sits at exact center and the prisoner pair still takes its first candidate (verified across the plates and the fallback boards). Nothing else about prizes changed: still one star and one prisoner per side per match, same pickup and rescue rules, no mid-match respawns in longer games. Verified by driving Space matches with an asteroid over board center (plate and several Random seeds) and collecting the relocated star with a real flick, plus Knights and Tanks prisoner relocations.\n\n————————————————\n\n" +
 "Oct 26, 2026 (night, latest) — RELOAD, CORRECTED BEFORE ANYONE HAD TO FIND IT IN PLAY. Drive-testing the new turret reload end to end caught an off-by-one in its arithmetic: the reload stamp was set two turns out from the firing turn, but because turns alternate, the owner's next turn IS two counts later — so the stamp expired exactly as that turn began and the structure was, in practice, never actually dark. The stamp now sits three counts out: fire on your turn, the structure spends your ENTIRE next turn reloading (dim grey veil, no aim preview, no Fire prompt, a flick with it refused), and it is gold and ready again the turn after — for player-fired and automatic defense fire alike, since both run through the same shot resolver. Everything else in the reload entry below stands as written.\n\n————————————————\n\n" +
 "Oct 26, 2026 (night, latest) — SHORT-LANDSCAPE PAGES. The fit pass's last holdouts were the two deep panels on a short landscape screen (a phone on its side): at readable sizes the full Variants drawer and the full How to Play simply hold more than a 390-pixel-tall panel can show at once, and squeezing them smaller would have made the words a rumor. So on short landscape screens only, those two panels page by name-tabs instead of ever scrolling: Variants opens on Rules (presets and the headline choices), with Switches and Tools & field tabs beside it; How to Play opens on Basics with a More tab. Every control and paragraph is exactly one tap away, nothing scrolls anywhere, and on any taller screen — the iPad included — both panels show everything at once in their columns, tabs hidden, exactly as the previous entry describes. The setup screen squeezes its theme cards and player chips into single rows at that size for the same reason.\n\n————————————————\n\n" +
