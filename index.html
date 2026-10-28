@@ -84,7 +84,7 @@ input[type=range]{width:100%;height:36px;accent-color:var(--accent);}
    the turn controls live in one compact bar under it, and everything
    wordy (battle log, match card) moved into the ☰ Menu. No scrolling
    while a match is up, at any size. ---------- */
-#viewGame{position:fixed;inset:0;z-index:40;flex-direction:column;padding:10px;background:#7a6a53 radial-gradient(circle at 20% 10%, #8a7a5f, #6b5c46);}
+#viewGame{position:fixed;inset:0;z-index:40;flex-direction:column;padding:10px;height:100vh;height:100svh;height:100dvh;background:#7a6a53 radial-gradient(circle at 20% 10%, #8a7a5f, #6b5c46);}
 #gameLayout{flex:1 1 auto;min-height:0;display:flex;}
 #boardCol{flex:1 1 auto;min-width:0;min-height:0;display:flex;align-items:center;justify-content:center;}
 #turnBar{background:var(--panel);border:2.5px solid var(--ink);border-radius:14px;box-shadow:5px 5px 0 rgba(0,0,0,.25);padding:10px 12px;margin-top:8px;}
@@ -418,13 +418,14 @@ body.onEntrance .wrap{max-width:none;margin:0;padding:0;}
 body.onEntrance footer{display:none;}
 #viewSetup{
   position:fixed;inset:0;z-index:30;overflow:hidden;
+  height:100vh;height:100svh;height:100dvh;
   padding:calc(10px + env(safe-area-inset-top)) calc(14px + env(safe-area-inset-right)) calc(10px + env(safe-area-inset-bottom)) calc(14px + env(safe-area-inset-left));
   background-color:#faeed6;
   background-image:
     linear-gradient(90deg, rgba(226,84,72,0) 0 44px, rgba(226,84,72,.45) 44px, rgba(226,84,72,.45) 46px, rgba(226,84,72,0) 46px),
     repeating-linear-gradient(180deg, rgba(84,124,184,0) 0 27px, rgba(84,124,184,.34) 27px, rgba(84,124,184,.34) 28px);
 }
-#viewSetup .entSheet{height:100%;display:flex;flex-direction:column;max-width:1120px;margin:0 auto;}
+#viewSetup .entSheet{height:100%;display:flex;flex-direction:column;max-width:1120px;margin:0 auto;overflow:hidden;}
 #viewSetup .entTop{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;}
 #viewSetup .entBrand{display:flex;align-items:center;gap:14px;min-width:0;flex:1 1 auto;}
 /* THE LOGO (approved Oct 27, 2026): the clean pencil-block graffiti
@@ -442,9 +443,9 @@ body.onEntrance footer{display:none;}
    so the text-snapshot build (where the artwork ships as base64 JS
    modules) shows it too. */
 #viewSetup .entTitle{margin:0;line-height:0;min-width:0;}
-#viewSetup .entLogo{display:block;width:min(400px,80vw,54vh);height:auto;}
+#viewSetup .entLogo{display:block;width:min(400px,80vw,54svh);height:auto;}
 /* the setup card dissolves into the sheet */
-#viewSetup .entCard{flex:1 1 auto;min-height:0;background:transparent;border:0;border-radius:0;box-shadow:none;padding:8px 2px 0;display:flex;flex-direction:column;gap:2px;align-content:start;}
+#viewSetup .entCard{flex:1 1 auto;min-height:0;overflow:hidden;background:transparent;border:0;border-radius:0;box-shadow:none;padding:8px 2px 0;display:flex;flex-direction:column;gap:2px;align-content:start;}
 #viewSetup .entCard h2{font-size:19px;margin:8px 0 4px;}
 #viewSetup .entCard h2:first-of-type{margin-top:2px;}
 #viewSetup #themeGrid{grid-template-columns:repeat(3,1fr);gap:8px;}
@@ -462,11 +463,11 @@ body.onEntrance footer{display:none;}
 #viewSetup .btn:active,#viewSetup .themeCard:active{transform:translateY(3px);box-shadow:0 0 0 rgba(0,0,0,0);}
 #viewSetup .swatch{border:3px solid var(--ink);box-shadow:2px 2px 0 rgba(43,43,51,.5);}
 #viewSetup .menuPanel{background:#fffdf4;border-radius:16px 5px 18px 6px/6px 18px 5px 16px;}
-#viewSetup .entActions{margin-top:10px;flex-wrap:nowrap;}
+#viewSetup .entActions{margin-top:10px;flex-wrap:nowrap;flex:0 0 auto;position:relative;z-index:2;}
 #viewSetup .entActions .btn{white-space:nowrap;min-width:0;}
 #viewSetup #setupRollSummary{margin:6px 2px 0;}
 @media (orientation: landscape){
-  #viewSetup .entLogo{width:min(300px,44vh,58vw);}
+  #viewSetup .entLogo{width:min(300px,44svh,58vw);}
   #viewSetup .entCard{display:grid;grid-template-columns:1fr 1fr 1fr;column-gap:26px;align-content:start;padding-top:4px;}
   #viewSetup .entCard>*{grid-column:2;align-self:start;justify-self:stretch;}
   #viewSetup .entCard>h2:first-of-type{grid-column:1;grid-row:1;}
@@ -486,7 +487,7 @@ body.onEntrance footer{display:none;}
 }
 @media (orientation: landscape) and (max-height: 520px){
   #viewSetup{padding-top:calc(6px + env(safe-area-inset-top));padding-bottom:calc(6px + env(safe-area-inset-bottom));}
-  #viewSetup .entLogo{width:min(230px,40vh,58vw);}
+  #viewSetup .entLogo{width:min(230px,40svh,58vw);}
   #viewSetup .entCard h2{font-size:15px;margin:4px 0 2px;}
   #viewSetup .themeCard{padding:5px 8px;text-align:center;}
   #viewSetup .themeCard .big{font-size:15px;}
@@ -499,14 +500,14 @@ body.onEntrance footer{display:none;}
   #viewSetup .entActions{margin-top:6px;}
 }
 @media (orientation: portrait) and (max-width: 520px){
-  #viewSetup .entLogo{width:min(340px,84vw,46vh);}
+  #viewSetup .entLogo{width:min(340px,84vw,40svh);}
   #viewSetup .themeCard{padding:8px 4px;text-align:center;}
   #viewSetup .themeCard .big{display:block;font-size:19px;}
   #viewSetup .themeCard b{font-size:13.5px;}
   #viewSetup .btn.big{min-height:50px;font-size:17px;}
 }
 @media (min-width: 900px) and (min-height: 700px){
-  #viewSetup .entLogo{width:min(480px,50vh);}
+  #viewSetup .entLogo{width:min(480px,50svh);}
   #viewSetup .entCard h2{font-size:21px;}
 }
 
@@ -589,19 +590,21 @@ footer{ color:#6d675a; font-size:12.5px; letter-spacing:.2px; background:transpa
 }
 
 /* ================================================================
-   CLOCK IN THE CHROME + PHONE PORTRAIT BLEED (Oct 27, 2026, later)
+   CLOCK IN THE CHROME + PHONE PORTRAIT BORDER (Oct 27, 2026, later;
+   border rule added the same night — see fitBoard)
    The lunch clock's canvas sits in the top chrome row at the upper
    right (margin-left:auto pushes it beside the buttons, right after
    the layout badge in the row). Phone portrait: the match stage
    drops its side padding entirely and the chrome compacts to a
-   single slim row top and bottom, so the width-fit sheet (see
-   fitBoard) has the run of the screen; the chrome floats above the
-   sheet's empty end margins where a tall plate slides beneath it.
-   Landscape and wider screens are untouched by this block.
+   single slim row top and bottom; those two rows are in the stage's
+   normal flow, and the sheet is contain-fit in the column BETWEEN
+   them (the invisible border), so no part of the playfield ever
+   slides beneath the chrome. Landscape and wider screens are
+   untouched by this block.
    ================================================================ */
 #clockCv{width:52px;height:52px;flex:0 0 auto;margin-left:auto;}
 @media (orientation: portrait) and (max-width: 520px){
-  #viewGame{padding:6px 0;overflow:hidden;}
+  #viewGame{padding:calc(6px + env(safe-area-inset-top)) 0 calc(6px + env(safe-area-inset-bottom));overflow:hidden;}
   #viewGame .hudbar{flex-wrap:nowrap;margin:0 6px 4px;gap:6px;position:relative;z-index:6;}
   #viewGame .hudbar .turnBadge{font-size:15px;padding:5px 10px;white-space:nowrap;}
   #viewGame #mirrorTag{font-size:13px;padding:5px 8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;}
@@ -617,6 +620,65 @@ footer{ color:#6d675a; font-size:12.5px; letter-spacing:.2px; background:transpa
   #viewGame #turnBar .btn.small{min-height:38px;}
   #viewGame #turnBar .row{margin-top:6px !important;}
   #gameLayout{position:relative;z-index:1;}
+}
+
+/* ================================================================
+   ENTRANCE FITS THE VISIBLE VIEWPORT (Oct 27, 2026, night fix —
+   Matthew's iPhone screenshot of the live build): in Safari the
+   entrance sized itself to the FULL screen height while the
+   browser chrome left a shorter visible area, so the setup card's
+   last rows ran out of the sheet: the Play!/Random/Variants action
+   row landed ON TOP of the Ships row, whose select and chevron
+   peeked out from underneath at the very bottom, cut off by the
+   toolbar. Three-part fix, entrance only:
+   (1) #viewSetup now takes its height from the small/dynamic
+       viewport units (100svh / 100dvh above, with the 100vh
+       fallback first) instead of plain inset:0 against the large
+       viewport, and the logo's height caps use svh too, so the
+       sheet is exactly the area the player can actually see,
+       safe-area padding already in place.
+   (2) The sheet can no longer paint one row over another: the
+       card clips inside its own flex slot (overflow:hidden above)
+       and the action row is a fixed-height flex sibling that
+       always paints after — and clear of — the card.
+   (3) On short portrait screens the entrance COMPACTS in two
+       tiers — smaller logo, tighter heading margins, slimmer
+       cards / chips / selects / inputs / action buttons — so
+       every row (logo, War, Players, Name, Paper, Ships, actions)
+       is fully visible and tappable at 390x700 and 390x664-class
+       visible heights with no overlap and no scrolling. Landscape
+       phones keep their existing short-landscape packing; taller
+       screens are untouched. */
+@media (orientation: portrait) and (max-height: 780px){
+  #viewSetup{padding-top:calc(6px + env(safe-area-inset-top));padding-bottom:calc(6px + env(safe-area-inset-bottom));}
+  #viewSetup .entLogo{width:min(292px,78vw,38svh);}
+  #viewSetup .entCard{padding-top:4px;gap:0;}
+  #viewSetup .entCard h2{font-size:17px;margin:5px 0 3px;}
+  #viewSetup .entCard h2:first-of-type{margin-top:0;}
+  #viewSetup .themeCard{padding:6px 4px;}
+  #viewSetup .themeCard .big{font-size:17px;}
+  #viewSetup .themeCard b{font-size:13px;}
+  #viewSetup .chip{min-height:38px;line-height:20px;padding:5px 11px;font-size:14.5px;}
+  #viewSetup label.lbl{margin:4px 0 2px;font-size:13px;}
+  #viewSetup input[type=text].nameInput{min-height:36px;margin:1px 0 4px;}
+  #viewSetup select{min-height:38px;font-size:15px;}
+  #viewSetup .btn.big{min-height:47px;font-size:16.5px;padding:8px 14px;}
+  #viewSetup .entActions{margin-top:7px;}
+}
+@media (orientation: portrait) and (max-height: 700px){
+  #viewSetup .entLogo{width:min(248px,72vw,34svh);}
+  #viewSetup .entCard h2{font-size:16px;margin:3px 0 2px;}
+  #viewSetup .themeCard{padding:4px 3px;}
+  #viewSetup .themeCard .big{font-size:15px;}
+  #viewSetup .themeCard b{font-size:12.5px;}
+  #viewSetup .chip{min-height:34px;line-height:18px;padding:3px 10px;font-size:14px;}
+  #viewSetup label.lbl{margin:2px 0 1px;font-size:12.5px;}
+  #viewSetup input[type=text].nameInput{min-height:32px;margin:0 0 3px;font-size:15px;}
+  #viewSetup select{min-height:34px;font-size:15px;}
+  #viewSetup .swatch{width:34px;height:34px;}
+  #viewSetup .btn.big{min-height:43px;font-size:16px;padding:6px 12px;}
+  #viewSetup #btnMenuTop{min-height:38px;padding:4px 10px;font-size:14px;}
+  #viewSetup .entActions{margin-top:5px;}
 }
 
 </style>
@@ -2312,28 +2374,35 @@ function drawProdButton(c, p){
 function fitBoard(){
   var col=document.getElementById("boardCol");
   if(!col || !cv) return;
-  /* PHONE PORTRAIT BLEED (Oct 27, 2026, later — Matthew, from his
-     iPhone: "the paper should bleed to the edge of the screen"): on a
-     phone-width portrait stage the sheet fits by WIDTH, so the paper
-     touches both screen edges and there are no dead side gutters.
-     Play is valid to both margins because input maps through the
-     canvas's own rect (toLogical), which now spans the full width —
-     flicks, movement, shots and placement use the same field
-     coordinates as always. A tall plate sheet (1:2) is then taller
-     than the space between the compacted chrome bars and slides
-     under them, centered; the bands that slide under the chrome are
-     empty paper on every plate (checked against each plate's drawn
-     content: bubbles, keeps, HQs, towers and cannons all start well
-     inside them), and nothing is cropped — the whole field is drawn,
-     the chrome simply floats over its empty end margins. Drawn
-     boards (760x960) fit by width with room to spare. Landscape and
-     wider screens keep the contain fit below, unchanged. */
-  if(window.innerWidth<=520 && window.innerHeight>window.innerWidth && isFaceLayout() && !PRES_ROT){
-    var bw=Math.max(60, window.innerWidth-5); // the canvasWrap's two 2.5px ink borders complete the viewport width
-    cv.style.width=bw+"px";
-    cv.style.height=Math.floor(dispH()*(bw/dispW()))+"px";
-    return;
-  }
+  /* THE INVISIBLE BORDER (Oct 27, 2026, night — Matthew, with a
+     Knights photo of the live build: the top chrome row sat ON the
+     board and hid the enemy castle behind the clock and buttons,
+     and the bottom info strip and End turn bar covered the near
+     castle: "even though the paper bleeds and the menus overlay,
+     there should be an invisible border that keeps play
+     unaffected"). The border is literal: the canvas IS the logical
+     playfield, and it is contain-fit INSIDE the board column — the
+     rectangle that begins below the top chrome row and ends above
+     the bottom info/action bar, safe-area insets respected by the
+     stage padding. Everything in the game already lives in the
+     canvas's logical coordinates — rendering, pointer input
+     (toLogical maps through the canvas rect), movement and shot
+     resolution, base anchoring, spawns, obstacle and prize
+     placement, the quarter's corner parking — so fitting the
+     canvas inside the border confines ALL of it at once: no base,
+     unit, obstacle, prize or quarter can render, spawn or come to
+     rest under the overlay chrome or outside the border, and field
+     proportions and every rule inside the border are unchanged.
+     The earlier width-fit bleed branch is RETIRED: it sized a
+     tall plate sheet (1:2) by width and let its ends slide under
+     the chrome on the claim the bands were empty paper — false
+     for the Knights plate, whose castles are drawn at the sheet's
+     very ends. The PAPER still bleeds to the physical edges: the
+     stage behind and around the sheet is the same ruled looseleaf
+     to every screen edge, and drawn boards (760x960) still span
+     the full width inside the border at phone sizes; a plate
+     sheet now fits the border by height and stands clear of both
+     chrome rows, both castles fully visible. */
   var aw=col.clientWidth-4, ah=col.clientHeight-4;
   if(aw<60 || ah<60) return;
   var s=Math.min(aw/dispW(), ah/dispH());
@@ -4275,6 +4344,17 @@ function resolveMove(u, end, vec){
     if(inForest(u)) log("🌲 In the forest — sheltered here (arrows: only 1-in-4 get through).");
     // remount check if ended touching own castle
     if(!u.mounted && baseHitAt({x:u.x,y:u.y}, u.owner)){ u.mounted=true; SFX.pop(); log("🐴 Walked home and remounted!"); }
+    // THE INVISIBLE BORDER, at the page edge itself (Oct 27, 2026,
+    // night): a charge that would come to rest OFF the paper gets
+    // the same edge handling as a ship's or tank's move (below) —
+    // deadly page edges cross the charger out (armor can eat it,
+    // leaving him at the clamped edge point); anything else stops
+    // him at the edge. A knight never rests outside the field.
+    if(u.alive && (u.x<=2||u.x>=FW-2||u.y<=2||u.y>=FH-2)){
+      if(CFG.edge==="off"){ killThing(u,"Charged clean off the page!");
+        if(u.__armorSaved){ u.__armorSaved=false; u.x=Math.max(16,Math.min(FW-16,u.x)); u.y=Math.max(16,Math.min(FH-16,u.y)); } }
+      else { u.x=Math.max(16,Math.min(FW-16,u.x)); u.y=Math.max(16,Math.min(FH-16,u.y)); }
+    }
     afterAction(u, "move");
     return;
   }
@@ -5299,6 +5379,7 @@ document.querySelectorAll("[data-close]").forEach(function(b){
 
 /* ---------- Dev Log ---------- */
 document.getElementById("devBody").textContent =
+"Oct 27, 2026 (night, latest) — THE ENTRANCE FITS THE VISIBLE SCREEN, AND AN INVISIBLE BORDER GUARDS THE PLAYFIELD (Matthew, two iPhone photos of the live build).\n\n1) ENTRANCE OVERLAP (his setup photo: the Play! / Random / Variants row sat ON TOP of the Ships row, its 'Rotate' select and chevron peeking out from underneath at the very bottom, cut off by Safari's toolbar). The entrance sized itself to the full screen height while Safari showed a shorter visible area, so the last rows collided instead of fitting. The entrance now takes its height from the small/dynamic viewport units (100svh / 100dvh, 100vh fallback) with its safe-area padding kept, the logo's height caps use svh, the setup card clips inside its own flex slot so no row can paint over another, and on short portrait screens the entrance compacts in two tiers (smaller logo, tighter headings, slimmer cards, chips, selects, inputs and action buttons) — the whole entrance (logo, War, Players, Name, Paper, Ships, and the action row) fits the actually-visible viewport at full and short heights with no overlap and no scrolling.\n\n2) THE INVISIBLE BORDER (his Knights photo: the paper bled edge to edge, but the top chrome row sat on the board and the enemy castle was clipped behind the clock and buttons, and the bottom info strip and End turn bar covered the near castle and towers — 'there should be an invisible border that keeps play unaffected'). There is one now, and it is literal: the canvas IS the logical playfield, and it is contain-fit inside the board column — the rectangle that begins below the top chrome row and ends above the bottom info/action bar, safe-area insets respected. Everything already lives in the canvas's logical coordinates (rendering, input, movement and shot resolution, base anchoring, spawns, obstacle and prize placement, the quarter's corner parking), so the border confines all of it at once: nothing renders, spawns or comes to rest under the chrome or outside the border, and field proportions and rules inside the border are unchanged. This RETIRES the width-fit bleed for the sheet itself: a 1:2 plate sheet sized by width was taller than the space between the chrome rows and slid under them on the claim the bands were empty paper — false for the Knights plate, whose castles stand at the sheet's very ends. The paper still bleeds to the physical edges (the stage around the sheet is the same ruled looseleaf to every edge, and drawn boards still span the full width inside the border); a plate sheet now fits the border by height with both castles fully visible and clear of both chrome rows. One screen, no scrolling, as always.\n\n3) PACKAGING: the GitHub staging snapshot was regenerated from this source after both fixes (68 asset modules, decode- and sha256-verified as before; manifests and root icons unchanged in kind), so the pair of fixes can be republished together.\n\n————————————————\n\n" +
 "Oct 27, 2026 (latest) — FULL GRAPHICS SWEEP, CLOCK & QUARTER PLACEMENT, PHONE-PORTRAIT BLEED, LOGO BLEND, AND THE STAGING SNAPSHOT REGENERATED.\n\n1) THE SWEEP (Matthew, with a photo of a live drawn-board match still showing flat shapes: 'Some of the old graphics are still showing'). Every variant and mode was audited path by path — all three themes (Space/Knights/Tanks), all seven papers, plate boards and drawn boards (preset/random/stamps/freehand/empty fields), every fighter style and color, bases in every state (full, cracked, burning, wrecked, shield up and popped, Tanks armor on and blown), all defense structures (turret/tower/cannon, ready, reloading, wrecked), the field prizes (star, escape pod, caged knight, crew pen — on the field, riding as the armor badge, and the fleeing escape pods), the 1985 quarter, the lunch clock, and the Practice Sheet. The audit's finding: the hand-drawn set was already complete in the source — the eight drawn-board pieces (rock, forest, hill, ruin, castle, HQ, tower, cannon) exist and every draw path asks for its drawing FIRST; the flat vector shapes underneath remain only as the transient fallback while a drawing is still loading. What made flat shapes STAY on the live page was the text-snapshot pipeline: in that form every image ships as a base64 JS module keyed into window.__SS_ASSETS, and any loader that does not resolve through that map 404s and leaves its fallback up forever (the Oct 27 live-photo bug). All three loaders now resolve through the map — loadArt (every piece, fighter, knight, tank and prize sprite), loadPlate (the three board plates) and the entrance logo — and the crowd clips ride the same map, so in the snapshot form nothing can fall back permanently. The clock is a hand-drawn vector piece by design and is unchanged as a drawing; the quarter's faces were swapped for Matthew's photographic Quarter A later the same day (see 3).\n\n2) CLOCK OFF THE BOARD (Matthew): the lunch clock no longer sits in the board's top-right corner. The same hand-drawn face — same drawing code, same readable size class, final 10 minutes still red — now renders on a small canvas in the top chrome row at the upper right, beside the layout badge, and re-reads the turn count on every HUD update. Its movement-barrier footprint and its prize-clearance exclusion are REMOVED: no corner of the paper is out of play any more, and the board's top-right is ordinary playable paper in portrait and in the rotated landscape presentation alike.\n\n3) QUARTER TO A CORNER (Matthew): after the flip, the quarter no longer parks mid-field. placeCoin tries the four paper corners in a fixed order, each inset slightly from the edges, and takes the first that passes the same clearance test as always (no obstacle, base or its reinforcements disc, structure, spawn, star or prisoner spot); if a hand-built editor field blocks all four, the old middle-zone scan remains as the safety net. The parked quarter keeps its movement-only barrier behavior in its corner — fighters bump to a stop, shots pass over — in movement resolution and CPU simulation alike, and the same parking happens on Rematch and after an editor match. In the landscape presentation the corner is a paper corner and rotates with the sheet. The parked quarter — and both faces on the flip card — now show Matthew's Quarter A: the worn realistic 1985-P, cropped from his chosen art with the rim and reeded edge kept and the paper beyond the rim knocked out, so the coin sits on the sheet with only its own soft shadow; the drawn vector faces remain only as the while-loading fallback. Same coin size, same flip and landed-face logic, same corner parking and barrier.\n\n4) PHONE PORTRAIT BLEED (Matthew, from his iPhone: 'the paper should bleed to the edge of the screen'). On phone-width portrait stages the match fits by WIDTH: the stage drops its side padding, the chrome compacts to one slim row top and bottom (clock included), and the sheet touches both screen edges with no dead gutters. Input maps through the canvas rect as always, so flicks, movement, shots and placement are valid out to both margins; field coordinates, rules, stats and the relative layout inside the field are unchanged. A tall plate sheet is taller than the space between the compact bars and slides under them, centered — nothing is cropped: the bands beneath the chrome are empty paper on every plate (bubble tops, keep and HQ tops all start well inside them). Still one screen, no scrolling, at 390x844. Landscape phones and iPad are untouched.\n\n5) LOGO BLEND (Matthew: the entrance logo 'shows as a visible box'). The logo file's paper is knocked out to transparency — alpha from the ink's darkness against the drawing's own paper tone, colors un-premultiplied from that paper — and the entrance now composites it in normal blending with no multiply and no lifted paper: no rectangle, no edges, no tonal patch, and the sheet's ruled lines run continuously behind the drawing at every viewport.\n\n6) PACKAGING: the GitHub staging snapshot (~/workspace/scribble-siege-pages/) was regenerated from this source: 68 base64 asset modules (the 65 before, plus assets/logo.js and the two quarter-face crops), every module decode- and sha256-verified against its source asset; the root manifest lists only index.html, README.md and site.webmanifest, NUL-delimited and NUL-terminated like the assets manifest; the four root PNGs (apple-touch-icon, icon-192, icon-512, og-image) are preserved byte-identical, stay out of every push manifest, and their sha256 values are unchanged. The staged snapshot itself was verified served the way GitHub Pages serves it — zero failed artwork requests, hand-drawn boards in all three themes (including a Tanks drawn board on plain paper with the drawn hill, ruin and HQ), a seamless entrance logo, and the portrait-bleed board touching both edges.\n\n————————————————\n\n" +
 "Oct 27, 2026 (later) — PRIZES REFRESH AT HALFTIME IN LONG GAMES (Matthew, approving the proposal as offered: 'Yes, refresh prizes at halftime in long games'). Scope is exactly the approved design: only matches whose lunch runs 90 turns or more (Long Lunch 120, or a custom 90–240) AND Field Prizes on. Exactly once per match, at the end of the turn on which the completed-turn count reaches half the lunch, the prizes top back up. (1) STAR: if no unclaimed star is waiting, a fresh one is placed at board center or the nearest fully clear spot, through the same prizeSpotClear / prizeRelocate clearance discipline as the opening placement, against the field as it stands at halftime; a star still waiting is never doubled. (2) PRISONERS: each side whose captive was already rescued gets a NEW captive at its usual mirrored spot in the enemy half, clear-checked with the same footprint test and relocated minimally if blocked; a side whose prisoner still waits gets no second one. At most one unclaimed star and one unrescued prisoner per side exist at any time. The refreshed pieces are ordinary prizes — the same pickup path grants the armor, the same rescue fields the extra fighter above the cap, and the CPU values them as it always has, because pickup, rescue and CPU code all read the same G.star / G.prisoners. Presentation stays minimal: the new pieces fade in on the paper over about half a second (they carry a bornAt stamp the opening prizes never get), no modal, no words on the paper; one line in the Battle Log notes the top-up. Standard 60 and Short 30 lunches are unchanged — no refresh at their halftime — Field Prizes off refreshes nothing, and a Rematch or new match resets the once-per-match flag with the rest of the game state. This supersedes one line in the entry below ('no mid-match respawns in longer games' — true when written this morning, before the refresh was approved). Verified by driving real matches headlessly through the game's own pickup and end-of-turn code: a Long Lunch Random-field game with the star claimed and a prisoner rescued before halftime gained a fresh clear star and a fresh captive at turn 60, and both worked (armor granted on pickup; the rescue fielded the extra fighter); a Long game with the star unclaimed at halftime kept its original star untouched, unmoved and undoubled; a Standard 60 game showed no refresh at turn 30; a custom 90 game refreshed at turn 45 while a custom 89 did not; Field Prizes off refreshed nothing; and across five more Random fields every refreshed spot passed the same full-footprint clearance checks as the opening placement.\n\n————————————————\n\n" +
 "Oct 27, 2026 — PRIZES NEVER SIT INSIDE A METEOR ANY MORE (Matthew: 'Sometimes the star bonus is showing up inside of a meteor and is unattainable. Can you correct this?'). He could: the armor star was placed at the board's exact center with no clearance check at all — and the drawn fallback board parks an obstacle dead center, Random fields can drop one there, and the Space plate's middle asteroid overlaps the star's sprite — while the prisoner pair, though checked, fell back to its first candidate unchecked when no candidate cleared (which is every Knights plate match: the pair was landing in a forest and against a rock). Placement now runs against the field that was actually generated — plate, Random, stamps and freehand alike, mirroring already applied, and re-run after the battlefield editor finishes, the same discipline the quarter already used. A spot is clear only when the prize's whole footprint (sprite plus pickup/rescue radius) sits on open paper: no overlap with any obstacle's full footprint, core or graze band, and none with bases, spawn points, defense structures, a raised shield bubble, the clock's disc, the landed quarter, or the other prize. A blocked star relocates to the nearest fully clear spot to board center; a blocked prisoner pair relocates symmetrically, mirrored twin and all, staying in the enemy half. Unobstructed boards are untouched: the star still sits at exact center and the prisoner pair still takes its first candidate (verified across the plates and the fallback boards). Nothing else about prizes changed: still one star and one prisoner per side per match, same pickup and rescue rules, no mid-match respawns in longer games. Verified by driving Space matches with an asteroid over board center (plate and several Random seeds) and collecting the relocated star with a real flick, plus Knights and Tanks prisoner relocations.\n\n————————————————\n\n" +
