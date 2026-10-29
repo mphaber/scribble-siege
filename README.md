@@ -8,4 +8,4 @@ This folder is the multi-file snapshot of the game: `index.html`, this README, `
 
 The four PNGs at the root — `apple-touch-icon.png` (180×180), `icon-192.png`, `icon-512.png`, and `og-image.png` (1200×630) — are real binary files, not modules: they are the app icon and link-preview image (a ship circling a meteor, drawn on lined paper), and browsers and link crawlers fetch those URLs directly. `site.webmanifest` points at the two square icons.
 
-Scribble Siege / Created by Matthew Haber / © 2026 Matthew Haber. All rights reserved.
+Scribble Siege / Created by Matthew Haber / © 2026 Real Sparks. All rights reserved.

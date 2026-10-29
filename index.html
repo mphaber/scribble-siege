@@ -91,6 +91,7 @@ input[type=range]{width:100%;height:36px;accent-color:var(--accent);}
 #turnBar .seg button{min-height:52px;padding:8px 4px;font-size:18px;}
 #btnLaunch{display:none !important;} /* production lives ON the base now (drawn, tappable); this stays in the DOM as the shared trigger the CPU and the base button both fire */
 #canvasWrap{position:relative;border:3px solid #3a3428;border-radius:6px;box-shadow:6px 8px 0 rgba(0,0,0,.35);background:#fdfdf8;overflow:hidden;}
+#paperCv{display:none;}
 canvas#cv{display:block;width:100%;height:auto;touch-action:none;}
 .hudbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;margin-bottom:8px;}
 .turnBadge{font-size:18px;font-weight:800;padding:8px 14px;border:2.5px solid var(--ink);border-radius:999px;background:#fff;}
@@ -439,9 +440,12 @@ body.onEntrance footer{display:none;}
    paper toward white and multiply-blended it, which still showed as a
    visible box on the sheet — that step is undone.) The h1 keeps
    "Scribble Siege" as the accessible heading via the image's alt. The
-   src is set from script through the same asset resolver as the pieces,
-   so the text-snapshot build (where the artwork ships as base64 JS
-   modules) shows it too. */
+   img declares src="assets/logo.webp" in the markup itself, so the
+   logo's link resolves on its own — no script dependency, no broken
+   image if the script is blocked or interrupted. The resolver script
+   at the end of the body still runs and swaps in the base64 module
+   when a text-snapshot build provides one, so that form shows it
+   too. */
 #viewSetup .entTitle{margin:0;line-height:0;min-width:0;}
 #viewSetup .entLogo{display:block;width:min(400px,80vw,54svh);height:auto;}
 /* the setup card dissolves into the sheet */
@@ -599,12 +603,19 @@ footer{ color:#6d675a; font-size:12.5px; letter-spacing:.2px; background:transpa
    single slim row top and bottom; those two rows are in the stage's
    normal flow, and the sheet is contain-fit in the column BETWEEN
    them (the invisible border), so no part of the playfield ever
-   slides beneath the chrome. Landscape and wider screens are
+   slides beneath the chrome. The full-bleed PAPER layer lives
+   here too (see drawPaperLayer): on these phones the plate's own
+   artwork also runs on a separate edge-to-edge canvas UNDER the
+   chrome and the playfield, so the sheet touches both side edges
+   and slips decoratively beneath the two chrome rows while play
+   stays inside the border. Landscape and wider screens are
    untouched by this block.
    ================================================================ */
 #clockCv{width:52px;height:52px;flex:0 0 auto;margin-left:auto;}
 @media (orientation: portrait) and (max-width: 520px){
   #viewGame{padding:calc(6px + env(safe-area-inset-top)) 0 calc(6px + env(safe-area-inset-bottom));overflow:hidden;}
+  #viewGame #paperCv{display:block;position:absolute;inset:0;width:100%;height:100%;z-index:0;pointer-events:none;}
+  #viewGame #editorSlot{position:relative;z-index:6;}
   #viewGame .hudbar{flex-wrap:nowrap;margin:0 6px 4px;gap:6px;position:relative;z-index:6;}
   #viewGame .hudbar .turnBadge{font-size:15px;padding:5px 10px;white-space:nowrap;}
   #viewGame #mirrorTag{font-size:13px;padding:5px 8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;}
@@ -691,7 +702,7 @@ footer{ color:#6d675a; font-size:12.5px; letter-spacing:.2px; background:transpa
    <div class="entSheet">
     <div class="entTop">
       <div class="entBrand">
-        <h1 class="entTitle"><img class="entLogo" id="entLogo" alt="Scribble Siege" width="1645" height="1165"></h1>
+        <h1 class="entTitle"><img class="entLogo" id="entLogo" src="assets/logo.webp" alt="Scribble Siege" width="1645" height="1165"></h1>
       </div>
       <span class="menuWrap" style="flex:0 0 auto;">
         <button class="btn small" id="btnMenuTop">☰ Menu</button>
@@ -732,6 +743,7 @@ footer{ color:#6d675a; font-size:12.5px; letter-spacing:.2px; background:transpa
 
   <!-- ================= GAME ================= -->
   <section id="viewGame" style="display:none;">
+    <canvas id="paperCv" aria-hidden="true"></canvas>
     <div class="hudbar">
       <span class="turnBadge" id="turnBadge">Your turn</span>
       <span class="turnBadge" id="mirrorTag" style="display:none;background:#e9defc;color:#4a2a7a;">🪞 Mirrored board</span>
@@ -802,7 +814,7 @@ footer{ color:#6d675a; font-size:12.5px; letter-spacing:.2px; background:transpa
     <p class="small" id="practiceScore"></p>
   </section>
 
-  <footer>Scribble Siege / Created by Matthew Haber / © 2026 Matthew Haber. All rights reserved.</footer>
+  <footer>Scribble Siege / Created by Matthew Haber / © 2026 Real Sparks. All rights reserved.</footer>
 </div>
 
 <!-- ================= MODALS ================= -->
@@ -2397,18 +2409,87 @@ function fitBoard(){
      tall plate sheet (1:2) by width and let its ends slide under
      the chrome on the claim the bands were empty paper — false
      for the Knights plate, whose castles are drawn at the sheet's
-     very ends. The PAPER still bleeds to the physical edges: the
-     stage behind and around the sheet is the same ruled looseleaf
-     to every screen edge, and drawn boards (760x960) still span
-     the full width inside the border at phone sizes; a plate
-     sheet now fits the border by height and stands clear of both
-     chrome rows, both castles fully visible. */
+     very ends. The playfield still fits the border by height and
+     stands clear of both chrome rows, both castles fully visible.
+     THE BLEED ITSELF IS BACK, one layer down (Matthew, Oct 27,
+     2026, later still: "I still want the paper to go to the edges
+     of the screen. Especially the width"): the PAPER LAYER —
+     drawPaperLayer, below — paints the plate's own artwork on a
+     separate full-stage canvas under the chrome and the sheet,
+     scaled so the paper crosses both side edges and runs
+     decoratively beneath the top row and the bottom bar. Paper
+     and play are separate layers with separate transforms: the
+     bleed never moves a base, a spawn, a prize, the quarter or a
+     flick by a single logical pixel, and the plate copy that
+     gameplay reads (drawn here, in the playfield) stays exactly
+     aligned with the geometry measured off it. Drawn boards
+     (760x960) still span the full width inside the border at
+     phone sizes on their own, so the layer serves plates only. */
   var aw=col.clientWidth-4, ah=col.clientHeight-4;
   if(aw<60 || ah<60) return;
   var s=Math.min(aw/dispW(), ah/dispH());
   if(!isFinite(s) || s<=0) return;
   cv.style.width=Math.floor(dispW()*s)+"px";
   cv.style.height=Math.floor(dispH()*s)+"px";
+}
+/* ============================================================
+   THE PAPER LAYER — FULL BLEED, UNDER EVERYTHING (Oct 27, 2026,
+   later still — Matthew, with a photo of the border build: the
+   plate sheet floated in the middle of the phone with wide
+   paper-colored margins on both sides — "I still want the paper
+   to go to the edges of the screen. Especially the width").
+   The fix separates the paper from the play. THE PLAY LAYER is
+   untouched: the match canvas above keeps the invisible border
+   (fitBoard) — bases, units, spawns, obstacles, prizes, the
+   parked quarter and every flick live inside the band between
+   the chrome rows, in the same logical coordinates as always,
+   and the plate artwork drawn IN that canvas stays exactly
+   aligned with the geometry measured off it. THE PAPER LAYER is
+   a second canvas stretched over the whole stage UNDER the
+   chrome and the sheet (phone portrait only — the same media
+   query as the border rule): it paints the current plate's own
+   artwork scaled to COVER the stage width — factor at least
+   1.05, and more when a tall stage needs it — centered on the
+   board column's middle, flipped when the match is mirrored. So
+   the sheet's paper crosses both side edges with no gutter and
+   runs decoratively beneath the top chrome row and the bottom
+   info/action bar, while nothing that can be played on ever
+   leaves the border. It is decoration only: pointer-events are
+   off, no game state reads it, and it repaints only when its
+   signature (theme / mirror / stage size / artwork readiness)
+   changes. Plates only: a drawn board already spans the full
+   width inside the border at these sizes. */
+var paperCvEl=document.getElementById("paperCv");
+var PAPER_MQL=(window.matchMedia ? window.matchMedia("(orientation: portrait) and (max-width: 520px)") : null);
+var paperSig="";
+function drawPaperLayer(){
+  if(!paperCvEl) return;
+  var stage=document.getElementById("viewGame");
+  var W=stage?stage.clientWidth:0, H=stage?stage.clientHeight:0;
+  var on=!!(PAPER_MQL && PAPER_MQL.matches && plateCfg() && W>=60 && H>=60);
+  var img=on ? (PLATE_IMGS[CFG.theme]||PLATE_IMG) : null;
+  var ready=!!(img && img.complete && img.naturalWidth>0);
+  var sig=on ? [CFG.theme, (window.G&&G.mirror)?"m":"-", W, H, ready?"r":"-"].join("|") : "off";
+  if(sig===paperSig) return;
+  paperSig=sig;
+  if(!on){ if(paperCvEl.width!==0){ paperCvEl.width=0; paperCvEl.height=0; } return; }
+  var dpr=Math.min(2, window.devicePixelRatio||1);
+  paperCvEl.width=Math.round(W*dpr); paperCvEl.height=Math.round(H*dpr);
+  var pc=paperCvEl.getContext("2d");
+  pc.setTransform(dpr,0,0,dpr,0,0);
+  pc.fillStyle="#f3ecd9"; pc.fillRect(0,0,W,H); // the plate's own paper tone while/if the artwork loads
+  if(!ready) return;
+  var col=document.getElementById("boardCol");
+  var cy=H/2;
+  if(col && stage){ var sr=stage.getBoundingClientRect(), cr=col.getBoundingClientRect(); if(cr.height>0) cy=(cr.top+cr.bottom)/2-sr.top; }
+  var factor=Math.max(1.05, H/(2*W));
+  var dw=W*factor, dh=dw*(img.naturalHeight/img.naturalWidth);
+  pc.save();
+  pc.translate(W/2, cy);
+  if(window.G && G.mirror) pc.scale(-1,1); // the backdrop turns with the match, like the sheet on it
+  pc.drawImage(img, -dw/2, -dh/2, dw, dh);
+  pc.restore();
+  pc.fillStyle="rgba(250,238,214,0.16)"; pc.fillRect(0,0,W,H); // a breath of the stage's tone, so the backdrop sits behind the sheet it carries
 }
 /* ============================================================
    LANDSCAPE PAPER (Oct 26, 2026 — Matthew, on an iPad held wide:
@@ -2455,6 +2536,7 @@ function refreshPresentation(){
   if(G) applyCanvasSize();
   updateTurnIndicator();
   fitBoard();
+  drawPaperLayer();
   if(G) draw();
 }
 window.addEventListener("resize", refreshPresentation);
@@ -3815,6 +3897,7 @@ function spawnBoom(x,y,big){
 }
 function draw(){
   if(!G) return;
+  drawPaperLayer(); // the full-bleed paper backdrop (signature-gated: a no-op unless theme, mirror, stage size or artwork readiness changed)
   ctx.save();
   if(G.shake>0){ ctx.translate((Math.random()-0.5)*G.shake,(Math.random()-0.5)*G.shake); G.shake*=0.82; if(G.shake<0.4)G.shake=0; }
   if(PRES_ROT){ ctx.translate(FH,0); ctx.rotate(Math.PI/2); } // landscape presentation: the whole sheet turns 90° CW — everything drawn below is in board coordinates
@@ -5601,7 +5684,9 @@ setupPointer(cvP,{
 document.getElementById("btnPracticeReset").addEventListener("click", practiceReset);
 document.getElementById("btnPracticeBack").addEventListener("click", function(){ showView(G?"viewGame":"viewSetup"); if(G) draw(); });
 
-/* ---------- the entrance logo, through the shared asset resolver ---------- */
+/* ---------- the entrance logo: the markup already carries
+   src="assets/logo.webp"; this only swaps in the base64 module when a
+   text-snapshot build provides one, through the shared asset resolver ---------- */
 (function(){ var el=document.getElementById("entLogo"); if(!el) return;
   var src="assets/logo.webp";
   if(window.__SS_ASSETS && window.__SS_ASSETS[src]) src=window.__SS_ASSETS[src]; // text-snapshot build: the logo ships as a base64 JS module like every other piece
