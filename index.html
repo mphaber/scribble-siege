@@ -3345,6 +3345,77 @@ function drawPrizes(c){
     c.restore();
   });
 }
+/* JOUSTING LANCES (Oct 29, 2026 — Matthew: "For the knights let's
+   give them jousting sticks as part of their design"). A cosmetic
+   overlay in the same spirit as the tank class silhouettes: drawn
+   in code over the shared knight sprites, so every knight — both
+   players, the CPU's, plate boards and drawn boards, and the
+   Practice Sheet — carries one, in the game's hand-drawn language
+   (chunky wood shaft with a pencil-dark edge and a light top
+   stroke, a steel point, and a small pennon near the tip in the
+   OWNER's color, the standing owner-color flag rule). MOUNTED: the
+   lance is COUCHED — butt tucked behind the rider, shaft running
+   forward through the grip and out past the horse's head — drawn
+   in the sprite's own facing frame (the horizontal flip the sprite
+   itself uses), then turned about the grip toward the knight's
+   angle — clamped to a couched ±55°, the most a levelled lance
+   raises or dips: diagonal charges align with the shaft exactly,
+   and a straight up- or down-field charge leans hard into the
+   line of travel with the tip leading, never standing on end like
+   a flagpole or stabbing the ground. ON FOOT: the same lance
+   carried UPRIGHT at the shield side like a pike, point above the
+   plume, pennon under the point, so an unhorsed knight keeps his
+   identity while he trudges home; his sword and shield stay. The
+   caged prisoner is never drawn through here — he stays disarmed.
+   COSMETIC ONLY: nothing here is read by any rule — charge reach,
+   collisions, unhorsing, hit tests and the auto-walk all run on
+   the knight's body and path exactly as before, and the lance
+   tip extends none of them. */
+function drawJoustLance(c, t, col){
+  c.save(); c.translate(t.x, t.y); c.lineJoin="round"; c.lineCap="round";
+  if(t.mounted){
+    if(Math.cos(t.angle)<0) c.scale(-1,1); // the sprite's facing frame: +x is the way he rides
+    // Turn the couched lance about the GRIP toward the knight's
+    // angle — in the flipped frame the travel direction is
+    // atan2(sin, |cos|) — clamped to ±55° (0.96 rad), the most a
+    // couched lance raises or dips: diagonals align exactly, and a
+    // straight up/down charge leans hard into the line of travel
+    // with the tip leading.
+    var tilt=Math.atan2(Math.sin(t.angle), Math.abs(Math.cos(t.angle)));
+    c.translate(7,-5); c.rotate(Math.max(-0.96, Math.min(0.96, tilt)));
+    // pennon near the tip, in the owner's color (hangs below the shaft)
+    c.fillStyle=col; c.strokeStyle="rgba(43,43,51,.8)"; c.lineWidth=1.2;
+    c.beginPath(); c.moveTo(40,1); c.lineTo(56,0.5); c.lineTo(48,11); c.closePath(); c.fill(); c.stroke();
+    // couched shaft along the facing axis: butt (-28,1) through the grip (0,0) to the steel's base (65,0)
+    c.strokeStyle="#6e4520"; c.lineWidth=5.2;
+    c.beginPath(); c.moveTo(-28,1); c.lineTo(65,0); c.stroke();
+    c.strokeStyle="#a5713a"; c.lineWidth=3.0;
+    c.beginPath(); c.moveTo(-28,1); c.lineTo(65,0); c.stroke();
+    c.strokeStyle="rgba(255,235,200,.55)"; c.lineWidth=1.1; // pencil highlight along the top edge
+    c.beginPath(); c.moveTo(-24,-1.2); c.lineTo(61,-2); c.stroke();
+    c.fillStyle="rgba(43,43,51,.85)"; c.beginPath(); c.arc(-28,1,2.2,0,6.29); c.fill(); // butt cap
+    // steel point, on the axis
+    c.fillStyle="#c9ced6"; c.strokeStyle="rgba(43,43,51,.85)"; c.lineWidth=1.3;
+    c.beginPath(); c.moveTo(62,-3.2); c.lineTo(86,0); c.lineTo(62,3.2); c.closePath(); c.fill(); c.stroke();
+    // vamplate — the round hand guard — in the owner's color, at the grip
+    c.fillStyle=col; c.beginPath(); c.arc(0,0,5.2,0,6.29); c.fill();
+    c.strokeStyle="rgba(43,43,51,.85)"; c.lineWidth=1.4; c.beginPath(); c.arc(0,0,5.2,0,6.29); c.stroke();
+    c.fillStyle="rgba(43,43,51,.8)"; c.beginPath(); c.arc(0,0,1.4,0,6.29); c.fill();
+  } else {
+    // carried upright at the shield side: butt by the feet (28,36), point above the plume (34,-63)
+    c.fillStyle=col; c.strokeStyle="rgba(43,43,51,.8)"; c.lineWidth=1.2;
+    c.beginPath(); c.moveTo(32.4,-44); c.lineTo(46,-39.6); c.lineTo(33.4,-33); c.closePath(); c.fill(); c.stroke(); // pennon under the point
+    c.strokeStyle="#6e4520"; c.lineWidth=4.6;
+    c.beginPath(); c.moveTo(28,36); c.lineTo(33.5,-50); c.stroke();
+    c.strokeStyle="#a5713a"; c.lineWidth=2.6;
+    c.beginPath(); c.moveTo(28,36); c.lineTo(33.5,-50); c.stroke();
+    c.fillStyle="#c9ced6"; c.strokeStyle="rgba(43,43,51,.85)"; c.lineWidth=1.3;
+    c.beginPath(); c.moveTo(30.6,-49); c.lineTo(34.6,-63); c.lineTo(36.2,-48.4); c.closePath(); c.fill(); c.stroke(); // steel point
+    c.fillStyle=col; c.beginPath(); c.arc(29.6,5,4.4,0,6.29); c.fill(); // hand guard at the grip
+    c.strokeStyle="rgba(43,43,51,.85)"; c.lineWidth=1.3; c.beginPath(); c.arc(29.6,5,4.4,0,6.29); c.stroke();
+  }
+  c.restore();
+}
 function drawThing(c,t){
   var col=PLAYER_COLORS[playerCfg(t.owner).color].hex;
   var ci=playerCfg(t.owner).color;
@@ -3408,6 +3479,7 @@ function drawThing(c,t){
         var kw2=48, kh2=kw2*(kim.naturalHeight/kim.naturalWidth);
         drawn=drawArt(c, kim, t.x, t.y, kw2, kh2, 0);
       }
+      if(drawn) drawJoustLance(c, t, col); // JOUSTING LANCE overlay (Oct 29, 2026): couched mounted, upright on foot — cosmetic only, see drawJoustLance
     }
   } else if(t.kind==="tank"){
     var tim=sheetSprite(t.cls==="heavy"?TANK_ART.heavy:TANK_ART.light, ci, t.cls==="heavy"?"th":"tl");
@@ -3493,12 +3565,16 @@ function drawThing(c,t){
       c.fillStyle=col; c.globalAlpha=0.9;
       c.beginPath(); c.arc(-1,0,5.6,0,6.29); c.fill(); c.globalAlpha=1; // rider
       c.strokeStyle="#3d382e"; c.lineWidth=1.6; c.beginPath(); c.arc(-1,0,5.6,0,6.29); c.stroke();
-      c.lineWidth=2.4; c.beginPath(); c.moveTo(3,-3); c.lineTo(31,-9); c.stroke(); // lance
+      c.strokeStyle="#6e4520"; c.lineWidth=3.2; c.beginPath(); c.moveTo(2,-2); c.lineTo(36,-10); c.stroke(); // jousting lance, couched
+      c.fillStyle=col; c.beginPath(); c.moveTo(24,-8.2); c.lineTo(33,-10); c.lineTo(28,-3.4); c.closePath(); c.fill(); // pennon in the owner's color
+      c.strokeStyle="#3d382e"; c.lineWidth=1.6; c.beginPath(); c.moveTo(36,-10); c.lineTo(42,-11.4); c.stroke(); // steel point
       c.lineWidth=1.6; c.beginPath(); c.arc(-5,7,3.6,0,6.29); c.stroke(); // shield
     } else {
       c.strokeStyle=col; c.lineWidth=3;
       c.beginPath(); c.moveTo(0,-4); c.lineTo(0,8); c.moveTo(0,8); c.lineTo(-7,19); c.moveTo(0,8); c.lineTo(7,19); c.moveTo(0,0); c.lineTo(11,-6); c.stroke();
       c.fillStyle=col; c.beginPath(); c.arc(0,-10,5.5,0,6.29); c.fill(); c.strokeStyle="#2b2b33"; c.lineWidth=1.4; c.stroke();
+      c.strokeStyle="#6e4520"; c.lineWidth=2.6; c.beginPath(); c.moveTo(13,16); c.lineTo(19,-22); c.stroke(); // his lance, carried upright
+      c.fillStyle=col; c.beginPath(); c.moveTo(18.4,-19); c.lineTo(25,-16.6); c.lineTo(19,-12.6); c.closePath(); c.fill(); // pennon in the owner's color
     }
   } else if(t.kind==="tank"){
     var big2=t.cls==="heavy";
@@ -4242,9 +4318,19 @@ function momentumEnd(u, end){
   var m=1+0.20*align;
   return {x:u.x+dx*m, y:u.y+dy*m};
 }
+/* SPACE MATCH-LENGTH TUNING (Oct 29, 2026 — Matthew: Space battles end
+   too quickly; Space ONLY): Space fighter movement is 60% of its old
+   cap (330 -> 198) and Space fighter shot range is 40% of its old cap
+   (430 -> 172). The Space defense turret's shot range scales the same
+   way (430 -> 172), so defense does not grow relatively stronger than
+   fighters. This function is the single source every range flows
+   through — human flick caps, the Aimed preview, CPU candidate
+   generation and simulation, and turret fire — and Siege Momentum
+   still multiplies movement on top of the new cap exactly as before.
+   Knights and Tanks numbers below are untouched. */
 function maxLen(thing, action){
-  if(thing.turret) return 430;
-  if(thing.kind==="ship") return action==="move"?330:430;
+  if(thing.turret) return CFG.theme==="space" ? 172 : 430; // gated on the theme alone: a Knights tower or Tanks cannon is 430 whatever its kind string says
+  if(thing.kind==="ship") return action==="move"?198:172;
   if(thing.kind==="knight") return thing.mounted?350:145;
   if(thing.kind==="tank"){ if(thing.cls==="heavy") return thing.hp===1?165:(action==="move"?215:300); return action==="move"?340:430; }
   return 320;
@@ -4865,7 +4951,7 @@ function autoTurrets(p){
     var foes=allUnits(1-p); if(!foes.length) return;
     foes.sort(function(a,b){ return Math.hypot(a.x-t.x,a.y-t.y)-Math.hypot(b.x-t.x,b.y-t.y); });
     var f=foes[0], d=Math.hypot(f.x-t.x,f.y-t.y);
-    if(d<330){ log("🤖 Auto-"+thingLabel(t).toLowerCase()+" fires at the nearest enemy!");
+    if(d<Math.min(330, maxLen(t,"shoot"))){ log("🤖 Auto-"+thingLabel(t).toLowerCase()+" fires at the nearest enemy!"); // auto fire is a shot: in Space its trigger is capped by the turret's new 172 range (40% tuning); other themes keep the 330 trigger exactly as before
       var err=(Math.random()-0.5)*0.3, ang=Math.atan2(f.y-t.y,f.x-t.x)+err;
       resolveShotSilent(t, {x:t.x+Math.cos(ang)*d, y:t.y+Math.sin(ang)*d}, {x:Math.cos(ang),y:Math.sin(ang)});
     }
@@ -5199,7 +5285,7 @@ function cpuTurn(){
     var adv=dirToEnemy(p), baseAng=Math.atan2(adv.y, adv.x);
     for(var i=0;i<hops;i++)
       addCand(u, "move", baseAng+(Math.random()-0.5)*1.6, maxLen(u,"move")*(0.45+Math.random()*0.55), clockPush?58:30);
-    var want = (u.kind==="tank"&&u.cls==="heavy") ? 290 : 370;
+    var want = (u.kind==="tank"&&u.cls==="heavy") ? 290 : (u.kind==="ship" ? maxLen(u,"shoot")-24 : 370); // SPACE TUNING: a ship's standoff distance derives from its NEW shot range (172-24=148), not the old 370 — otherwise it would park forever outside its own range; tanks keep 290/370 exactly
     if(dB>want) addCand(u, "move", Math.atan2(foeBase.y-u.y, foeBase.x-u.x), Math.min(maxLen(u,"move"), dB-want+50), clockPush?95:50);
     if(u.kind==="tank" && !clockPush){
       G.obstacles.filter(function(o){return o.type==="hill";}).forEach(function(h){
@@ -5685,7 +5771,9 @@ document.querySelectorAll("[data-close]").forEach(function(b){
 
 /* ---------- Dev Log ---------- */
 document.getElementById("devBody").textContent =
-"Oct 29, 2026 (latest) — TANKS: TWO REAL CLASSES (Matthew: the two tank types should look and operate differently, reinforcements should be choosable, and there should be a cartoon explosion with a whistling sound, different per tank).\n\n1) LOOKS. The Heavy Mortar's sprite was redrawn with a SHORT FAT mortar tube and a dark round muzzle in place of its long cannon barrel, over its wider armored hull and bigger treads, and it wears bolted armor skirts over its treads in play. The Light Cannon keeps its slim hull and long thin straight barrel and gains twin speed chevrons at its tail. Silhouette alone tells them apart in every state; the Heavy's smoking damaged state is unchanged.\n\n2) SHOTS. The Heavy's lob is now a true SMOOTH parabola — sampled at 26 points for the aim preview, the flight trace and the visible in-flight shell alike; the old three-point crayon-wobbled path that read as crooked is gone. A ground shadow runs under the shell, shrinking and darkening as it falls, and the shell swells at the peak, so the height reads at a glance. Only the landing point resolves, over hills, ruins and sandbags, as before. The Light's aim line now STOPS at the first blocker, exactly where its straight shell will stop. CPU simulation already resolved both classes by these same rules (landing-only for mortars, blockers for cannon) and still does.\n\n3) SOUND AND EFFECTS, PER CLASS. Mortar: a soft deep thump at launch, a falling WHISTLE that sounds only during the shell's descent (dropping pitch), then a big ROUND crayon puff explosion at the landing. Cannon: the boom plus a sharper crack, a tight muzzle flash, and a smaller FLATTER impact burst — no whistle. Both ride the existing SFX bus on the guarded ambient session; music and the other themes' effects are untouched.\n\n4) REINFORCEMENT PICKER. In Tanks, tapping the base disc with a build ready opens a minimal two-choice picker — Light Cannon vs Heavy Mortar as silhouettes with one-line labels — and the pick launches that class as the turn action under the usual cap and cooldown. The CPU picks by the field: a mortar when it fields none and cover stands, a cannon when it fields none, otherwise it balances its fleet. Other themes build as before; the prisoner rescue is still a Light Cannon.\n\n" +
+"Oct 29, 2026 (latest) — SPACE MATCH-LENGTH TUNING (Matthew: battles, especially Space, are over too quickly; he picked the Space-only cut: shots to 40%, moves to 60%). SPACE THEME ONLY — Knights and Tanks keep every number they had. Space fighter movement cap: 330 -> 198 (60%). Space fighter shot range: 430 -> 172 (40%). Space gun-turret shot range: 430 -> 172 as well, so defense does not quietly grow stronger than the fighters it guards against; the automatic-defense trigger is capped by the same new range. The scaled values live in the one range function every path already reads, so they apply identically to human flick caps, the Aimed preview, CPU candidate generation and simulation, and the Practice Sheet (a Space practice flick now caps at the new 172 shot range, so practice matches real play). The CPU's ship standoff distance now derives from the new shot range instead of the old hardcoded 370, so CPU ships still close in and finish games. Siege Momentum is unchanged and still multiplies movement on top of the new 198 cap — it does not restore the old one. Forcefield behavior unchanged; with wrap edges on, shot range is still measured along travel distance exactly as before. No variant or preset carried its own range numbers, so nothing else needed rescaling. Packaging: the GitHub staging snapshot was regenerated from this source, carrying the jousting-lance build plus this tuning (68 asset modules, decode- and sha256-verified as before; manifests and root icons unchanged in kind).\n\n————————————————\n\n" +
+"Oct 29, 2026 — KNIGHTS CARRY JOUSTING LANCES (Matthew: 'For the knights let's give them jousting sticks as part of their design'). Visual only. Every knight now carries a jousting lance as a permanent part of the unit, drawn in code over the shared sprites in the game's hand-drawn language — chunky wood shaft with a pencil-dark edge, steel point, and a small pennon near the tip in the OWNER's color (the standing flag rule) — so it applies to both players, the CPU's knights, plate boards and drawn boards, and the Practice Sheet alike. MOUNTED: the lance is couched under the arm, butt behind the rider, running forward through the grip (owner-color vamplate at the hand) and out past the horse's head; it is drawn in the sprite's own facing frame and turned about the grip toward the knight's angle, clamped to a couched ±55° — diagonal charges align with the shaft exactly, and a straight up- or down-field charge leans hard into the line of travel with the tip leading. ON FOOT: the same lance carried upright at the shield side like a pike, point above the plume, so an unhorsed knight keeps his identity on the trudge home; sword and shield stay. The caged prisoner knight stays DISARMED — no lance in the cage. The while-loading pencil fallbacks carry the lance too. COSMETIC ONLY: no rule, reach, collision, unhorsing, hit test or auto-walk number changed — hit detection stays on the knight's body and path exactly as before, and the lance tip extends none of it. Packaging: the GitHub staging snapshot was regenerated from this source (68 asset modules, decode- and sha256-verified as before; manifests and root icons unchanged in kind).\n\n————————————————\n\n" +
+"Oct 29, 2026 — TANKS: TWO REAL CLASSES (Matthew: the two tank types should look and operate differently, reinforcements should be choosable, and there should be a cartoon explosion with a whistling sound, different per tank).\n\n1) LOOKS. The Heavy Mortar's sprite was redrawn with a SHORT FAT mortar tube and a dark round muzzle in place of its long cannon barrel, over its wider armored hull and bigger treads, and it wears bolted armor skirts over its treads in play. The Light Cannon keeps its slim hull and long thin straight barrel and gains twin speed chevrons at its tail. Silhouette alone tells them apart in every state; the Heavy's smoking damaged state is unchanged.\n\n2) SHOTS. The Heavy's lob is now a true SMOOTH parabola — sampled at 26 points for the aim preview, the flight trace and the visible in-flight shell alike; the old three-point crayon-wobbled path that read as crooked is gone. A ground shadow runs under the shell, shrinking and darkening as it falls, and the shell swells at the peak, so the height reads at a glance. Only the landing point resolves, over hills, ruins and sandbags, as before. The Light's aim line now STOPS at the first blocker, exactly where its straight shell will stop. CPU simulation already resolved both classes by these same rules (landing-only for mortars, blockers for cannon) and still does.\n\n3) SOUND AND EFFECTS, PER CLASS. Mortar: a soft deep thump at launch, a falling WHISTLE that sounds only during the shell's descent (dropping pitch), then a big ROUND crayon puff explosion at the landing. Cannon: the boom plus a sharper crack, a tight muzzle flash, and a smaller FLATTER impact burst — no whistle. Both ride the existing SFX bus on the guarded ambient session; music and the other themes' effects are untouched.\n\n4) REINFORCEMENT PICKER. In Tanks, tapping the base disc with a build ready opens a minimal two-choice picker — Light Cannon vs Heavy Mortar as silhouettes with one-line labels — and the pick launches that class as the turn action under the usual cap and cooldown. The CPU picks by the field: a mortar when it fields none and cover stands, a cannon when it fields none, otherwise it balances its fleet. Other themes build as before; the prisoner rescue is still a Light Cannon.\n\n" +
 "Oct 27, 2026 (night) — THE ENTRANCE FITS THE VISIBLE SCREEN, AND AN INVISIBLE BORDER GUARDS THE PLAYFIELD (Matthew, two iPhone photos of the live build).\n\n1) ENTRANCE OVERLAP (his setup photo: the Play! / Random / Variants row sat ON TOP of the Ships row, its 'Rotate' select and chevron peeking out from underneath at the very bottom, cut off by Safari's toolbar). The entrance sized itself to the full screen height while Safari showed a shorter visible area, so the last rows collided instead of fitting. The entrance now takes its height from the small/dynamic viewport units (100svh / 100dvh, 100vh fallback) with its safe-area padding kept, the logo's height caps use svh, the setup card clips inside its own flex slot so no row can paint over another, and on short portrait screens the entrance compacts in two tiers (smaller logo, tighter headings, slimmer cards, chips, selects, inputs and action buttons) — the whole entrance (logo, War, Players, Name, Paper, Ships, and the action row) fits the actually-visible viewport at full and short heights with no overlap and no scrolling.\n\n2) THE INVISIBLE BORDER (his Knights photo: the paper bled edge to edge, but the top chrome row sat on the board and the enemy castle was clipped behind the clock and buttons, and the bottom info strip and End turn bar covered the near castle and towers — 'there should be an invisible border that keeps play unaffected'). There is one now, and it is literal: the canvas IS the logical playfield, and it is contain-fit inside the board column — the rectangle that begins below the top chrome row and ends above the bottom info/action bar, safe-area insets respected. Everything already lives in the canvas's logical coordinates (rendering, input, movement and shot resolution, base anchoring, spawns, obstacle and prize placement, the quarter's corner parking), so the border confines all of it at once: nothing renders, spawns or comes to rest under the chrome or outside the border, and field proportions and rules inside the border are unchanged. This RETIRES the width-fit bleed for the sheet itself: a 1:2 plate sheet sized by width was taller than the space between the chrome rows and slid under them on the claim the bands were empty paper — false for the Knights plate, whose castles stand at the sheet's very ends. The paper still bleeds to the physical edges (the stage around the sheet is the same ruled looseleaf to every edge, and drawn boards still span the full width inside the border); a plate sheet now fits the border by height with both castles fully visible and clear of both chrome rows. One screen, no scrolling, as always.\n\n3) PACKAGING: the GitHub staging snapshot was regenerated from this source after both fixes (68 asset modules, decode- and sha256-verified as before; manifests and root icons unchanged in kind), so the pair of fixes can be republished together.\n\n————————————————\n\n" +
 "Oct 27, 2026 (latest) — FULL GRAPHICS SWEEP, CLOCK & QUARTER PLACEMENT, PHONE-PORTRAIT BLEED, LOGO BLEND, AND THE STAGING SNAPSHOT REGENERATED.\n\n1) THE SWEEP (Matthew, with a photo of a live drawn-board match still showing flat shapes: 'Some of the old graphics are still showing'). Every variant and mode was audited path by path — all three themes (Space/Knights/Tanks), all seven papers, plate boards and drawn boards (preset/random/stamps/freehand/empty fields), every fighter style and color, bases in every state (full, cracked, burning, wrecked, shield up and popped, Tanks armor on and blown), all defense structures (turret/tower/cannon, ready, reloading, wrecked), the field prizes (star, escape pod, caged knight, crew pen — on the field, riding as the armor badge, and the fleeing escape pods), the 1985 quarter, the lunch clock, and the Practice Sheet. The audit's finding: the hand-drawn set was already complete in the source — the eight drawn-board pieces (rock, forest, hill, ruin, castle, HQ, tower, cannon) exist and every draw path asks for its drawing FIRST; the flat vector shapes underneath remain only as the transient fallback while a drawing is still loading. What made flat shapes STAY on the live page was the text-snapshot pipeline: in that form every image ships as a base64 JS module keyed into window.__SS_ASSETS, and any loader that does not resolve through that map 404s and leaves its fallback up forever (the Oct 27 live-photo bug). All three loaders now resolve through the map — loadArt (every piece, fighter, knight, tank and prize sprite), loadPlate (the three board plates) and the entrance logo — and the crowd clips ride the same map, so in the snapshot form nothing can fall back permanently. The clock is a hand-drawn vector piece by design and is unchanged as a drawing; the quarter's faces were swapped for Matthew's photographic Quarter A later the same day (see 3).\n\n2) CLOCK OFF THE BOARD (Matthew): the lunch clock no longer sits in the board's top-right corner. The same hand-drawn face — same drawing code, same readable size class, final 10 minutes still red — now renders on a small canvas in the top chrome row at the upper right, beside the layout badge, and re-reads the turn count on every HUD update. Its movement-barrier footprint and its prize-clearance exclusion are REMOVED: no corner of the paper is out of play any more, and the board's top-right is ordinary playable paper in portrait and in the rotated landscape presentation alike.\n\n3) QUARTER TO A CORNER (Matthew): after the flip, the quarter no longer parks mid-field. placeCoin tries the four paper corners in a fixed order, each inset slightly from the edges, and takes the first that passes the same clearance test as always (no obstacle, base or its reinforcements disc, structure, spawn, star or prisoner spot); if a hand-built editor field blocks all four, the old middle-zone scan remains as the safety net. The parked quarter keeps its movement-only barrier behavior in its corner — fighters bump to a stop, shots pass over — in movement resolution and CPU simulation alike, and the same parking happens on Rematch and after an editor match. In the landscape presentation the corner is a paper corner and rotates with the sheet. The parked quarter — and both faces on the flip card — now show Matthew's Quarter A: the worn realistic 1985-P, cropped from his chosen art with the rim and reeded edge kept and the paper beyond the rim knocked out, so the coin sits on the sheet with only its own soft shadow; the drawn vector faces remain only as the while-loading fallback. Same coin size, same flip and landed-face logic, same corner parking and barrier.\n\n4) PHONE PORTRAIT BLEED (Matthew, from his iPhone: 'the paper should bleed to the edge of the screen'). On phone-width portrait stages the match fits by WIDTH: the stage drops its side padding, the chrome compacts to one slim row top and bottom (clock included), and the sheet touches both screen edges with no dead gutters. Input maps through the canvas rect as always, so flicks, movement, shots and placement are valid out to both margins; field coordinates, rules, stats and the relative layout inside the field are unchanged. A tall plate sheet is taller than the space between the compact bars and slides under them, centered — nothing is cropped: the bands beneath the chrome are empty paper on every plate (bubble tops, keep and HQ tops all start well inside them). Still one screen, no scrolling, at 390x844. Landscape phones and iPad are untouched.\n\n5) LOGO BLEND (Matthew: the entrance logo 'shows as a visible box'). The logo file's paper is knocked out to transparency — alpha from the ink's darkness against the drawing's own paper tone, colors un-premultiplied from that paper — and the entrance now composites it in normal blending with no multiply and no lifted paper: no rectangle, no edges, no tonal patch, and the sheet's ruled lines run continuously behind the drawing at every viewport.\n\n6) PACKAGING: the GitHub staging snapshot (~/workspace/scribble-siege-pages/) was regenerated from this source: 68 base64 asset modules (the 65 before, plus assets/logo.js and the two quarter-face crops), every module decode- and sha256-verified against its source asset; the root manifest lists only index.html, README.md and site.webmanifest, NUL-delimited and NUL-terminated like the assets manifest; the four root PNGs (apple-touch-icon, icon-192, icon-512, og-image) are preserved byte-identical, stay out of every push manifest, and their sha256 values are unchanged. The staged snapshot itself was verified served the way GitHub Pages serves it — zero failed artwork requests, hand-drawn boards in all three themes (including a Tanks drawn board on plain paper with the drawn hill, ruin and HQ), a seamless entrance logo, and the portrait-bleed board touching both edges.\n\n————————————————\n\n" +
 "Oct 27, 2026 (later) — PRIZES REFRESH AT HALFTIME IN LONG GAMES (Matthew, approving the proposal as offered: 'Yes, refresh prizes at halftime in long games'). Scope is exactly the approved design: only matches whose lunch runs 90 turns or more (Long Lunch 120, or a custom 90–240) AND Field Prizes on. Exactly once per match, at the end of the turn on which the completed-turn count reaches half the lunch, the prizes top back up. (1) STAR: if no unclaimed star is waiting, a fresh one is placed at board center or the nearest fully clear spot, through the same prizeSpotClear / prizeRelocate clearance discipline as the opening placement, against the field as it stands at halftime; a star still waiting is never doubled. (2) PRISONERS: each side whose captive was already rescued gets a NEW captive at its usual mirrored spot in the enemy half, clear-checked with the same footprint test and relocated minimally if blocked; a side whose prisoner still waits gets no second one. At most one unclaimed star and one unrescued prisoner per side exist at any time. The refreshed pieces are ordinary prizes — the same pickup path grants the armor, the same rescue fields the extra fighter above the cap, and the CPU values them as it always has, because pickup, rescue and CPU code all read the same G.star / G.prisoners. Presentation stays minimal: the new pieces fade in on the paper over about half a second (they carry a bornAt stamp the opening prizes never get), no modal, no words on the paper; one line in the Battle Log notes the top-up. Standard 60 and Short 30 lunches are unchanged — no refresh at their halftime — Field Prizes off refreshes nothing, and a Rematch or new match resets the once-per-match flag with the rest of the game state. This supersedes one line in the entry below ('no mid-match respawns in longer games' — true when written this morning, before the refresh was approved). Verified by driving real matches headlessly through the game's own pickup and end-of-turn code: a Long Lunch Random-field game with the star claimed and a prisoner rescued before halftime gained a fresh clear star and a fresh captive at turn 60, and both worked (armor granted on pickup; the rescue fielded the extra fighter); a Long game with the star unclaimed at halftime kept its original star untouched, unmoved and undoubled; a Standard 60 game showed no refresh at turn 30; a custom 90 game refreshed at turn 45 while a custom 89 did not; Field Prizes off refreshed nothing; and across five more Random fields every refreshed spot passed the same full-footprint clearance checks as the opening placement.\n\n————————————————\n\n" +
@@ -5812,6 +5900,11 @@ wireMenu("btnMenuGame","menuPanelGame");
    PRACTICE SHEET
    ============================================================ */
 var PC={targets:[], traces:[], hits:0, thing:{x:380,y:820,angle:-1.57,alive:true,kind:"ship",owner:0}};
+/* PRACTICE SHEET range: a practice flick is a shot, so in Space it caps
+   at the fighter's NEW shot range (maxLen ship shoot = 172, the 40%
+   tuning) so practice matches real play; Knights and Tanks practice
+   keeps the legacy 430 cap exactly as before. */
+function practiceCap(){ return CFG.theme==="space" ? maxLen({kind:"ship"},"shoot") : 430; }
 var cvP=document.getElementById("cvP"), ctxP=cvP.getContext("2d");
 function practiceReset(){
   PC.targets=[]; PC.traces=[]; PC.hits=0; PC.thing={x:FW/2,y:FH-110,angle:-1.57,alive:true,kind:"ship",owner:0};
@@ -5860,7 +5953,8 @@ function drawThingP(c,t){
     if(kim){ var kw=86, kh=kw*(kim.naturalHeight/kim.naturalWidth);
       c.save(); c.translate(t.x,t.y); if(Math.cos(t.angle)<0) c.scale(-1,1);
       c.globalCompositeOperation="multiply";
-      c.drawImage(kim,-kw/2,-kh/2,kw,kh); c.restore(); drawn=true; }
+      c.drawImage(kim,-kw/2,-kh/2,kw,kh); c.restore(); drawn=true;
+      drawJoustLance(c, {x:t.x, y:t.y, angle:t.angle, mounted:true}, PLAYER_COLORS[ci].hex); } // the Practice knight carries his lance too (Oct 29, 2026)
   } else if(CFG.theme==="tanks"){
     var tim=sheetSprite(TANK_ART.light, ci, "tl");
     if(tim){ var tl=68, tw=tl*(tim.naturalWidth/tim.naturalHeight);
@@ -5886,16 +5980,16 @@ var inputP={down:false,thing:null,sx:0,sy:0,t:0,preview:null};
 setupPointer(cvP,{
   down:function(pt){ if(Math.hypot(pt.x-PC.thing.x,pt.y-PC.thing.y)<44){ inputP.down=true; inputP.sx=pt.x; inputP.sy=pt.y; inputP.t=performance.now(); } },
   move:function(pt){ if(!inputP.down) return;
-    if(CFG.control==="aimed"){ var dx=pt.x-PC.thing.x, dy=pt.y-PC.thing.y, L=Math.hypot(dx,dy)||1, cl=Math.min(L,430);
+    if(CFG.control==="aimed"){ var dx=pt.x-PC.thing.x, dy=pt.y-PC.thing.y, L=Math.hypot(dx,dy)||1, cl=Math.min(L,practiceCap());
       inputP.preview=[{x:PC.thing.x,y:PC.thing.y},{x:PC.thing.x+dx/L*cl,y:PC.thing.y+dy/L*cl}]; }
     else if(CFG.control==="hybrid"){ var dx2=pt.x-PC.thing.x, dy2=pt.y-PC.thing.y, L2=Math.hypot(dx2,dy2);
       if(L2>4) inputP.preview=[{x:PC.thing.x,y:PC.thing.y},{x:PC.thing.x+dx2/L2*46,y:PC.thing.y+dy2/L2*46}]; }
     practiceDraw(); },
   up:function(pt){ if(!inputP.down) return; inputP.down=false; inputP.preview=null;
     var t=PC.thing, vec, len;
-    if(CFG.control==="aimed"){ vec={x:pt.x-t.x,y:pt.y-t.y}; len=Math.min(Math.hypot(vec.x,vec.y),430); if(len<14){practiceDraw();return;} }
+    if(CFG.control==="aimed"){ vec={x:pt.x-t.x,y:pt.y-t.y}; len=Math.min(Math.hypot(vec.x,vec.y),practiceCap()); if(len<14){practiceDraw();return;} }
     else { var dt=Math.max(30,performance.now()-inputP.t), dx=pt.x-inputP.sx, dy=pt.y-inputP.sy, sw=Math.hypot(dx,dy);
-      if(sw<12){practiceDraw();return;} len=Math.min(430, 60+(sw/dt)*230); vec={x:dx,y:dy}; }
+      if(sw<12){practiceDraw();return;} len=Math.min(practiceCap(), 60+(sw/dt)*230); vec={x:dx,y:dy}; }
     var L=Math.hypot(vec.x,vec.y)||1, dir={x:vec.x/L,y:vec.y/L};
     var end={x:t.x+dir.x*len, y:t.y+dir.y*len};
     PC.traces.push({points:[{x:t.x,y:t.y},end], color:CFG.p1.color, width:MEDIUMS[CFG.p1.medium].w, age:0});
