@@ -119,6 +119,13 @@ canvas#cv{display:block;width:100%;height:auto;touch-action:none;}
 /* ---------- modals ---------- */
 .modalBack{position:fixed;inset:0;background:rgba(20,16,8,.62);display:none;align-items:center;justify-content:center;z-index:60;padding:14px;}
 .modalBack.open{display:flex;}
+/* TANKS reinforcement picker (Oct 29, 2026): two big silhouette choices */
+.pickRow{display:flex;gap:12px;justify-content:center;margin-top:10px;}
+.pickBtn{flex:1 1 0;max-width:200px;padding:12px 8px 10px;border:3px solid var(--ink);border-radius:12px;background:#fffdf4;cursor:pointer;font:inherit;color:var(--ink);box-shadow:4px 4px 0 rgba(0,0,0,.25);}
+.pickBtn:hover,.pickBtn:focus-visible{background:#fdf3d0;outline:none;}
+.pickBtn svg{display:block;margin:0 auto 6px;}
+.pickBtn b{display:block;font-size:16px;margin-bottom:2px;}
+.pickBtn span{display:block;font-size:12.5px;color:#5a5344;line-height:1.35;}
 .modal{background:var(--panel);border:3px solid var(--ink);border-radius:16px;max-width:640px;width:100%;max-height:88vh;overflow:auto;padding:20px;box-shadow:8px 8px 0 rgba(0,0,0,.4);}
 .coinWrap{perspective:640px;height:116px;display:flex;align-items:center;justify-content:center;}
 .coin{position:relative;width:118px;height:118px;transform-style:preserve-3d;}
@@ -837,6 +844,21 @@ footer{ color:#6d675a; font-size:12.5px; letter-spacing:.2px; background:transpa
   <button class="btn primary" id="passOk">I'm ready →</button>
 </div></div>
 
+<div class="modalBack" id="tankPickModal"><div class="modal" style="text-align:center;max-width:440px;">
+  <h2>🔧 Build which tank?</h2>
+  <div class="pickRow">
+    <button class="pickBtn" id="pickLight" aria-label="Build a Light Cannon tank">
+      <svg width="64" height="84" viewBox="0 0 64 84" aria-hidden="true"><rect x="8" y="20" width="9" height="54" rx="4" fill="#3a3a40"/><rect x="47" y="20" width="9" height="54" rx="4" fill="#3a3a40"/><rect x="29.5" y="2" width="5" height="38" fill="currentColor" stroke="#2b2b33" stroke-width="1.6"/><rect x="17" y="24" width="30" height="48" rx="5" fill="currentColor" stroke="#2b2b33" stroke-width="2"/><circle cx="32" cy="46" r="10" fill="currentColor" stroke="#2b2b33" stroke-width="2"/></svg>
+      <b>Light Cannon</b><span>Fast &amp; long. Straight shots — cover blocks them. 1 hit.</span>
+    </button>
+    <button class="pickBtn" id="pickHeavy" aria-label="Build a Heavy Mortar tank">
+      <svg width="64" height="84" viewBox="0 0 64 84" aria-hidden="true"><rect x="4" y="24" width="12" height="50" rx="5" fill="#3a3a40"/><rect x="48" y="24" width="12" height="50" rx="5" fill="#3a3a40"/><rect x="14" y="28" width="36" height="44" rx="5" fill="currentColor" stroke="#2b2b33" stroke-width="2"/><rect x="14" y="36" width="36" height="6" fill="rgba(0,0,0,.22)"/><rect x="24" y="15" width="16" height="21" rx="6" fill="currentColor" stroke="#2b2b33" stroke-width="2"/><ellipse cx="32" cy="15" rx="9" ry="4" fill="#2b2b33"/><rect x="21" y="40" width="22" height="18" rx="5" fill="currentColor" stroke="#2b2b33" stroke-width="2"/></svg>
+      <b>Heavy Mortar</b><span>Slow &amp; tough. Lobs over cover — whistling drop, big boom. 2 hits.</span>
+    </button>
+  </div>
+  <button class="btn" data-close="tankPickModal" style="margin-top:12px;">Cancel</button>
+</div></div>
+
 <div class="modalBack" id="overModal"><div class="modal" style="text-align:center;">
   <h2 id="overTitle">💥 Base destroyed!</h2>
   <p id="overText"></p>
@@ -1041,6 +1063,7 @@ function playTone(freqA, freqB, dur, gain, type, dest){
   g.gain.exponentialRampToValueAtTime(0.001, AC.currentTime+dur);
   o.connect(g); g.connect(dest||sfxGain); o.start(); o.stop(AC.currentTime+dur);
 }
+function sfxLog(n){ try{ (window.__SS_SFX_LOG=window.__SS_SFX_LOG||[]).push(n); }catch(e){} }
 var SFX = {
   trace: function(medium){
     if(medium==="crayon") playNoise(0.28, 500, 0.7, 0.20);
@@ -1058,7 +1081,7 @@ var SFX = {
     playNoise(0.05, 2400, 2, 0.055, "highpass");
     playTone(720, 520, 0.045, 0.028, "triangle");
   },
-  boom: function(big){ playNoise(big?0.9:0.45, 160, 0.6, big?0.6:0.35, "lowpass"); playTone(120,35,big?0.8:0.4,0.4,"triangle"); },
+  boom: function(big){ sfxLog("boom"); playNoise(big?0.9:0.45, 160, 0.6, big?0.6:0.35, "lowpass"); playTone(120,35,big?0.8:0.4,0.4,"triangle"); },
   shield: function(){ playTone(880, 1400, 0.35, 0.16, "sine"); playTone(1320, 1900, 0.3, 0.08, "sine"); },
   twang: function(){ playTone(190, 90, 0.22, 0.22, "square"); playNoise(0.1, 900, 2, 0.1); },
   whistle: function(){ playTone(1500, 300, 0.7, 0.14, "sine"); },
@@ -1115,11 +1138,27 @@ var SFX = {
   /* TANKS (Oct 26, 2026): the cannon shot — a low boom with a short
      muzzle crack. soft=true is the bunker cannon's smaller voice. */
   cannon: function(soft){
+    sfxLog("cannon");
     var g0=soft?0.30:0.48;
     playNoise(soft?0.4:0.55, 150, 0.55, g0, "lowpass");
     playTone(95, 30, soft?0.4:0.55, g0*0.9, "triangle");
     playNoise(0.07, 2600, 1, 0.09, "highpass");
-  }
+  },
+  /* TANK CLASSES (Oct 29, 2026): the two guns get separate voices.
+     LIGHT CANNON: the cannon above plus this sharp CRACK on top —
+     flat, instant, no whistle anywhere. HEAVY MORTAR: a soft deep
+     THUMP at launch (no crack), a falling WHISTLE that sounds only
+     while the shell descends, and a big round BOOM at the landing.
+     All synthesized on the same SFX bus and guarded ambient
+     session as everything else; no music is touched. */
+  cannonCrack: function(){ if(!AC) return; sfxLog("cannonCrack"); playNoise(0.06, 3200, 1, 0.16, "highpass"); playTone(340, 120, 0.07, 0.10, "square"); },
+  mortarThump: function(){ if(!AC) return; sfxLog("mortarThump"); playNoise(0.32, 110, 0.5, 0.50, "lowpass"); playTone(72, 30, 0.34, 0.50, "triangle"); },
+  mortarWhistle: function(dur){ if(!AC) return; sfxLog("mortarWhistle"); dur=dur||0.45;
+    playTone(2100, 430, dur, 0.13, "sine");
+    setTimeout(function(){ if(AC) playTone(1900, 390, dur*0.9, 0.05, "triangle"); }, 40); },
+  mortarBoom: function(){ if(!AC) return; sfxLog("mortarBoom");
+    playNoise(0.8, 140, 0.5, 0.60, "lowpass"); playTone(110, 26, 0.75, 0.50, "triangle");
+    playTone(620, 940, 0.10, 0.10, "sine"); }
 };
 function startAmbience(){
   if(!AC || !SETTINGS.ambience) return;
@@ -3380,6 +3419,24 @@ function drawThing(c,t){
       c.globalCompositeOperation="multiply";
       c.drawImage(tim,-tw/2,-tl*0.70,tw,tl); c.restore(); drawn=true;
     }
+    /* CLASS SILHOUETTE OVERLAYS (Oct 29, 2026): drawn in the hull's
+       own rotated frame, on sprite and fallback alike, so the two
+       classes read apart at a glance in every state — the Heavy
+       wears bolted ARMOR SKIRTS over both treads (bulk), the Light
+       wears twin SPEED CHEVRONS at its tail (quick, slim). */
+    c.save(); c.translate(t.x,t.y); c.rotate(t.angle+Math.PI/2);
+    if(t.cls==="heavy"){
+      c.fillStyle=col; c.strokeStyle="rgba(43,43,51,.85)"; c.lineWidth=1.6;
+      [-1,1].forEach(function(sd2){
+        var sx0=sd2>0?19:-26;
+        c.beginPath(); c.rect(sx0,-15,7,30); c.fill(); c.stroke();
+        c.beginPath(); c.moveTo(sx0,-5); c.lineTo(sx0+7,-5); c.moveTo(sx0,5); c.lineTo(sx0+7,5); c.stroke();
+      });
+    } else {
+      c.strokeStyle=col; c.lineWidth=2.4; c.lineCap="round";
+      [20,27].forEach(function(cy2){ c.beginPath(); c.moveTo(-6,cy2); c.lineTo(0,cy2+5); c.lineTo(6,cy2); c.stroke(); });
+    }
+    c.restore();
   }
   /* Knights & Tanks pieces: plain pencil-outline placeholders (below) until
      the Space art is approved. Status badges are drawn cues, no words, and
@@ -3886,11 +3943,26 @@ function spawnEscape(x,y,n){
     SFX.pop(); setTimeout(function(){ SFX.pop(); },130);
   } else spawnStickmen(x,y,n);
 }
-function spawnBoom(x,y,big){
+function spawnBoom(x,y,big,style){
+  /* TANK CLASS EFFECTS (Oct 29, 2026): on the Tanks board the burst
+     wears the firing class's shape — G._fxStyle is stamped by
+     resolveShot for the duration of a resolution (Space & Knights
+     never set it and keep the classic starburst). MORTAR: a big
+     ROUND crayon puff. CANNON: a smaller, FLATTER burst. Both are
+     cosmetic particles on the normal fade, sized so the hit
+     feedback underneath (cracks, smoke, crossed-out pieces) still
+     reads through them. */
+  style = style || (CFG.theme==="tanks" ? G._fxStyle : null);
+  if(style==="mortar"){
+    G.particles.push({puff:true,x:x,y:y,vx:0,vy:0,t:0,max:30,r:big?76:58});
+    for(var pi=0;pi<10;pi++){ var pa=Math.random()*6.29, ps=1+Math.random()*2.6;
+      G.particles.push({x:x,y:y,vx:Math.cos(pa)*ps,vy:Math.sin(pa)*ps-0.7,t:0,max:24+Math.random()*16,r:3+Math.random()*4,col:["#e9a13b","#f7e08a","#cbbf9f"][pi%3]}); }
+    G.shake=Math.min(14, big?12:8); return;
+  }
   // the big crayon & gel-pen starburst, plus splatter
   var spikes=[]; var ns=big?14:10;
   for(var si=0;si<ns;si++) spikes.push({a:si/ns*6.29+(Math.random()-0.5)*0.3, l:(big?66:44)*(0.6+Math.random()*0.6), col:["#e2492f","#e9a13b","#f2c229","#1769c2","#e05299"][si%5]});
-  G.particles.push({burst:true,x:x,y:y,vx:0,vy:0,t:0,max:big?30:22,r:big?70:46,spikes:spikes});
+  G.particles.push({burst:true,flat:style==="cannon",x:x,y:y,vx:0,vy:0,t:0,max:big?30:22,r:big?70:46,spikes:spikes});
   for(var i=0;i<(big?26:12);i++){ var a=Math.random()*6.29, s=1+Math.random()*(big?4:2.4);
     G.particles.push({x:x,y:y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,t:0,max:26+Math.random()*22,r:2+Math.random()*(big?6:3.4),col:["#e2492f","#e9a13b","#f7e08a","#555"][i%4]}); }
   G.shake=Math.min(14,(big?12:6));
@@ -3924,6 +3996,25 @@ function draw(){
     ctx.restore();
   }
   // (the lunch clock is NOT drawn here any more — it lives in the top chrome; see drawChromeClock)
+  /* HEAVY MORTAR IN FLIGHT (Oct 29, 2026): the shell on its smooth
+     parabola — a landing ring waits at the target, a ground shadow
+     runs the straight line underneath (shrinking and darkening as
+     the shell falls), and the shell itself swells at the arc's peak:
+     height you can read at a glance. */
+  if(G.mortarAnim){
+    var ma=G.mortarAnim, mu=Math.max(0, Math.min(1, (Date.now()-ma.t0)/ma.dur));
+    var mH=mortarHeight(Math.hypot(ma.x1-ma.x0, ma.y1-ma.y0));
+    var mgx=ma.x0+(ma.x1-ma.x0)*mu, mgy=ma.y0+(ma.y1-ma.y0)*mu, mh=4*mH*mu*(1-mu);
+    ctx.save();
+    ctx.strokeStyle="rgba(193,39,27,.75)"; ctx.setLineDash([4,5]); ctx.lineWidth=1.8;
+    ctx.beginPath(); ctx.arc(ma.x1, ma.y1, 16+3*Math.sin(Date.now()/160), 0, 6.29); ctx.stroke(); ctx.setLineDash([]);
+    ctx.beginPath(); ctx.moveTo(ma.x1-7, ma.y1); ctx.lineTo(ma.x1+7, ma.y1); ctx.moveTo(ma.x1, ma.y1-7); ctx.lineTo(ma.x1, ma.y1+7); ctx.stroke();
+    ctx.fillStyle="rgba(40,35,28,"+(0.15+0.22*mu)+")";
+    ctx.beginPath(); ctx.ellipse(mgx, mgy, 10-4*mu, 4.5-1.5*mu, 0, 0, 6.29); ctx.fill();
+    ctx.fillStyle="#2b2b33"; ctx.beginPath(); ctx.arc(mgx, mgy-mh, 4.5+3.5*Math.sin(mu*Math.PI), 0, 6.29); ctx.fill();
+    ctx.fillStyle="rgba(255,255,255,.65)"; ctx.beginPath(); ctx.arc(mgx-1.6, mgy-mh-1.6, 1.4, 0, 6.29); ctx.fill();
+    ctx.restore();
+  }
   // particles
   G.particles=G.particles.filter(function(pt){ return pt.t<pt.max; });
   G.particles.forEach(function(pt){ pt.x+=pt.vx; pt.y+=pt.vy; pt.t++;
@@ -3934,8 +4025,17 @@ function draw(){
       for(var mi=0;mi<5;mi++){ var ma=pt.ang+(mi-2)*0.42;
         ctx.beginPath(); ctx.moveTo(pt.x,pt.y); ctx.lineTo(pt.x+Math.cos(ma)*pt.r*mg, pt.y+Math.sin(ma)*pt.r*mg); ctx.stroke(); }
       ctx.fillStyle="#fff3b0"; ctx.beginPath(); ctx.arc(pt.x,pt.y,7*mg+2,0,6.29); ctx.fill();
-    } else if(pt.burst){ // jagged multi-color starburst with splatter dots
+    } else if(pt.puff){ // HEAVY MORTAR landing: a ROUND cartoon explosion — concentric crayon puff rings and a cream cloud heart, growing then fading
+      var pgrow=0.3+0.7*Math.min(1, pt.t/7);
+      ctx.fillStyle="rgba(247,224,138,0.5)"; ctx.beginPath(); ctx.arc(pt.x,pt.y,pt.r*0.52*pgrow,0,6.29); ctx.fill();
+      [["#e2492f",1.0],["#e9a13b",0.72],["#f2c229",0.45]].forEach(function(ring){
+        ctx.strokeStyle=ring[0]; ctx.lineWidth=5; ctx.lineCap="round";
+        ctx.beginPath(); ctx.arc(pt.x, pt.y, pt.r*ring[1]*pgrow, 0, 6.29); ctx.stroke();
+      });
+      ctx.fillStyle="#fff3b0"; ctx.beginPath(); ctx.arc(pt.x,pt.y,11*pgrow,0,6.29); ctx.fill();
+    } else if(pt.burst){ // jagged multi-color starburst with splatter dots (flat=true squashes it: the Light Cannon's impact)
       var grow=0.35+0.65*Math.min(1, pt.t/6);
+      if(pt.flat){ ctx.translate(pt.x,pt.y); ctx.scale(1,0.55); ctx.translate(-pt.x,-pt.y); }
       pt.spikes.forEach(function(sp){
         ctx.strokeStyle=sp.col; ctx.lineWidth=4.5; ctx.lineCap="round";
         ctx.beginPath(); ctx.moveTo(pt.x+Math.cos(sp.a)*8, pt.y+Math.sin(sp.a)*8);
@@ -3978,6 +4078,11 @@ function draw(){
   // aim preview / editor hints
   if(input.preview){ var pvAct=input.thing?effectiveAction(input.thing):"move"; // the cue is drawn from the SAME effectiveAction the flick will use — it cannot disagree with the switch
     drawTrace(ctx,{points:input.preview,color:playerCfg(G.turn).color,width:MEDIUMS[playerCfg(G.turn).medium].w,age:0,dash:(pvAct==="shoot"?"shot":true)}); }
+  if(input.previewLand){ // HEAVY MORTAR aim: a landing ring at the arc's foot — this shot clears cover and lands HERE
+    ctx.save(); ctx.strokeStyle="#c1271b"; ctx.lineWidth=2.4;
+    ctx.beginPath(); ctx.arc(input.previewLand.x, input.previewLand.y, 15+2*Math.sin(Date.now()/200), 0, 6.29); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(input.previewLand.x-6, input.previewLand.y); ctx.lineTo(input.previewLand.x+6, input.previewLand.y);
+    ctx.moveTo(input.previewLand.x, input.previewLand.y-6); ctx.lineTo(input.previewLand.x, input.previewLand.y+6); ctx.stroke(); ctx.restore(); }
   if(G.editor){ drawEditor(ctx); }
   if(G.lastRoll){ // the forest roll shows as a little drawn die face — pips, not words
     ctx.save(); ctx.translate(G.lastRoll.x, G.lastRoll.y-24);
@@ -3988,7 +4093,7 @@ function draw(){
     pips.forEach(function(pp){ ctx.beginPath(); ctx.arc(pp[0],pp[1],3.4,0,6.29); ctx.fill(); });
     ctx.restore(); }
   ctx.restore();
-  if(G.anim || trudgeActive() || G.particles.length || G.stickmen.length || G.pods.length || G.shake>0 || (G.bases[0].hp===1||G.bases[1].hp===1) || turretHaloOn() || prodPulseOn() || prizeFading() || (CFG.mode==="2p" && !G.over)){
+  if(G.anim || G.mortarAnim || input.previewLand || trudgeActive() || G.particles.length || G.stickmen.length || G.pods.length || G.shake>0 || (G.bases[0].hp===1||G.bases[1].hp===1) || turretHaloOn() || prodPulseOn() || prizeFading() || (CFG.mode==="2p" && !G.over)){
     cancelAnimationFrame(rafId); rafId=requestAnimationFrame(draw);
   }
 }
@@ -4495,6 +4600,56 @@ function resolveMove(u, end, vec){
   afterAction(u,"move");
 }
 
+/* ============================================================
+   TANK CLASS SHOT GEOMETRY (Oct 29, 2026)
+   LIGHT CANNON: a straight shell — firstShotStop walks the same
+   BLOCKERS the resolver honors (hills/ruins and the enemy base)
+   so the AIM PREVIEW stops at the first true blocker, exactly
+   where the real shell will. Fighters and turrets are NOT
+   blockers: resolveShot pierces them (every fighter and turret
+   on the line is hit as the shell passes through), so the
+   preview line runs straight through them too and ends only
+   at terrain, the base, or max range.
+   HEAVY MORTAR: the shell rides a true parabola — mortarArcPoints
+   samples it smoothly (26 points, no wobble, no jitter) for the
+   aim preview, the flight trace and the in-flight shell alike,
+   so what you preview is the curve that flies. Only the landing
+   point ever resolves; everything under the arc is flown over.
+   ============================================================ */
+function mortarHeight(dist){ return 54+dist*0.26; }
+function mortarArcPoints(a, b, n){
+  var H=mortarHeight(Math.hypot(b.x-a.x, b.y-a.y)), pts=[]; n=n||26;
+  for(var i=0;i<=n;i++){ var u=i/n;
+    pts.push({x:a.x+(b.x-a.x)*u, y:a.y+(b.y-a.y)*u - 4*H*u*(1-u)}); }
+  return pts;
+}
+function addTraceSmooth(points, owner, medium){
+  // like addTrace, but the points are used exactly as given — a
+  // mortar's parabola must stay SMOOTH (crayon wobble lives here,
+  // and it is what made the old lob look crooked)
+  G.traces.forEach(function(t){ t.age++; });
+  G.traces.push({points:points.slice(), color:playerCfg(owner).color, width:MEDIUMS[medium].w, age:0, shot:true});
+  if(G.traces.length>60) G.traces.splice(0, G.traces.length-60);
+}
+function firstShotStop(shooter, end){
+  var start={x:shooter.x, y:shooter.y}, pts=sampleLine(start, end, 5);
+  for(var s=1;s<pts.length;s++){
+    var pt=pts[s];
+    if(baseHitAt(pt, 1-shooter.owner)) return pt;
+    var ob=obstacleAt(pt, 2);
+    if(ob && (ob.type==="ruin"||ob.type==="hill")){
+      if(shooter.kind==="tank" && ob.type==="hill" && obsContains(ob, shooter, 0)){ /* your own hilltop never blocks your own cannon */ }
+      else if(shooter.kind==="tank" && onHill(shooter) && ob.type==="ruin"){ /* high ground fires over low cover */ }
+      else return pt;
+    }
+    /* fighters and turrets deliberately do NOT stop the preview:
+       the real shell pierces them (resolveShot hits every one on
+       the line and flies on), so the line runs through them and
+       ends only at the blockers checked above, or at max range */
+  }
+  return end;
+}
+
 /* ---- SHOT resolution: all intersections count ---- */
 function resolveShot(shooter, end, vec){
   var owner=shooter.owner, medium=playerCfg(owner).medium;
@@ -4511,25 +4666,43 @@ function resolveShot(shooter, end, vec){
     if(CFG.theme==="tanks") SFX.cannon(true); // the bunker cannon speaks too, a touch softer than a tank's own gun
     if(CFG.theme==="space" && !SETTINGS.turretHintDone){ SETTINGS.turretHintDone=true; saveSettings(); }
   }
-  /* Heavy Mortar: only the landing point matters */
+  /* Heavy Mortar: only the landing point matters. The shell rides
+     the SMOOTH parabola (mortarArcPoints) as a visible in-flight
+     shell with a ground shadow; the whistle sounds ONLY during
+     the descent; the landing is the round puff-boom. */
   if(shooter.kind==="tank"&&shooter.cls==="heavy"&&!shooter.turret){
-    SFX.cannon(); // the mortar THUMPS out of the tube, then the shell whistles over
-    SFX.whistle();
-    addTrace([start,{x:(start.x+end.x)/2,y:Math.min(start.y,end.y)-70},end], owner, medium, true);
+    SFX.mortarThump(); // out of the tube with a soft deep thump — no crack, no whistle yet
+    var mzlA=Math.atan2(vec.y, vec.x);
+    G.particles.push({muzzle:true, vx:0, vy:0, x:start.x+Math.cos(mzlA)*30, y:start.y+Math.sin(mzlA)*30, ang:mzlA, t:0, max:8, r:30});
+    var distM=Math.hypot(end.x-start.x, end.y-start.y);
+    var durM=Math.max(520, Math.min(980, 430+distM*1.15));
+    addTraceSmooth(mortarArcPoints(start, end, 26), owner, medium);
+    var gm=G;
+    G.mortarAnim={x0:start.x, y0:start.y, x1:end.x, y1:end.y, t0:Date.now(), dur:durM, owner:owner};
+    setTimeout(function(){ if(window.G===gm) SFX.mortarWhistle(durM*0.5/1000); }, Math.round(durM*0.5)); // the falling whistle, second half of the flight only
     setTimeout(function(){
-      var R=40; spawnBoom(end.x,end.y,false); SFX.boom(false);
+      if(window.G!==gm) return;
+      G.mortarAnim=null;
+      var R=40; G._fxStyle="mortar"; spawnBoom(end.x,end.y,true); SFX.mortarBoom();
       for(var p=0;p<2;p++) G.units[p].forEach(function(o){ if(o.alive&&Math.hypot(o.x-end.x,o.y-end.y)<R+16){ hitFighter(o, owner, {mortar:true}); } });
       for(var p2=0;p2<2;p2++) G.turrets[p2].forEach(function(t){ if(t.alive&&Math.hypot(t.x-end.x,t.y-end.y)<R+12) killThing(t,"Mortar landed right on it!"); });
       if(baseHitAt(end,1-owner)||Math.hypot(end.x-baseCenter(1-owner).x,end.y-baseCenter(1-owner).y)<R+baseFootW()/2) damageBase(1-owner, owner, {mortar:true});
       if(CFG.friendly==="full"&&Math.hypot(end.x-baseCenter(owner).x,end.y-baseCenter(owner).y)<R+baseFootW()/2) damageBase(owner, owner, {mortar:true});
+      G._fxStyle=null;
       draw(); afterAction(shooter,"shoot");
-    }, 420);
+    }, durM);
     draw(); return;
   }
   var pts=sampleLine(start,end,5);
   var isArrow = shooter.turret&&CFG.theme==="knights";
   if(isArrow) SFX.twang(); else SFX.trace(medium);
   if(shooter.kind==="tank") SFX.cannon(); // a tank's shot is a cannon boom, not just a pencil scratch
+  if(shooter.kind==="tank" && !shooter.turret){ /* LIGHT CANNON package: a sharp CRACK and a tight muzzle flash on top of the boom, and every impact of this shot bursts FLAT (spawnBoom reads _fxStyle) — no whistle, ever */
+    SFX.cannonCrack();
+    var lA=Math.atan2(vec.y,vec.x);
+    G.particles.push({muzzle:true, vx:0, vy:0, x:start.x+Math.cos(lA)*30, y:start.y+Math.sin(lA)*30, ang:lA, t:0, max:6, r:20});
+    G._fxStyle="cannon";
+  }
   var stopped=false, carved=new Set();
   var hitOnce=new Set(); // ONE hit event per fighter per shot (Oct 26, 2026 — found by the armor driven checks): a shell may pierce a whole LINE of fighters, but the old loop re-hit the SAME fighter at every 5px sample, so one arrow unhorsed AND killed, one shell always wrecked a Heavy, and armor could never leave a fighter unharmed. Turrets were already safe (dead is dead); fighters now dedupe per shot.
   var tracePts=[start];
@@ -4598,6 +4771,7 @@ function resolveShot(shooter, end, vec){
       });
     }
   }
+  G._fxStyle=null;
   addTrace(tracePts, owner, medium, true);
   afterAction(shooter,"shoot");
 }
@@ -4780,7 +4954,31 @@ document.getElementById("btnTurretFire").addEventListener("click", function(){
   log("🔫 "+thingLabel(nxt)+" selected.");
   updateHUD(); draw();
 });
-document.getElementById("btnLaunch").addEventListener("click", function(){
+/* ============================================================
+   REINFORCEMENTS (Oct 29, 2026): in TANKS the build is a CHOICE.
+   A human tapping the base disc (or this shared trigger) with a
+   build ready gets the two-choice picker — Light Cannon or Heavy
+   Mortar, silhouettes + one-line labels — and the pick launches
+   that class as the turn action under the normal cap/cooldown.
+   The CPU never sees a popup: it picks by the field (a mortar
+   when it fields none and cover stands to lob over, a cannon
+   when it fields none, otherwise it balances the fleet). Other
+   themes launch exactly as before. */
+function cpuPickTankClass(p){
+  var hs=0, ls=0;
+  allUnits(p).forEach(function(u){ if(u.cls==="heavy") hs++; else if(u.cls==="light") ls++; });
+  var cover=G.obstacles.some(function(o){ return o.type==="hill"||o.type==="ruin"; });
+  if(hs===0 && cover) return "heavy";
+  if(ls===0) return "light";
+  return hs<=ls ? "heavy" : "light";
+}
+function openTankPicker(){
+  var col=PLAYER_COLORS[playerCfg(G.turn).color].hex;
+  document.getElementById("pickLight").style.color=col;
+  document.getElementById("pickHeavy").style.color=col;
+  document.getElementById("tankPickModal").classList.add("open");
+}
+function launchReinforcement(cls){
   if(!G||G.over) return; var p=G.turn;
   if(!canProduce(p)){
     log(CFG.deployment==="none" ? "Hardcore rules: no reinforcements — what's lost is lost." :
@@ -4792,15 +4990,30 @@ document.getElementById("btnLaunch").addEventListener("click", function(){
   if(CFG.deployment==="launchbay") G.reserve[p]--;
   G.prodCd[p]=2; // production cooldown: ticked down at the end of each of this side's turns, so their NEXT turn is blocked and the one after is free
   var bc=baseCenter(p), d=dirToEnemy(p), sd={x:-d.y,y:d.x}, latOff=((G.units[p].length%3)-1)*36;
-  var nuCls = CFG.theme==="tanks" ? (CFG.tankMix==="allH"?"heavy":"light") : null;
+  var nuCls = CFG.theme==="tanks" ? (cls||"light") : null;
   var nu={ id:p+"-r"+Date.now(), owner:p, x:bc.x+d.x*spawnFwd(p)+sd.x*latOff, y:bc.y+d.y*spawnFwd(p)+sd.y*latOff, angle:Math.atan2(d.y,d.x), alive:true,
     kind:CFG.theme==="space"?"ship":CFG.theme==="knights"?"knight":"tank", cls:nuCls,
     hp:CFG.theme==="space"?CFG.shipHp:(nuCls==="heavy"?2:1), mounted:true };
+  if(CFG.theme==="tanks") nu.onHill=onHill(nu);
   G.units[p].push(nu);
   log(CFG.theme==="knights" ? "🏰 "+playerName(p)+" trains a fresh knight at the castle! He rides out next turn." :
       CFG.theme==="tanks" ? "🔧 "+playerName(p)+" rolls a fresh "+thingLabel(nu)+" out of the bunker!" :
       "🚀 "+playerName(p)+" launches a fresh ship from the mothership!");
   SFX.pop(); evaluateClock(); if(!G.over) endTurn();
+}
+document.getElementById("btnLaunch").addEventListener("click", function(){
+  if(!G||G.over) return;
+  if(CFG.theme==="tanks" && canProduce(G.turn)){
+    if(CFG.mode==="1p" && G.turn===1){ launchReinforcement(cpuPickTankClass(G.turn)); return; }
+    openTankPicker(); return;
+  }
+  launchReinforcement(null);
+});
+document.getElementById("pickLight").addEventListener("click", function(){
+  document.getElementById("tankPickModal").classList.remove("open"); launchReinforcement("light");
+});
+document.getElementById("pickHeavy").addEventListener("click", function(){
+  document.getElementById("tankPickModal").classList.remove("open"); launchReinforcement("heavy");
 });
 
 /* ============================================================
@@ -5095,8 +5308,18 @@ setupPointer(cv, {
       var dx=pt.x-t.x, dy=pt.y-t.y, L=Math.hypot(dx,dy), cap=maxLen(t, effectiveAction(t));
       var cl=Math.min(L,cap);
       if(L>1){ var pvEnd={x:t.x+dx/L*cl, y:t.y+dy/L*cl};
-        if(effectiveAction(t)==="move") pvEnd=momentumEnd(t, pvEnd); // the preview shows the TRUE travel distance, Momentum boost included — never the unboosted one
-        input.preview=[{x:t.x,y:t.y},pvEnd]; }
+        var pvAct3=effectiveAction(t);
+        input.previewLand=null;
+        if(pvAct3==="move"){ pvEnd=momentumEnd(t, pvEnd); input.preview=[{x:t.x,y:t.y},pvEnd]; } // the preview shows the TRUE travel distance, Momentum boost included — never the unboosted one
+        else if(CFG.theme==="tanks" && t.kind==="tank" && t.cls==="heavy" && !t.turret){
+          /* HEAVY MORTAR aim: the smooth arc itself + a landing ring — visibly clearing every blocker on the ground */
+          input.preview=mortarArcPoints({x:t.x,y:t.y}, pvEnd, 26); input.previewLand=pvEnd;
+        }
+        else if(CFG.theme==="tanks" && pvAct3==="shoot"){
+          /* STRAIGHT-SHOT aim (Light Cannon, bunker cannon): the line STOPS at the first blocker, where the shell will */
+          input.preview=[{x:t.x,y:t.y}, firstShotStop(t, pvEnd)];
+        }
+        else input.preview=[{x:t.x,y:t.y},pvEnd]; }
     } else if(CFG.control==="hybrid"){
       var dx2=pt.x-t.x, dy2=pt.y-t.y, L2=Math.hypot(dx2,dy2);
       if(L2>4) input.preview=[{x:t.x,y:t.y},{x:t.x+dx2/L2*46, y:t.y+dy2/L2*46}];
@@ -5106,7 +5329,7 @@ setupPointer(cv, {
   up: function(pt, e){
     if(G&&G.editor){ editorUp(pt); return; }
     if(!input.down||!input.thing) return; // a plain empty-paper tap creates no trace, selects nothing, costs no turn
-    var t=input.thing; input.down=false; input.preview=null;
+    var t=input.thing; input.down=false; input.preview=null; input.previewLand=null;
     var act=effectiveAction(t);
     var vec, len;
     if(CFG.control==="aimed"){
@@ -5133,7 +5356,7 @@ setupPointer(cv, {
     haptic(12); doAction(t, act, {x:t.x+dir.x*len, y:t.y+dir.y*len}, dir);
     draw();
   },
-  cancel: function(){ input.down=false; input.preview=null; input.flipArmed=false; input.pan=null; if(G) draw(); }
+  cancel: function(){ input.down=false; input.preview=null; input.previewLand=null; input.flipArmed=false; input.pan=null; if(G) draw(); }
 });
 /* Re-tapping the already-selected fighter flips the Move/Shoot pick.
    Only a plain tap reaches here (both too-short-release paths call it);
@@ -5409,7 +5632,7 @@ function howHTML(){
     "<h3>🚀 Space</h3><p>Ships die in "+CFG.shipHp+" hit(s). Shots <b>tunnel asteroids</b>, carving holes (Variants: block, destroy). Flying into an asteroid, a ship or a wall wrecks the ship; two ships colliding wreck both. The <b>forcefield is hit 1 of 3</b>. While it is UP, flying into its <b>core</b> zaps any ship at the rim — band grazes pass — scoring <b>no base hit</b> and leaving the shield untouched; shots still count it as hit 1. Turrets <b>pulse gold</b> when they can fire: tap one, flick, like a fighter. Fired, a turret <b>reloads through your next turn</b> — dim grey, then gold; each reloads alone. Ships and shots <b>wrap</b> the edges.</p>" :
     CFG.theme==="knights" ?
     "<h3>🏰 Knights</h3><p>Knights have <b>no shot</b> — the flick is a <b>charge</b>. Crossing an enemy unhorses him; reaching the castle scores a hit and unhorses the charger. On foot he cannot hurt the castle, and one more hit puts him out — but he <b>trudges home alone</b>: one step at the end of each of your turns (rocks block, forests don't slow), <b>remounting</b> on arrival. Towers fire arrows as your turn action, then <b>reload through your next turn</b> — dim, then gold. <b>Rocks</b> block charges and arrows. <b>Forests</b> never stop a charge; end inside one and only <b>1-in-4</b> arrows get through.</p>" :
-    "<h3>🛡️ Tanks</h3><p><b>Light Cannon:</b> fast, long, straight shells — hills and ruins block; 1 hit kills. <b>Heavy Mortar:</b> slow, short, lobs over everything, bursts on landing; 2 hits, smoking and slower after the first. <b>Heavier tank wins a ram.</b> Hills: crossing costs a quarter of the move; from the top, cannon fire clears low cover. <b>Sandbags</b> absorb the bunker's first straight hit — mortars skip them. The bunker cannon fires as your turn action, then <b>reloads through your next turn</b>.</p>";
+    "<h3>🛡️ Tanks</h3><p>Two unmistakable classes. <b>Light Cannon</b> (slim hull, long thin barrel): fast, long, <b>straight</b> shells with a sharp crack and a small flat burst — hills and ruins block, and its aim line <b>stops at the first blocker</b>; 1 hit kills. <b>Heavy Mortar</b> (bulky armored hull, short fat tube): slow, short moves; its shell rides a <b>smooth high arc</b> — the aim preview draws the arc and a landing ring — <b>whistling as it falls</b> into a big round boom where it lands, clearing hills, ruins and sandbags entirely; 2 hits, smoking and slower after the first. <b>Heavier tank wins a ram.</b> Hills: crossing costs a quarter of the move; from the top, cannon fire clears low cover. <b>Sandbags</b> absorb the bunker's first straight hit — mortars skip them. <b>Building a tank?</b> Tap the base disc and <b>pick Light or Heavy</b> each time. The bunker cannon fires as your turn action, then <b>reloads through your next turn</b>.</p>";
   return "<p><b>The heart of it:</b> flick your fighters across the paper. Blow up the <b>enemy base in 3 hits</b> — never mop up their fighters.</p>"+
   "<p><b>A turn (Move + Shoot):</b> flick one fighter to <b>move</b>, then flick the <b>same fighter</b> to <b>shoot</b>. Firing a structure, or building, is a whole turn instead. <b>Classic</b> (Variants): move or shoot, one flick. Traces stay and fade; they never collide.</p>"+
   "<p><b>🏭 Production:</b> spend a turn to <b>build a fighter</b> at your base, up to your cap. The disc on the base's <b>back corner</b>: ＋ ready, <b>pips</b> cooling down (one turn), quiet bar at cap. Launch Bay starts you at half; Hardcore builds nothing.</p>"+
@@ -5462,7 +5685,8 @@ document.querySelectorAll("[data-close]").forEach(function(b){
 
 /* ---------- Dev Log ---------- */
 document.getElementById("devBody").textContent =
-"Oct 27, 2026 (night, latest) — THE ENTRANCE FITS THE VISIBLE SCREEN, AND AN INVISIBLE BORDER GUARDS THE PLAYFIELD (Matthew, two iPhone photos of the live build).\n\n1) ENTRANCE OVERLAP (his setup photo: the Play! / Random / Variants row sat ON TOP of the Ships row, its 'Rotate' select and chevron peeking out from underneath at the very bottom, cut off by Safari's toolbar). The entrance sized itself to the full screen height while Safari showed a shorter visible area, so the last rows collided instead of fitting. The entrance now takes its height from the small/dynamic viewport units (100svh / 100dvh, 100vh fallback) with its safe-area padding kept, the logo's height caps use svh, the setup card clips inside its own flex slot so no row can paint over another, and on short portrait screens the entrance compacts in two tiers (smaller logo, tighter headings, slimmer cards, chips, selects, inputs and action buttons) — the whole entrance (logo, War, Players, Name, Paper, Ships, and the action row) fits the actually-visible viewport at full and short heights with no overlap and no scrolling.\n\n2) THE INVISIBLE BORDER (his Knights photo: the paper bled edge to edge, but the top chrome row sat on the board and the enemy castle was clipped behind the clock and buttons, and the bottom info strip and End turn bar covered the near castle and towers — 'there should be an invisible border that keeps play unaffected'). There is one now, and it is literal: the canvas IS the logical playfield, and it is contain-fit inside the board column — the rectangle that begins below the top chrome row and ends above the bottom info/action bar, safe-area insets respected. Everything already lives in the canvas's logical coordinates (rendering, input, movement and shot resolution, base anchoring, spawns, obstacle and prize placement, the quarter's corner parking), so the border confines all of it at once: nothing renders, spawns or comes to rest under the chrome or outside the border, and field proportions and rules inside the border are unchanged. This RETIRES the width-fit bleed for the sheet itself: a 1:2 plate sheet sized by width was taller than the space between the chrome rows and slid under them on the claim the bands were empty paper — false for the Knights plate, whose castles stand at the sheet's very ends. The paper still bleeds to the physical edges (the stage around the sheet is the same ruled looseleaf to every edge, and drawn boards still span the full width inside the border); a plate sheet now fits the border by height with both castles fully visible and clear of both chrome rows. One screen, no scrolling, as always.\n\n3) PACKAGING: the GitHub staging snapshot was regenerated from this source after both fixes (68 asset modules, decode- and sha256-verified as before; manifests and root icons unchanged in kind), so the pair of fixes can be republished together.\n\n————————————————\n\n" +
+"Oct 29, 2026 (latest) — TANKS: TWO REAL CLASSES (Matthew: the two tank types should look and operate differently, reinforcements should be choosable, and there should be a cartoon explosion with a whistling sound, different per tank).\n\n1) LOOKS. The Heavy Mortar's sprite was redrawn with a SHORT FAT mortar tube and a dark round muzzle in place of its long cannon barrel, over its wider armored hull and bigger treads, and it wears bolted armor skirts over its treads in play. The Light Cannon keeps its slim hull and long thin straight barrel and gains twin speed chevrons at its tail. Silhouette alone tells them apart in every state; the Heavy's smoking damaged state is unchanged.\n\n2) SHOTS. The Heavy's lob is now a true SMOOTH parabola — sampled at 26 points for the aim preview, the flight trace and the visible in-flight shell alike; the old three-point crayon-wobbled path that read as crooked is gone. A ground shadow runs under the shell, shrinking and darkening as it falls, and the shell swells at the peak, so the height reads at a glance. Only the landing point resolves, over hills, ruins and sandbags, as before. The Light's aim line now STOPS at the first blocker, exactly where its straight shell will stop. CPU simulation already resolved both classes by these same rules (landing-only for mortars, blockers for cannon) and still does.\n\n3) SOUND AND EFFECTS, PER CLASS. Mortar: a soft deep thump at launch, a falling WHISTLE that sounds only during the shell's descent (dropping pitch), then a big ROUND crayon puff explosion at the landing. Cannon: the boom plus a sharper crack, a tight muzzle flash, and a smaller FLATTER impact burst — no whistle. Both ride the existing SFX bus on the guarded ambient session; music and the other themes' effects are untouched.\n\n4) REINFORCEMENT PICKER. In Tanks, tapping the base disc with a build ready opens a minimal two-choice picker — Light Cannon vs Heavy Mortar as silhouettes with one-line labels — and the pick launches that class as the turn action under the usual cap and cooldown. The CPU picks by the field: a mortar when it fields none and cover stands, a cannon when it fields none, otherwise it balances its fleet. Other themes build as before; the prisoner rescue is still a Light Cannon.\n\n" +
+"Oct 27, 2026 (night) — THE ENTRANCE FITS THE VISIBLE SCREEN, AND AN INVISIBLE BORDER GUARDS THE PLAYFIELD (Matthew, two iPhone photos of the live build).\n\n1) ENTRANCE OVERLAP (his setup photo: the Play! / Random / Variants row sat ON TOP of the Ships row, its 'Rotate' select and chevron peeking out from underneath at the very bottom, cut off by Safari's toolbar). The entrance sized itself to the full screen height while Safari showed a shorter visible area, so the last rows collided instead of fitting. The entrance now takes its height from the small/dynamic viewport units (100svh / 100dvh, 100vh fallback) with its safe-area padding kept, the logo's height caps use svh, the setup card clips inside its own flex slot so no row can paint over another, and on short portrait screens the entrance compacts in two tiers (smaller logo, tighter headings, slimmer cards, chips, selects, inputs and action buttons) — the whole entrance (logo, War, Players, Name, Paper, Ships, and the action row) fits the actually-visible viewport at full and short heights with no overlap and no scrolling.\n\n2) THE INVISIBLE BORDER (his Knights photo: the paper bled edge to edge, but the top chrome row sat on the board and the enemy castle was clipped behind the clock and buttons, and the bottom info strip and End turn bar covered the near castle and towers — 'there should be an invisible border that keeps play unaffected'). There is one now, and it is literal: the canvas IS the logical playfield, and it is contain-fit inside the board column — the rectangle that begins below the top chrome row and ends above the bottom info/action bar, safe-area insets respected. Everything already lives in the canvas's logical coordinates (rendering, input, movement and shot resolution, base anchoring, spawns, obstacle and prize placement, the quarter's corner parking), so the border confines all of it at once: nothing renders, spawns or comes to rest under the chrome or outside the border, and field proportions and rules inside the border are unchanged. This RETIRES the width-fit bleed for the sheet itself: a 1:2 plate sheet sized by width was taller than the space between the chrome rows and slid under them on the claim the bands were empty paper — false for the Knights plate, whose castles stand at the sheet's very ends. The paper still bleeds to the physical edges (the stage around the sheet is the same ruled looseleaf to every edge, and drawn boards still span the full width inside the border); a plate sheet now fits the border by height with both castles fully visible and clear of both chrome rows. One screen, no scrolling, as always.\n\n3) PACKAGING: the GitHub staging snapshot was regenerated from this source after both fixes (68 asset modules, decode- and sha256-verified as before; manifests and root icons unchanged in kind), so the pair of fixes can be republished together.\n\n————————————————\n\n" +
 "Oct 27, 2026 (latest) — FULL GRAPHICS SWEEP, CLOCK & QUARTER PLACEMENT, PHONE-PORTRAIT BLEED, LOGO BLEND, AND THE STAGING SNAPSHOT REGENERATED.\n\n1) THE SWEEP (Matthew, with a photo of a live drawn-board match still showing flat shapes: 'Some of the old graphics are still showing'). Every variant and mode was audited path by path — all three themes (Space/Knights/Tanks), all seven papers, plate boards and drawn boards (preset/random/stamps/freehand/empty fields), every fighter style and color, bases in every state (full, cracked, burning, wrecked, shield up and popped, Tanks armor on and blown), all defense structures (turret/tower/cannon, ready, reloading, wrecked), the field prizes (star, escape pod, caged knight, crew pen — on the field, riding as the armor badge, and the fleeing escape pods), the 1985 quarter, the lunch clock, and the Practice Sheet. The audit's finding: the hand-drawn set was already complete in the source — the eight drawn-board pieces (rock, forest, hill, ruin, castle, HQ, tower, cannon) exist and every draw path asks for its drawing FIRST; the flat vector shapes underneath remain only as the transient fallback while a drawing is still loading. What made flat shapes STAY on the live page was the text-snapshot pipeline: in that form every image ships as a base64 JS module keyed into window.__SS_ASSETS, and any loader that does not resolve through that map 404s and leaves its fallback up forever (the Oct 27 live-photo bug). All three loaders now resolve through the map — loadArt (every piece, fighter, knight, tank and prize sprite), loadPlate (the three board plates) and the entrance logo — and the crowd clips ride the same map, so in the snapshot form nothing can fall back permanently. The clock is a hand-drawn vector piece by design and is unchanged as a drawing; the quarter's faces were swapped for Matthew's photographic Quarter A later the same day (see 3).\n\n2) CLOCK OFF THE BOARD (Matthew): the lunch clock no longer sits in the board's top-right corner. The same hand-drawn face — same drawing code, same readable size class, final 10 minutes still red — now renders on a small canvas in the top chrome row at the upper right, beside the layout badge, and re-reads the turn count on every HUD update. Its movement-barrier footprint and its prize-clearance exclusion are REMOVED: no corner of the paper is out of play any more, and the board's top-right is ordinary playable paper in portrait and in the rotated landscape presentation alike.\n\n3) QUARTER TO A CORNER (Matthew): after the flip, the quarter no longer parks mid-field. placeCoin tries the four paper corners in a fixed order, each inset slightly from the edges, and takes the first that passes the same clearance test as always (no obstacle, base or its reinforcements disc, structure, spawn, star or prisoner spot); if a hand-built editor field blocks all four, the old middle-zone scan remains as the safety net. The parked quarter keeps its movement-only barrier behavior in its corner — fighters bump to a stop, shots pass over — in movement resolution and CPU simulation alike, and the same parking happens on Rematch and after an editor match. In the landscape presentation the corner is a paper corner and rotates with the sheet. The parked quarter — and both faces on the flip card — now show Matthew's Quarter A: the worn realistic 1985-P, cropped from his chosen art with the rim and reeded edge kept and the paper beyond the rim knocked out, so the coin sits on the sheet with only its own soft shadow; the drawn vector faces remain only as the while-loading fallback. Same coin size, same flip and landed-face logic, same corner parking and barrier.\n\n4) PHONE PORTRAIT BLEED (Matthew, from his iPhone: 'the paper should bleed to the edge of the screen'). On phone-width portrait stages the match fits by WIDTH: the stage drops its side padding, the chrome compacts to one slim row top and bottom (clock included), and the sheet touches both screen edges with no dead gutters. Input maps through the canvas rect as always, so flicks, movement, shots and placement are valid out to both margins; field coordinates, rules, stats and the relative layout inside the field are unchanged. A tall plate sheet is taller than the space between the compact bars and slides under them, centered — nothing is cropped: the bands beneath the chrome are empty paper on every plate (bubble tops, keep and HQ tops all start well inside them). Still one screen, no scrolling, at 390x844. Landscape phones and iPad are untouched.\n\n5) LOGO BLEND (Matthew: the entrance logo 'shows as a visible box'). The logo file's paper is knocked out to transparency — alpha from the ink's darkness against the drawing's own paper tone, colors un-premultiplied from that paper — and the entrance now composites it in normal blending with no multiply and no lifted paper: no rectangle, no edges, no tonal patch, and the sheet's ruled lines run continuously behind the drawing at every viewport.\n\n6) PACKAGING: the GitHub staging snapshot (~/workspace/scribble-siege-pages/) was regenerated from this source: 68 base64 asset modules (the 65 before, plus assets/logo.js and the two quarter-face crops), every module decode- and sha256-verified against its source asset; the root manifest lists only index.html, README.md and site.webmanifest, NUL-delimited and NUL-terminated like the assets manifest; the four root PNGs (apple-touch-icon, icon-192, icon-512, og-image) are preserved byte-identical, stay out of every push manifest, and their sha256 values are unchanged. The staged snapshot itself was verified served the way GitHub Pages serves it — zero failed artwork requests, hand-drawn boards in all three themes (including a Tanks drawn board on plain paper with the drawn hill, ruin and HQ), a seamless entrance logo, and the portrait-bleed board touching both edges.\n\n————————————————\n\n" +
 "Oct 27, 2026 (later) — PRIZES REFRESH AT HALFTIME IN LONG GAMES (Matthew, approving the proposal as offered: 'Yes, refresh prizes at halftime in long games'). Scope is exactly the approved design: only matches whose lunch runs 90 turns or more (Long Lunch 120, or a custom 90–240) AND Field Prizes on. Exactly once per match, at the end of the turn on which the completed-turn count reaches half the lunch, the prizes top back up. (1) STAR: if no unclaimed star is waiting, a fresh one is placed at board center or the nearest fully clear spot, through the same prizeSpotClear / prizeRelocate clearance discipline as the opening placement, against the field as it stands at halftime; a star still waiting is never doubled. (2) PRISONERS: each side whose captive was already rescued gets a NEW captive at its usual mirrored spot in the enemy half, clear-checked with the same footprint test and relocated minimally if blocked; a side whose prisoner still waits gets no second one. At most one unclaimed star and one unrescued prisoner per side exist at any time. The refreshed pieces are ordinary prizes — the same pickup path grants the armor, the same rescue fields the extra fighter above the cap, and the CPU values them as it always has, because pickup, rescue and CPU code all read the same G.star / G.prisoners. Presentation stays minimal: the new pieces fade in on the paper over about half a second (they carry a bornAt stamp the opening prizes never get), no modal, no words on the paper; one line in the Battle Log notes the top-up. Standard 60 and Short 30 lunches are unchanged — no refresh at their halftime — Field Prizes off refreshes nothing, and a Rematch or new match resets the once-per-match flag with the rest of the game state. This supersedes one line in the entry below ('no mid-match respawns in longer games' — true when written this morning, before the refresh was approved). Verified by driving real matches headlessly through the game's own pickup and end-of-turn code: a Long Lunch Random-field game with the star claimed and a prisoner rescued before halftime gained a fresh clear star and a fresh captive at turn 60, and both worked (armor granted on pickup; the rescue fielded the extra fighter); a Long game with the star unclaimed at halftime kept its original star untouched, unmoved and undoubled; a Standard 60 game showed no refresh at turn 30; a custom 90 game refreshed at turn 45 while a custom 89 did not; Field Prizes off refreshed nothing; and across five more Random fields every refreshed spot passed the same full-footprint clearance checks as the opening placement.\n\n————————————————\n\n" +
 "Oct 27, 2026 — PRIZES NEVER SIT INSIDE A METEOR ANY MORE (Matthew: 'Sometimes the star bonus is showing up inside of a meteor and is unattainable. Can you correct this?'). He could: the armor star was placed at the board's exact center with no clearance check at all — and the drawn fallback board parks an obstacle dead center, Random fields can drop one there, and the Space plate's middle asteroid overlaps the star's sprite — while the prisoner pair, though checked, fell back to its first candidate unchecked when no candidate cleared (which is every Knights plate match: the pair was landing in a forest and against a rock). Placement now runs against the field that was actually generated — plate, Random, stamps and freehand alike, mirroring already applied, and re-run after the battlefield editor finishes, the same discipline the quarter already used. A spot is clear only when the prize's whole footprint (sprite plus pickup/rescue radius) sits on open paper: no overlap with any obstacle's full footprint, core or graze band, and none with bases, spawn points, defense structures, a raised shield bubble, the clock's disc, the landed quarter, or the other prize. A blocked star relocates to the nearest fully clear spot to board center; a blocked prisoner pair relocates symmetrically, mirrored twin and all, staying in the enemy half. Unobstructed boards are untouched: the star still sits at exact center and the prisoner pair still takes its first candidate (verified across the plates and the fallback boards). Nothing else about prizes changed: still one star and one prisoner per side per match, same pickup and rescue rules, no mid-match respawns in longer games. Verified by driving Space matches with an asteroid over board center (plate and several Random seeds) and collecting the relocated star with a real flick, plus Knights and Tanks prisoner relocations.\n\n————————————————\n\n" +
