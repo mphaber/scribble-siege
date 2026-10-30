@@ -1876,7 +1876,7 @@ function newGame(obstacles){
   if(CFG.deployment!=="launchbay") G.reserve=[0,0];
   G.mirror=MIRROR_THIS_MATCH;
   if(G.mirror) log("🪞 Mirrored board this match — the whole battlefield is flipped left-for-right.");
-  if(CFG.prizes) placePrizes(); else { G.prisoners=null; G.star=null; }
+  if(CFG.prizes) placePrizes(); else { G.prisoners=null; G.stars=null; G.star=null; }
   placeCoin(); // the flip's 1985 quarter will land on the paper and stay as a movement-only barrier
   log("A coin flip says "+playerName(G.turn)+" goes first. Blow up the enemy base — 3 hits!");
   if(CFG.theme==="space"&&CFG.spaceBase!=="none") log("The forcefield IS hit 1. Pop it, crack it, blow it.");
@@ -1890,7 +1890,10 @@ function newGame(obstacles){
    PRISONER: each side has ONE captured teammate held in the ENEMY's
    half at mirrored spots (point-mirrored through the board center, so
    both are the same distance from the center and, in spirit, from the
-   enemy base; offset from the center lane so it is a real detour).
+   enemy base; pushed well off to the SIDE, away from the board's
+   central column, so it is a real detour — Oct 30, 2026: the lateral
+   offset is randomized per match within a fair band, the pair always
+   exactly mirrored).
    Any friendly fighter whose MOVEMENT path touches the spot frees
    them at the end of that move: the prisoner becomes a NEW fighter of
    that side on the spot (Space: standard fighter; Knights: a MOUNTED
@@ -1902,13 +1905,22 @@ function newGame(obstacles){
    touching it does nothing, and an unfreed prisoner is not a fighter
    for the stalemate / outright-loss rules (it never enters G.units
    until freed).
-   ARMOR STAR: one golden star at the center of the board — the exact
-   center whenever it is clear, otherwise the nearest fully clear
-   spot to it (prizeSpotClear / prizeRelocate below: a prize never
-   sits inside an obstacle, base, structure, spawn, bubble or
-   quarter). The first fighter whose movement path crosses or ends
-   on it picks it up and becomes Armored (armorAbsorb below); the
-   star is then gone for the match. Armor never drops or transfers.
+   ARMOR STARS: TWO golden stars (Oct 30, 2026 — Matthew: the single
+   dead-center star in Space seemed to favor one team). The pair sits
+   a little to the SIDE of center, never on the center point: star B
+   is the exact 180-degree rotation of star A about the board center,
+   so each team has a star the same distance away in its own reach
+   and either team may claim either star. The pair's offset distance
+   and lateral direction are randomized per match within a fair band
+   around the center; symmetry is always exact. Blocked spots
+   relocate symmetrically through the same clearance discipline
+   (prizeSpotClear / prizeRelocate below: a prize never sits inside
+   an obstacle, base, structure, spawn, bubble or quarter). The
+   first fighter whose movement path crosses or ends on a star
+   picks it up and becomes Armored (armorAbsorb below); that star
+   is then gone. A fighter may hold only one armor at a time — an
+   already-armored fighter leaves a star waiting. Armor never drops
+   or transfers.
    LONG GAMES (lunch of 90+ turns) refresh both prizes once at
    halftime — see refreshPrizesHalftime below. */
 /* PRIZE CLEARANCE (fix, Oct 27, 2026 — Matthew: "Sometimes the star
@@ -1980,37 +1992,136 @@ function prizeRelocate(cx, cy, rad, extra){
    the opening placement and the halftime refresh: candidates for
    PLAYER 0's prisoner (held in player 1's half); player 1's spot is
    the point-mirror. prizeCand maps a fraction to board coordinates
-   for the active layout, flipping with a mirrored board. */
-var PRIZE_PAIRS=[[0.44,0.385],[0.30,0.30],[0.68,0.32],[0.32,0.36],[0.64,0.38],[0.26,0.34],[0.58,0.30],[0.36,0.42]];
+   for the active layout, flipping with a mirrored board. In the
+   fraction pair, fx is the LATERAL position (0.5 = the board's
+   central column) and fy is the depth into the enemy half. Since
+   Oct 30, 2026 every candidate sits well off to the side:
+   |fx - 0.5| is never below 0.20. PRIZE_PAIRS is the deterministic
+   fallback ladder; prisonerCandidates() puts randomized fair-band
+   candidates in front of it each placement. */
+var PRIZE_PAIRS=[[0.22,0.36],[0.78,0.33],[0.26,0.30],[0.74,0.42],[0.18,0.38],[0.82,0.30],[0.30,0.42],[0.70,0.36]];
 function prizeCand(fx, fy){
   var face=isFaceLayout();
   var a = face ? {x:fx*FW, y:fy*FH} : {x:(1-fy)*FW, y:fx*FH};
   if(MIRROR_THIS_MATCH && face) a.x=FW-a.x; // the captive's cell flips with the board (clearance is tested on the final spot)
   return a;
 }
+/* FAIR RANDOMIZATION (Oct 30, 2026): prize starting spots vary per
+   match, but only inside fair bands and always with EXACT symmetry —
+   the star pair by 180-degree rotation about the board center, the
+   prisoner pair by point-mirror (the same rotation). Distances from
+   both bases are therefore equal by construction, in the play frame
+   (the base-to-base axis), so portrait and landscape sheets are
+   equally fair. One shared board: both players and the CPU read the
+   same G.stars / G.prisoners. */
+function rotPt(x, y){ return {x:FW-x, y:FH-y}; } // the 180-degree rotation about the board center
+function starKeepsOf(stars){
+  var out=[];
+  (stars||[]).forEach(function(s){ if(s && !s.taken) out.push({x:s.x, y:s.y, r:PRIZE_FOOT.star}); });
+  return out;
+}
+function keepsClear(x, y, rad, keeps){
+  if(!keeps) return true;
+  for(var i=0;i<keeps.length;i++){ if(!prizeSpotClear(x, y, rad, keeps[i])) return false; }
+  return true;
+}
+/* A star pair counts as clear only when BOTH stars are fully clear —
+   of the field, of the given keeps (waiting prisoners / the waiting
+   twin), and of each other — and neither sits near the center point:
+   the pair's offset from center is at least 84px by construction. */
+function starPairClear(x, y, keeps){
+  var b=rotPt(x, y);
+  if(Math.hypot(x-FW/2, y-FH/2)<84) return false;
+  if(!prizeSpotClear(x, y, PRIZE_FOOT.star, null)) return false;
+  if(!prizeSpotClear(b.x, b.y, PRIZE_FOOT.star, {x:x, y:y, r:PRIZE_FOOT.star})) return false;
+  if(!keepsClear(x, y, PRIZE_FOOT.star, keeps)) return false;
+  if(!keepsClear(b.x, b.y, PRIZE_FOOT.star, keeps)) return false;
+  return true;
+}
+/* One randomized star offset in the fair band, expressed in the play
+   frame: a lateral step of 96–152px to a randomly chosen side of the
+   central column, plus a forward step of 44–96px toward a randomly
+   chosen base. starSpotFromOffset turns it into board coordinates
+   through the base-to-base axis, so the band means the same thing on
+   face and side layouts and on the tall plate sheets. */
+function randomStarOffset(){
+  var lat=96+Math.random()*56, fwd=44+Math.random()*52;
+  if(Math.random()<0.5) lat=-lat;
+  if(Math.random()<0.5) fwd=-fwd;
+  return {lat:lat, fwd:fwd};
+}
+function starSpotFromOffset(off){
+  var f=dirToEnemy(0), l={x:-f.y, y:f.x}, cx=FW/2, cy=FH/2;
+  return {x:cx + l.x*off.lat + f.x*off.fwd, y:cy + l.y*off.lat + f.y*off.fwd};
+}
+/* Place a whole star PAIR, symmetric by construction: randomized
+   fair-band offsets first, then a deterministic offset ladder, then
+   a symmetric relocation search (a spot qualifies only when its
+   180-degree twin qualifies too, so relocation never breaks the
+   symmetry). keeps are footprints both stars must also clear (the
+   waiting prisoners at halftime). bornAt, when given, stamps both
+   stars for the halftime fade-in. */
+function placeStarPair(keeps, bornAt){
+  function mk(x, y){ var s={x:x, y:y, taken:false}; if(bornAt) s.bornAt=bornAt; return s; }
+  function pairFrom(a){ var b=rotPt(a.x, a.y); return [mk(a.x, a.y), mk(b.x, b.y)]; }
+  var tries=[];
+  for(var i=0;i<14;i++) tries.push(randomStarOffset());
+  [[124,64],[-124,64],[140,-72],[-140,-72],[104,-88],[-104,-88],[148,52],[-148,52]].forEach(function(o){ tries.push({lat:o[0], fwd:o[1]}); });
+  for(var t=0;t<tries.length;t++){
+    var a=starSpotFromOffset(tries[t]);
+    if(starPairClear(a.x, a.y, keeps)) return pairFrom(a);
+  }
+  for(var k=0;k<tries.length;k++){
+    var ak=starSpotFromOffset(tries[k]);
+    var mv=prizeRelocate(ak.x, ak.y, PRIZE_FOOT.star, function(x, y){ return starPairClear(x, y, keeps); });
+    if(mv) return pairFrom(mv);
+  }
+  var last=starSpotFromOffset({lat:124, fwd:64}); // pathological field (a hand-built editor board): the fair offset stands, as the old unchecked center fallback once did
+  return pairFrom(last);
+}
+/* Prisoner candidates for one placement: randomized fair-band spots
+   first — lateral fraction 0.17–0.30 or 0.70–0.83 (well off the
+   central column, toward the sides), depth 0.29–0.42 into the enemy
+   half — then the deterministic PRIZE_PAIRS ladder. Whichever
+   candidate wins, its point-mirror is the other side's spot, so the
+   randomization can never favor a team. */
+function prisonerCandidates(){
+  var list=[];
+  for(var i=0;i<10;i++){
+    var latMag=0.20+Math.random()*0.13;
+    list.push([(Math.random()<0.5 ? 0.5-latMag : 0.5+latMag), 0.29+Math.random()*0.13]);
+  }
+  for(var j=0;j<PRIZE_PAIRS.length;j++) list.push(PRIZE_PAIRS[j]);
+  return list;
+}
 function placePrizes(){
   var cx=FW/2, cy=FH/2;
-  // ARMOR STAR: the board's exact center whenever the center is clear
-  // (the usual case on every board) — otherwise the nearest fully
-  // clear spot to the center, so the star is never drawn inside a
-  // meteor, rock or ruin and is always reachable.
-  var ss=prizeRelocate(cx, cy, PRIZE_FOOT.star, null);
-  G.star = ss ? {x:ss.x, y:ss.y, taken:false} : {x:cx, y:cy, taken:false};
-  var starKeep={x:G.star.x, y:G.star.y, r:PRIZE_FOOT.star};
+  // ARMOR STARS: a PAIR, a little to the side of center, placed with
+  // exact 180-degree rotational symmetry — neither star on the
+  // center point, each the same distance from both bases as its
+  // twin, and both fully clear of the field (see placeStarPair).
+  G.stars=placeStarPair(null, 0);
+  G.star=null; // retired single-star state (kept null so no stale reader can find a center star)
+  var starKeeps=starKeepsOf(G.stars);
   // PRISONERS: candidate spots for PLAYER 0's prisoner (held in
   // player 1's half), face layout first; side-by-side transposes them
-  // into the right half. The first pair whose spots are BOTH fully
-  // clear wins, so the captive never sits inside a rock or a ruin on
-  // any board. When every candidate is blocked, the pair relocates
-  // symmetrically — the mirrored twin moves with it, so both sides
-  // keep the same detour — and it stays in the enemy half.
-  var pairs=PRIZE_PAIRS;
+  // into the right half. Candidates sit well off to the side, their
+  // lateral offset randomized within the fair band. The first pair
+  // whose spots are BOTH fully clear wins, so the captive never sits
+  // inside a rock or a ruin on any board. When every candidate is
+  // blocked, the pair relocates symmetrically — the mirrored twin
+  // moves with it, so both sides keep the same detour — and it stays
+  // in the enemy half.
+  var pairs=prisonerCandidates();
   var face = isFaceLayout(), spot0=null, spot1=null;
   function cand(fx, fy){ return prizeCand(fx, fy); }
   function pairClear(x, y){
-    return (face ? y<cy : x>cx)
-      && prizeSpotClear(x, y, PRIZE_FOOT.prisoner, starKeep)
-      && prizeSpotClear(FW-x, FH-y, PRIZE_FOOT.prisoner, starKeep);
+    if(!(face ? y<cy : x>cx)) return false;
+    var rx=FW-x, ry=FH-y;
+    return prizeSpotClear(x, y, PRIZE_FOOT.prisoner, null)
+      && keepsClear(x, y, PRIZE_FOOT.prisoner, starKeeps)
+      && keepsClear(rx, ry, PRIZE_FOOT.prisoner, starKeeps)
+      && prizeSpotClear(rx, ry, PRIZE_FOOT.prisoner, {x:x, y:y, r:PRIZE_FOOT.prisoner});
   }
   for(var i=0;i<pairs.length && !spot0;i++){
     var a0=cand(pairs[i][0], pairs[i][1]);
@@ -2021,7 +2132,7 @@ function placePrizes(){
     var mv=prizeRelocate(ak.x, ak.y, PRIZE_FOOT.prisoner, pairClear);
     if(mv){ spot0=mv; spot1={x:FW-mv.x, y:FH-mv.y}; }
   }
-  if(!spot0){ var f0=pairs[0]; spot0 = face ? {x:f0[0]*FW, y:f0[1]*FH} : {x:(1-f0[1])*FW, y:f0[0]*FH}; if(MIRROR_THIS_MATCH && face) spot0.x=FW-spot0.x; spot1={x:FW-spot0.x, y:FH-spot0.y}; }
+  if(!spot0){ var f0=PRIZE_PAIRS[0]; spot0 = face ? {x:f0[0]*FW, y:f0[1]*FH} : {x:(1-f0[1])*FW, y:f0[0]*FH}; if(MIRROR_THIS_MATCH && face) spot0.x=FW-spot0.x; spot1={x:FW-spot0.x, y:FH-spot0.y}; }
   G.prisoners=[{x:spot0.x, y:spot0.y, freed:false}, {x:spot1.x, y:spot1.y, freed:false}];
 }
 /* ============================================================
@@ -2031,19 +2142,23 @@ function placePrizes(){
    120, or a custom 90–240) with Field Prizes on. Exactly once per
    match, at the end of the turn on which the completed-turn count
    reaches half the lunch, the prizes top back up:
-   (1) STAR — if no unclaimed star is waiting, a fresh one is placed
-       at board center or the nearest fully clear spot, through the
-       same prizeSpotClear / prizeRelocate discipline as the opening
-       placement, against the field as it now stands (wrecks and all);
-       a star still waiting unclaimed is never doubled.
+   (1) STARS — the waiting pair is topped back up to TWO (Oct 30,
+       2026, adapted to the star pair): if any star was taken, the
+       missing one is restored — at the exact 180-degree rotation of
+       the star still waiting when one survives (that was its twin's
+       spot), or as a fresh re-randomized symmetric pair when both
+       were taken — through the same clearance discipline as the
+       opening placement, against the field as it now stands (wrecks
+       and all). Never more than two waiting; if both still wait, no
+       star refresh.
    (2) PRISONERS — each side whose prisoner was already rescued gets
        a NEW captive at its usual mirrored spot in the enemy half,
        clear-checked and relocated minimally if blocked; a side whose
        prisoner still waits gets no second one.
-   So at most one unclaimed star and one unrescued prisoner per side
+   So at most two unclaimed stars and one unrescued prisoner per side
    exist at any time. Refreshed prizes are ordinary prizes — same
    pickup, armor, rescue and CPU valuation (checkPrizes and the CPU
-   read G.star / G.prisoners, nothing else). Presentation stays
+   read G.stars / G.prisoners, nothing else). Presentation stays
    minimal: the new pieces fade in on the paper (bornAt, drawn by
    drawPrizes), no modal, no words on the paper; one Battle Log line
    notes the refresh. Standard 60 and Short 30 lunches never refresh,
@@ -2053,27 +2168,32 @@ function halftimePrizesDue(){
   return !!(CFG && CFG.prizes && lunchTurns()>=90);
 }
 /* A clear spot for ONE side's refreshed prisoner: the usual candidate
-   spots first (this side's own spot, not the pair), then the same
+   spots first (this side's own spot, not the pair — randomized within
+   the same fair lateral band as the opening placement), then the same
    candidates relocated — always inside that side's enemy half, and
-   clear of the waiting star and of the other side's waiting prisoner. */
-function findPrisonerSpotFor(p, starKeep){
+   clear of the waiting stars and of the other side's waiting prisoner.
+   starKeeps is the array of waiting-star footprints. */
+function findPrisonerSpotFor(p, starKeeps){
   var cx=FW/2, cy=FH/2, face=isFaceLayout();
+  var keeps = starKeeps ? (Array.isArray(starKeeps) ? starKeeps : [starKeeps]) : [];
   var other=G.prisoners && G.prisoners[1-p];
   var otherKeep=(other && !other.freed) ? {x:other.x, y:other.y, r:PRIZE_FOOT.prisoner} : null;
   function ownSpot(a){ return p===0 ? a : {x:FW-a.x, y:FH-a.y}; }
   function clearFor(x, y){
     var sx = p===0 ? x : FW-x, sy = p===0 ? y : FH-y; // test the half in player 0's frame
     if(!(face ? sy<cy : sx>cx)) return false;
-    if(!prizeSpotClear(x, y, PRIZE_FOOT.prisoner, starKeep)) return false;
+    if(!prizeSpotClear(x, y, PRIZE_FOOT.prisoner, null)) return false;
+    if(!keepsClear(x, y, PRIZE_FOOT.prisoner, keeps)) return false;
     if(otherKeep && !prizeSpotClear(x, y, PRIZE_FOOT.prisoner, otherKeep)) return false;
     return true;
   }
-  for(var i=0;i<PRIZE_PAIRS.length;i++){
-    var c=ownSpot(prizeCand(PRIZE_PAIRS[i][0], PRIZE_PAIRS[i][1]));
+  var cands=prisonerCandidates();
+  for(var i=0;i<cands.length;i++){
+    var c=ownSpot(prizeCand(cands[i][0], cands[i][1]));
     if(clearFor(c.x, c.y)) return c;
   }
-  for(var k=0;k<PRIZE_PAIRS.length;k++){
-    var ak=ownSpot(prizeCand(PRIZE_PAIRS[k][0], PRIZE_PAIRS[k][1]));
+  for(var k=0;k<cands.length;k++){
+    var ak=ownSpot(prizeCand(cands[k][0], cands[k][1]));
     var mv=prizeRelocate(ak.x, ak.y, PRIZE_FOOT.prisoner, clearFor);
     if(mv) return mv;
   }
@@ -2085,24 +2205,39 @@ function refreshPrizesHalftime(){
   if(!halftimePrizesDue()) return;
   var now=(window.performance && performance.now) ? performance.now() : Date.now();
   var added=[];
-  // (1) STAR: top up only when none is waiting unclaimed.
-  if(!G.star || G.star.taken){
+  // (1) STARS: top the waiting pair back up to two — never more.
+  var waitingStars=(G.stars||[]).filter(function(s){ return s && !s.taken; });
+  if(waitingStars.length<2){
     var keeps=[];
     if(G.prisoners) G.prisoners.forEach(function(prz){ if(prz && !prz.freed) keeps.push({x:prz.x, y:prz.y, r:PRIZE_FOOT.prisoner}); });
-    var ss=prizeRelocate(FW/2, FH/2, PRIZE_FOOT.star, function(x, y){
-      for(var i=0;i<keeps.length;i++){ if(!prizeSpotClear(x, y, PRIZE_FOOT.star, keeps[i])) return false; }
-      return true;
-    });
-    if(ss){ G.star={x:ss.x, y:ss.y, taken:false, bornAt:now}; added.push("a fresh golden ARMOR STAR"); }
+    if(waitingStars.length===1 && G.stars && G.stars.length===2){
+      // One twin survives: restore the missing star at the survivor's
+      // exact 180-degree rotation (its twin's original spot), relocated
+      // minimally only if that spot is blocked by now.
+      var surv=waitingStars[0], rot=rotPt(surv.x, surv.y), spot=null;
+      if(prizeSpotClear(rot.x, rot.y, PRIZE_FOOT.star, {x:surv.x, y:surv.y, r:PRIZE_FOOT.star}) && keepsClear(rot.x, rot.y, PRIZE_FOOT.star, keeps)) spot=rot;
+      else spot=prizeRelocate(rot.x, rot.y, PRIZE_FOOT.star, function(x, y){
+        return prizeSpotClear(x, y, PRIZE_FOOT.star, {x:surv.x, y:surv.y, r:PRIZE_FOOT.star}) && keepsClear(x, y, PRIZE_FOOT.star, keeps);
+      });
+      if(spot){
+        var ti=G.stars[0].taken ? 0 : 1;
+        G.stars[ti]={x:spot.x, y:spot.y, taken:false, bornAt:now};
+        added.push("a fresh golden ARMOR STAR");
+      }
+    } else {
+      // Both taken (or no pair standing): a fresh re-randomized pair.
+      var pair=placeStarPair(keeps, now);
+      if(pair){ G.stars=pair; added.push("a fresh pair of golden ARMOR STARS"); }
+    }
   }
   // (2) PRISONERS: a new captive only for a side whose first was rescued.
   if(G.prisoners){
-    var starKeep=(G.star && !G.star.taken) ? {x:G.star.x, y:G.star.y, r:PRIZE_FOOT.star} : null;
+    var starKeeps=starKeepsOf(G.stars);
     for(var p=0;p<2;p++){
       var prz=G.prisoners[p];
       if(!prz || !prz.freed) continue;
-      var spot=findPrisonerSpotFor(p, starKeep);
-      if(spot){ G.prisoners[p]={x:spot.x, y:spot.y, freed:false, bornAt:now}; added.push("a new captive for "+playerName(p)); }
+      var spot=findPrisonerSpotFor(p, starKeeps);
+      if(spot){ G.prisoners[p]={x:spot.x, y:spot.y, freed:false, bornAt:now}; added.push("a new captive for "+playerName(p)); starKeeps=starKeepsOf(G.stars); }
     }
   }
   if(added.length){
@@ -2123,7 +2258,7 @@ function prizeFade(prize){
 }
 function prizeFading(){
   if(!G) return false;
-  if(prizeFade(G.star)<1) return true;
+  if(G.stars) for(var si=0;si<G.stars.length;si++){ if(G.stars[si] && prizeFade(G.stars[si])<1) return true; }
   if(G.prisoners) for(var p=0;p<2;p++){ if(G.prisoners[p] && prizeFade(G.prisoners[p])<1) return true; }
   return false;
 }
@@ -2137,10 +2272,16 @@ function pathTouches(pts, x, y, r){
    star is grabbed mid-move, and its armor can then eat that very hit. */
 function checkPrizes(u, pts){
   if(!CFG.prizes || !pts || pts.length<2) return;
-  if(G.star && !G.star.taken && pathTouches(pts, G.star.x, G.star.y, 27)){
-    G.star.taken=true; u.armored=true;
-    log("⭐ "+playerName(u.owner)+"'s "+thingLabel(u).toLowerCase()+" grabs the golden ARMOR STAR! It will shrug off the first hit that lands on it.");
-    SFX.pop();
+  if(G.stars){
+    for(var si=0;si<G.stars.length;si++){
+      var st=G.stars[si];
+      if(!st || st.taken || u.armored) continue; // one armor at a time: an armored fighter leaves a waiting star for someone else
+      if(pathTouches(pts, st.x, st.y, 27)){
+        st.taken=true; u.armored=true;
+        log("⭐ "+playerName(u.owner)+"'s "+thingLabel(u).toLowerCase()+" grabs a golden ARMOR STAR! It will shrug off the first hit that lands on it.");
+        SFX.pop();
+      }
+    }
   }
   var prz=G.prisoners && G.prisoners[u.owner];
   if(prz && !prz.freed && pathTouches(pts, prz.x, prz.y, 30)){
@@ -2219,7 +2360,7 @@ function barrierAt(pt, pad){
    are tried in a fixed order, each inset slightly from the paper's
    edges, and a corner only counts when coinSpotClear passes there:
    clear of every obstacle, base (and its reinforcements disc, which
-   the base test's margin covers), structure, spawn, the star and the
+   the base test's margin covers), structure, spawn, the stars and the
    prisoner spots. If every corner is blocked the old middle-zone scan
    remains as the safety net. The parked quarter keeps its movement-
    only barrier behavior in its corner, in movement resolution and
@@ -2237,7 +2378,7 @@ function coinSpotClear(x, y){
     for(var j=0;j<G.units[p].length;j++){ var u=G.units[p][j]; if(u.alive && Math.hypot(x-u.x, y-u.y)<54) return false; }
   }
   for(var k=0;k<G.obstacles.length;k++){ var o=G.obstacles[k]; if(!o.erased && obsContains(o, {x:x,y:y}, 38)) return false; }
-  if(G.star && Math.hypot(x-G.star.x, y-G.star.y)<60) return false;
+  if(G.stars) for(var si=0;si<G.stars.length;si++){ var st2=G.stars[si]; if(st2 && !st2.taken && Math.hypot(x-st2.x, y-st2.y)<60) return false; }
   if(G.prisoners) for(var q=0;q<2;q++){ var pz=G.prisoners[q]; if(pz && Math.hypot(x-pz.x, y-pz.y)<60) return false; }
   return true;
 }
@@ -2254,7 +2395,7 @@ function placeCoin(){
     var x=mz.x+22+Math.random()*(mz.w-44), y=mz.y+22+Math.random()*(mz.h-44);
     if(coinSpotClear(x, y)){ G.coin={x:x, y:y, r:25, face:face, landed:false}; return; }
   }
-  var fx=FW/2, fy=FH/2-112; // fallback: a coin's width above the center (the star owns the exact middle)
+  var fx=FW/2, fy=FH/2-112; // fallback: a coin's width above the center
   if(coinSpotClear(fx, fy)) G.coin={x:fx, y:fy, r:25, face:face, landed:false};
 }
 function landCoin(){ if(G && G.coin){ G.coin.landed=true; haptic(10); draw(); } } // from here on the quarter is ON the paper: drawn, and a barrier
@@ -3273,26 +3414,30 @@ function starPath(c, x, y, r){
   }
   c.closePath();
 }
-/* FIELD PRIZES: the armor star at the board's center and the two
-   captive spots carry the approved hand-drawn sprites (PRIZE_ART),
-   each prisoner's flag/plume tinted to its owner's color — with
-   NO circle or ring drawn around any spot (Matthew): the sprites
-   sit on the paper on their own, and the pickup/rescue touch
-   areas live only in the logic. State comes from G.star /
-   G.prisoners, so View Board shows the end state faithfully
-   (unfreed captives, an ungrabbed star). The pencil doodles below
-   remain only as the fallback while a sprite is still loading. */
+/* FIELD PRIZES: the two armor stars (a symmetric pair a little to
+   the side of center) and the two captive spots carry the approved
+   hand-drawn sprites (PRIZE_ART), each prisoner's flag/plume tinted
+   to its owner's color — with NO circle or ring drawn around any
+   spot (Matthew): the sprites sit on the paper on their own, and
+   the pickup/rescue touch areas live only in the logic. State comes
+   from G.stars / G.prisoners, so View Board shows the end state
+   faithfully (unfreed captives, ungrabbed stars). The pencil
+   doodles below remain only as the fallback while a sprite is
+   still loading. */
 function drawPrizes(c){
-  if(G.star && !G.star.taken){
-    var sx=G.star.x, sy=G.star.y;
-    var sim=prizeSprite("star", 1);
-    var sfa=prizeFade(G.star); // a halftime-refreshed star fades in (bornAt); opening prizes draw at full strength
-    if(!sim || !drawArt(c, sim, sx, sy, 76, 76, 0, sfa)){
-      c.save(); c.globalAlpha=sfa;
-      starPath(c, sx, sy, 21); c.fillStyle="#f6c945"; c.fill(); c.strokeStyle="#8a6414"; c.lineWidth=2.2; c.stroke();
-      starPath(c, sx, sy, 9); c.fillStyle="#ffe89a"; c.fill();
-      c.restore();
-    }
+  if(G.stars){
+    var sim2=prizeSprite("star", 1);
+    G.stars.forEach(function(st){
+      if(!st || st.taken) return;
+      var sx=st.x, sy=st.y;
+      var sfa=prizeFade(st); // a halftime-refreshed star fades in (bornAt); opening prizes draw at full strength
+      if(!sim2 || !drawArt(c, sim2, sx, sy, 76, 76, 0, sfa)){
+        c.save(); c.globalAlpha=sfa;
+        starPath(c, sx, sy, 21); c.fillStyle="#f6c945"; c.fill(); c.strokeStyle="#8a6414"; c.lineWidth=2.2; c.stroke();
+        starPath(c, sx, sy, 9); c.fillStyle="#ffe89a"; c.fill();
+        c.restore();
+      }
+    });
   }
   if(!G.prisoners) return;
   G.prisoners.forEach(function(prz, p){
@@ -5265,9 +5410,12 @@ function cpuTurn(){
         var dpz=Math.hypot(prz.x-u.x, prz.y-u.y);
         if(dpz<maxLen(u,"move")+30) addCand(u, "move", Math.atan2(prz.y-u.y, prz.x-u.x), Math.min(maxLen(u,"move"), dpz), 88);
       }
-      if(G.star && !G.star.taken){
-        var dst=Math.hypot(G.star.x-u.x, G.star.y-u.y);
-        if(dst<maxLen(u,"move")+30) addCand(u, "move", Math.atan2(G.star.y-u.y, G.star.x-u.x), Math.min(maxLen(u,"move"), dst), 70);
+      if(G.stars && !u.armored){
+        G.stars.forEach(function(st){
+          if(!st || st.taken) return;
+          var dst=Math.hypot(st.x-u.x, st.y-u.y);
+          if(dst<maxLen(u,"move")+30) addCand(u, "move", Math.atan2(st.y-u.y, st.x-u.x), Math.min(maxLen(u,"move"), dst), 70);
+        });
       }
     }
     if(u.kind==="knight"){
@@ -5727,7 +5875,7 @@ function howHTML(){
   "<p class=\"howPage2\"><b>🪙 The quarter:</b> a <b>1985-P</b> flips for first player each match — heads (Washington, left-facing, ponytail with a ribbon bow, 1985 along the bottom, tiny P mint mark), bottom starts; tails (eagle, wings raised, E PLURIBUS UNUM between them), top starts. It then settles in a corner of the paper and lies there all match: movement bumps to a stop on it; shots pass over.</p>"+
   "<p><b>⚔️ Momentum &amp; Breach:</b> movement flicks toward the enemy base travel up to <b>20% farther</b>; never a penalty backward; shots unboosted — the preview shows the true distance. Each base hit also destroys that base's <b>nearest standing structure</b>.</p>"+
   "<p><b>🪶 Forgiving edges:</b> a move wrecks only on an obstacle's <b>core</b>; clip the outer band and you scrape by. Shots take the whole obstacle.</p>"+
-  "<p><b>🔓⭐ Field prizes:</b> a captured teammate waits in the enemy half — any fighter whose move crosses the spot <b>frees</b> them, a fresh fighter <b>above your cap</b> (one per side). The golden <b>star</b> at center: the first fighter across it shrugs off the first hit that would damage, unhorse or wreck it. <b>Long games</b> (90+ turns): at <b>halftime</b> a claimed star is replaced and each rescued captive is replaced — never a second one waiting.</p>"+
+  "<p><b>🔓⭐ Field prizes:</b> a captured teammate waits off to the side in the enemy half — any fighter whose move crosses the spot <b>frees</b> them, a fresh fighter <b>above your cap</b> (one per side). <b>Two</b> golden <b>stars</b> sit a little off center, one within each side's reach: the first fighter across either shrugs off the first hit that would damage, unhorse or wreck it (one armor at a time). <b>Long games</b> (90+ turns): at <b>halftime</b> claimed stars are replaced up to the pair and each rescued captive is replaced — never more waiting than that.</p>"+
   "<p><b>Bases &amp; structures:</b> every base shares one <b>capped footprint</b> in its end zone; battles are won in the middle. Structures stand in front of the base and <b>block like obstacles</b> — ram one and you wreck (knights unhorse); shots destroy them in one hit. Crews of anything destroyed <b>escape unharmed</b>: stick figures on land, escape pods in space.</p>"+
   "<p><b>🏃/💥 The switch &amp; tools:</b> the Move/Shoot switch sets itself in Move + Shoot; in Classic your pick sticks until flipped — <b>tap the selected fighter again</b> to flip. The aim cue follows: dots move, dashes shoot. Tools are <b>shared</b> — same flicker, same medium both sides: pencil thin and precise, crayon fat and wobbly, pen between. Only color differs.</p>"+
   "<p><b>🖥 One screen:</b> no scrolling; on wide screens the sheet turns <b>landscape</b> — the clock alone stays upright. <b>2P:</b> a pill in the current player's color sits at their end; their base and disc pulse with it. Plate boards can <b>mirror-flip</b> as one (Variants). Results offer <b>View Board</b> — the final board, look-only. <b>Random</b> rolls a pack of variants; a Rematch keeps it.</p>"+
@@ -5771,6 +5919,7 @@ document.querySelectorAll("[data-close]").forEach(function(b){
 
 /* ---------- Dev Log ---------- */
 document.getElementById("devBody").textContent =
+"Oct 30, 2026 — TWO STARS, PRISONERS TO THE SIDE, FAIR RANDOM SPOTS (Matthew: the star bonus in Space always seems to favor one team — have two of them, a little to the side instead of dead center so each team gets a chance to get one; move the prisoners off to the side a little on each level; randomize the starting locations if it can stay fair). Field Prizes placement only — pickup effects, rescue behavior, the invisible play border and every other rule are unchanged.\n\n1) TWO ARMOR STARS. The single dead-center golden star is now a PAIR, on every theme and level. The pair is placed with exact 180-degree rotational symmetry about the board center in the play frame (the base-to-base axis), so the fairness is identical on portrait and landscape sheets: star B is always the exact rotation of star A. Each star sits a little to the SIDE of center — a lateral step of 96–152px plus a forward step of 44–96px — and neither ever sits on the center point or at the midline center. Either team may claim either star; each star still grants exactly one hit of armor, and a fighter may hold only one armor at a time (an already-armored fighter crossing a waiting star leaves it waiting for someone else — it is not consumed). No ring or circle is drawn around a star spot, as before. The CPU now routes a fighter toward whichever waiting star it can reach.\n\n2) PRISONERS OFF TO THE SIDE. On every theme/level both captive spots shift laterally toward the sides, away from the board's central column, while staying in the enemy half at exactly mirrored positions. Rescue behavior is untouched: Space frees a standard fighter, Knights a MOUNTED knight, Tanks a Light Cannon Tank, above the cap as always.\n\n3) FAIR RANDOMIZATION. At every match start, Rematches included, the star pair's offset distance and lateral direction vary within the bands above and the prisoners' lateral offset varies within its band (lateral fraction 0.17–0.30 or 0.70–0.83 of the sheet, depth 0.29–0.42 into the enemy half) — but symmetry is ALWAYS exact, so distances from both bases stay equal by construction and the randomization cannot favor a team. Spots keep the existing full-footprint clearance from bases, obstacles, structures, spawns, shield bubbles, the quarter and each other, and the blocked-spot relocation rules still apply — now symmetrically: a pair spot qualifies only when its rotated/mirrored twin also qualifies, so relocation never breaks the symmetry. One shared board, as always: both players and the CPU read the same G.stars / G.prisoners.\n\n4) HALFTIME REFRESH, ADAPTED. In 90+ turn matches with prizes on, the one-time halftime top-up now restores missing stars back up to the pair: if one star was taken it is restored at the exact rotation of the star still waiting (its twin's original spot, relocated minimally only if blocked); if both were taken, a fresh re-randomized symmetric pair is placed; if both still wait, nothing changes. Never more than two waiting. The prisoner refresh is exactly as locked — only a side whose captive was already rescued gets a new one.\n\nVerified by driving the game's own placement, pickup and end-of-turn code headlessly: screenshots of fresh matches in all three themes show two stars set symmetrically off-center and both prisoners visibly off to the side; a 40-match multi-seed probe across the three themes (plate boards, Random fields, drawn fallback boards and the side-by-side layout) confirmed exact rotational symmetry of the star pair and mirrored prisoners in every seed, positions varying between seeds (40 distinct star spots), and no spot ever under a base, obstacle or the quarter or outside the invisible play border; pickup probes in each theme showed each star can be claimed by either side and grants one-hit armor (a second hit is not absorbed), that an armored fighter leaves a waiting star in place, and that rescues still field the right fighter; and Long Lunch halftime checks restored a taken star to a whole pair (and a fresh pair when both were taken), never exceeding two waiting, and left an untouched pair unmoved. How to Play wording updated minimally to match (two stars a little off center; captives off to the side). Packaging: the GitHub staging snapshot was regenerated from this source (68 asset modules, decode- and sha256-verified as before; manifests and root icons unchanged in kind).\n\n————————————————\n\n" +
 "Oct 29, 2026 (latest) — SPACE MATCH-LENGTH TUNING (Matthew: battles, especially Space, are over too quickly; he picked the Space-only cut: shots to 40%, moves to 60%). SPACE THEME ONLY — Knights and Tanks keep every number they had. Space fighter movement cap: 330 -> 198 (60%). Space fighter shot range: 430 -> 172 (40%). Space gun-turret shot range: 430 -> 172 as well, so defense does not quietly grow stronger than the fighters it guards against; the automatic-defense trigger is capped by the same new range. The scaled values live in the one range function every path already reads, so they apply identically to human flick caps, the Aimed preview, CPU candidate generation and simulation, and the Practice Sheet (a Space practice flick now caps at the new 172 shot range, so practice matches real play). The CPU's ship standoff distance now derives from the new shot range instead of the old hardcoded 370, so CPU ships still close in and finish games. Siege Momentum is unchanged and still multiplies movement on top of the new 198 cap — it does not restore the old one. Forcefield behavior unchanged; with wrap edges on, shot range is still measured along travel distance exactly as before. No variant or preset carried its own range numbers, so nothing else needed rescaling. Packaging: the GitHub staging snapshot was regenerated from this source, carrying the jousting-lance build plus this tuning (68 asset modules, decode- and sha256-verified as before; manifests and root icons unchanged in kind).\n\n————————————————\n\n" +
 "Oct 29, 2026 — KNIGHTS CARRY JOUSTING LANCES (Matthew: 'For the knights let's give them jousting sticks as part of their design'). Visual only. Every knight now carries a jousting lance as a permanent part of the unit, drawn in code over the shared sprites in the game's hand-drawn language — chunky wood shaft with a pencil-dark edge, steel point, and a small pennon near the tip in the OWNER's color (the standing flag rule) — so it applies to both players, the CPU's knights, plate boards and drawn boards, and the Practice Sheet alike. MOUNTED: the lance is couched under the arm, butt behind the rider, running forward through the grip (owner-color vamplate at the hand) and out past the horse's head; it is drawn in the sprite's own facing frame and turned about the grip toward the knight's angle, clamped to a couched ±55° — diagonal charges align with the shaft exactly, and a straight up- or down-field charge leans hard into the line of travel with the tip leading. ON FOOT: the same lance carried upright at the shield side like a pike, point above the plume, so an unhorsed knight keeps his identity on the trudge home; sword and shield stay. The caged prisoner knight stays DISARMED — no lance in the cage. The while-loading pencil fallbacks carry the lance too. COSMETIC ONLY: no rule, reach, collision, unhorsing, hit test or auto-walk number changed — hit detection stays on the knight's body and path exactly as before, and the lance tip extends none of it. Packaging: the GitHub staging snapshot was regenerated from this source (68 asset modules, decode- and sha256-verified as before; manifests and root icons unchanged in kind).\n\n————————————————\n\n" +
 "Oct 29, 2026 — TANKS: TWO REAL CLASSES (Matthew: the two tank types should look and operate differently, reinforcements should be choosable, and there should be a cartoon explosion with a whistling sound, different per tank).\n\n1) LOOKS. The Heavy Mortar's sprite was redrawn with a SHORT FAT mortar tube and a dark round muzzle in place of its long cannon barrel, over its wider armored hull and bigger treads, and it wears bolted armor skirts over its treads in play. The Light Cannon keeps its slim hull and long thin straight barrel and gains twin speed chevrons at its tail. Silhouette alone tells them apart in every state; the Heavy's smoking damaged state is unchanged.\n\n2) SHOTS. The Heavy's lob is now a true SMOOTH parabola — sampled at 26 points for the aim preview, the flight trace and the visible in-flight shell alike; the old three-point crayon-wobbled path that read as crooked is gone. A ground shadow runs under the shell, shrinking and darkening as it falls, and the shell swells at the peak, so the height reads at a glance. Only the landing point resolves, over hills, ruins and sandbags, as before. The Light's aim line now STOPS at the first blocker, exactly where its straight shell will stop. CPU simulation already resolved both classes by these same rules (landing-only for mortars, blockers for cannon) and still does.\n\n3) SOUND AND EFFECTS, PER CLASS. Mortar: a soft deep thump at launch, a falling WHISTLE that sounds only during the shell's descent (dropping pitch), then a big ROUND crayon puff explosion at the landing. Cannon: the boom plus a sharper crack, a tight muzzle flash, and a smaller FLATTER impact burst — no whistle. Both ride the existing SFX bus on the guarded ambient session; music and the other themes' effects are untouched.\n\n4) REINFORCEMENT PICKER. In Tanks, tapping the base disc with a build ready opens a minimal two-choice picker — Light Cannon vs Heavy Mortar as silhouettes with one-line labels — and the pick launches that class as the turn action under the usual cap and cooldown. The CPU picks by the field: a mortar when it fields none and cover stands, a cannon when it fields none, otherwise it balances its fleet. Other themes build as before; the prisoner rescue is still a Light Cannon.\n\n" +
